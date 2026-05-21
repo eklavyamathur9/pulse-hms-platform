@@ -3,9 +3,9 @@ import { useSocket } from '../context/SocketContext';
 import { useNotification } from '../context/NotificationContext';
 import { BarChart3, Users, Stethoscope, FlaskConical, Pill, DollarSign, TrendingUp, Activity, Star, UserPlus, Edit2, XCircle, CheckCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { apiFetch } from '../lib/api';
 
 const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
-const inputStyle = { width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ccc' };
 
 export default function AdminDashboard() {
   const socket = useSocket();
@@ -24,7 +24,7 @@ export default function AdminDashboard() {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/hospital/admin/analytics');
+      const res = await apiFetch('/hospital/admin/analytics');
       const data = await res.json();
       setAnalytics(data);
       setLoading(false);
@@ -33,7 +33,7 @@ export default function AdminDashboard() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/auth/admin/users');
+      const res = await apiFetch('/auth/admin/users');
       const data = await res.json();
       setAllUsers(data);
     } catch (e) { console.error(e); }
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
   const createUser = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:5000/api/auth/admin/users', {
+      const res = await apiFetch('/auth/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser)
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
 
   const toggleActive = async (userId) => {
     try {
-      await fetch(`http://localhost:5000/api/auth/admin/users/${userId}/deactivate`, { method: 'PUT' });
+      await apiFetch(`/auth/admin/users/${userId}/deactivate`, { method: 'PUT' });
       notify.info("User status toggled.");
       fetchUsers();
     } catch (e) { notify.error("Failed to update user."); }
@@ -251,7 +251,7 @@ export default function AdminDashboard() {
                 if (searchRole) params.append('role', searchRole);
                 if (dateFrom) params.append('from', dateFrom);
                 if (dateTo) params.append('to', dateTo);
-                const res = await fetch(`http://localhost:5000/api/hospital/admin/search?${params}`);
+                const res = await apiFetch(`/hospital/admin/search?${params}`);
                 const data = await res.json();
                 setSearchResults(data);
               } catch (e) { notify.error('Search failed.'); }

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { CalendarPlus, MapPin, Clock, User as UserIcon, Activity, FileText } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import jsPDF from 'jspdf';
+import { apiFetch } from '../lib/api';
 
 export default function PatientDashboard() {
-  const { user, login } = useAuth(); // Assuming login updates user context if passed
+  const { user } = useAuth();
   const socket = useSocket();
   const notify = useNotification();
   
@@ -48,22 +49,27 @@ export default function PatientDashboard() {
   const [rescheduleSlots, setRescheduleSlots] = useState([]);
   const [rescheduleSlot, setRescheduleSlot] = useState('');
 
-  const fetchData = async () => {
+  const fetchAllDoctors = useCallback(async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/patients/${user.id}/appointments`);
+      const res = await apiFetch('/auth/doctors/all');
+      const data = await res.json();
+      setAllDoctors(data);
+    } catch (e) { console.error(e); }
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/patients/${user.id}/appointments`);
       const data = await res.json();
       
       setActiveAppointments(data.filter(a => !['Completed', 'Cancelled'].includes(a.status)));
       setHistoryAppointments(data.filter(a => ['Completed', 'Cancelled'].includes(a.status)));
       
-      // Ensure we have doctor metadata for all appointments
-      if (allDoctors.length === 0) fetchAllDoctors();
-      
-      const labRes = await fetch(`http://localhost:5000/api/hospital/patient/${user.id}/tests`);
+      const labRes = await apiFetch(`/hospital/patient/${user.id}/tests`);
       const labData = await labRes.json();
       setLabTests(labData);
 
-      const rxRes = await fetch(`http://localhost:5000/api/patients/${user.id}/prescriptions`);
+      const rxRes = await apiFetch(`/patients/${user.id}/prescriptions`);
       const rxData = await rxRes.json();
       setPrescriptions(rxData);
       
@@ -72,30 +78,30 @@ export default function PatientDashboard() {
       console.error(e);
       setLoading(false);
     }
-  };
+  }, [user.id]);
 
-  const fetchDoctors = async () => {
+  const fetchDoctors = useCallback(async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/doctors`);
+      const res = await apiFetch('/auth/doctors');
       const data = await res.json();
       setDoctors(data);
     } catch (e) { console.error(e); }
-  };
+  }, []);
 
-  const fetchAllDoctors = async () => {
+  const fetchInvoices = useCallback(async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/doctors/all`);
+      const res = await apiFetch(`/hospital/patient/${user.id}/invoices`);
       const data = await res.json();
-      setAllDoctors(data);
+      setInvoices(data);
     } catch (e) { console.error(e); }
-  };
+  }, [user.id]);
 
   useEffect(() => {
     fetchData();
     fetchDoctors();
     fetchAllDoctors();
     fetchInvoices();
-  }, [user]);
+  }, [fetchAllDoctors, fetchData, fetchDoctors, fetchInvoices]);
 
   useEffect(() => {
     if (socket) {
@@ -112,20 +118,12 @@ export default function PatientDashboard() {
         socket.off('queue_updated');
       }
     }
-  }, [socket, user]);
-
-  const fetchInvoices = async () => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/hospital/patient/${user.id}/invoices`);
-      const data = await res.json();
-      setInvoices(data);
-    } catch (e) { console.error(e); }
-  };
+  }, [fetchData, socket, user.id]);
 
   const fetchSlots = async (doctorId, date) => {
     setSlotsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/hospital/doctor/${doctorId}/slots?date=${date}`);
+      const res = await apiFetch(`/hospital/doctor/${doctorId}/slots?date=${date}`);
       const data = await res.json();
       setAvailableSlots(data.slots || []);
     } catch (e) { console.error(e); }
@@ -165,7 +163,7 @@ export default function PatientDashboard() {
   const handleReschedule = async () => {
     if (!rescheduleSlot) { notify.warning('Please select a new time slot.'); return; }
     try {
-      const res = await fetch(`http://localhost:5000/api/hospital/appointment/${rescheduleAppt.id}/reschedule`, {
+      const res = await apiFetch(`/hospital/appointment/${rescheduleAppt.id}/reschedule`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date: rescheduleDate, time: rescheduleSlot })
@@ -186,7 +184,7 @@ export default function PatientDashboard() {
 
   const fetchRescheduleSlots = async (date) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/hospital/doctor/${rescheduleAppt.doctor_id}/slots?date=${date}`);
+      const res = await apiFetch(`/hospital/doctor/${rescheduleAppt.doctor_id}/slots?date=${date}`);
       const data = await res.json();
       setRescheduleSlots(data.slots || []);
     } catch (e) { console.error(e); }
@@ -202,12 +200,11 @@ export default function PatientDashboard() {
     e.preventDefault();
     setProfileSaving(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/patients/${user.id}/profile`, {
+      const res = await apiFetch(`/patients/${user.id}/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profileForm)
       });
-      const data = await res.json();
       if (res.ok) {
         notify.success("Profile successfully updated!");
         // We'd ideally update Context here, but fetching next time will pull it
@@ -276,7 +273,7 @@ export default function PatientDashboard() {
 
   const downloadDischargeSummary = async (apptId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/hospital/appointment/${apptId}/summary`);
+      const res = await apiFetch(`/hospital/appointment/${apptId}/summary`);
       const data = await res.json();
       
       const doc = new jsPDF();
@@ -553,7 +550,7 @@ export default function PatientDashboard() {
                               <div style={{ position: 'absolute', top: '15px', left: '0', right: '0', height: '4px', background: '#e2e8f0', zIndex: 0 }}></div>
                               <div style={{ position: 'absolute', top: '15px', left: '17px', width: `calc(${appt.status === 'Scheduled' ? '0%' : appt.status === 'Arrived' ? '33.3%' : appt.status === 'Vitals_Taken' ? '66.6%' : '100%'} - 17px)`, height: '4px', background: 'var(--primary)', zIndex: 0, transition: 'width 0.5s ease' }}></div>
                               
-                              {['Scheduled', 'Arrived', 'Vitals_Taken', 'Consultation'].map((step, idx) => {
+                              {['Scheduled', 'Arrived', 'Vitals_Taken', 'Consultation'].map((step) => {
                                  const stepMap = { 'Scheduled': 0, 'Arrived': 1, 'Vitals_Taken': 2, 'Consultation': 3 };
                                  const currentMap = { 'Scheduled': 0, 'Arrived': 1, 'Vitals_Taken': 2, 'Lab_Pending': 3, 'Consult_Pending_Review': 3 };
                                  const isPassed = currentMap[appt.status] >= stepMap[step];
@@ -679,7 +676,7 @@ export default function PatientDashboard() {
                      <input type="text" placeholder="Optional feedback..." value={ratingComment} onChange={e => setRatingComment(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', marginBottom: '0.75rem' }} />
                      <button className="btn btn-primary" disabled={ratingStars === 0} onClick={async () => {
                         try {
-                           const res = await fetch('http://localhost:5000/api/hospital/rating', {
+                           const res = await apiFetch('/hospital/rating', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ appointment_id: a.id, patient_id: user.id, doctor_id: a.doctor_id, stars: ratingStars, comment: ratingComment })
@@ -776,7 +773,7 @@ export default function PatientDashboard() {
                                     <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
                                        onClick={async () => {
                                           try {
-                                             const res = await fetch(`http://localhost:5000/api/hospital/invoice/${inv.id}/pay`, { method: 'PUT' });
+                                             const res = await apiFetch(`/hospital/invoice/${inv.id}/pay`, { method: 'PUT' });
                                              if (res.ok) { notify.success('Invoice paid!'); fetchInvoices(); }
                                           } catch (e) { notify.error('Payment failed.'); }
                                        }}>Pay Now</button>

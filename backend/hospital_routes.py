@@ -1,32 +1,62 @@
 from flask import Blueprint, jsonify, request
 from models import Appointment, User, Vitals, LabTest, Prescription, Rating, Invoice, db
+from auth_utils import current_hospital_id, current_user, forbidden, require_hospital_context, require_roles, tenant_get
+from validation import int_field, json_body, require_fields
 
 hospital_bp = Blueprint('hospital', __name__)
 
+def create_invoice_for_appointment(appt):
+    existing = Invoice.query.filter_by(hospital_id=appt.hospital_id, appointment_id=appt.id).first()
+    if existing:
+        return existing, False
+
+    doctor = User.query.get(appt.doctor_id)
+    consult_fee = doctor.consultation_fee if doctor else 0
+    lab_count = LabTest.query.filter_by(hospital_id=appt.hospital_id, appointment_id=appt.id, status='Completed').count()
+    lab_charges = lab_count * 50.0
+    pharmacy_charges = 0
+    total = consult_fee + lab_charges + pharmacy_charges
+    invoice = Invoice(
+        hospital_id=appt.hospital_id,
+        appointment_id=appt.id,
+        patient_id=appt.patient_id,
+        consultation_fee=consult_fee,
+        lab_charges=lab_charges,
+        pharmacy_charges=pharmacy_charges,
+        total=total
+    )
+    db.session.add(invoice)
+    db.session.commit()
+    return invoice, True
+
 @hospital_bp.route('/admin/analytics', methods=['GET'])
+@require_roles('admin', 'superadmin')
 def get_admin_analytics():
-    total_patients = User.query.filter_by(role='patient').count()
-    total_doctors = User.query.filter_by(role='doctor').count()
-    total_staff = User.query.filter_by(role='staff').count()
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    total_patients = User.query.filter_by(hospital_id=hospital_id, role='patient').count()
+    total_doctors = User.query.filter_by(hospital_id=hospital_id, role='doctor').count()
+    total_staff = User.query.filter_by(hospital_id=hospital_id, role='staff').count()
 
-    total_appointments = Appointment.query.count()
-    active_appointments = Appointment.query.filter(Appointment.status.notin_(['Completed', 'Cancelled'])).count()
-    completed_appointments = Appointment.query.filter_by(status='Completed').count()
-    cancelled_appointments = Appointment.query.filter_by(status='Cancelled').count()
+    total_appointments = Appointment.query.filter_by(hospital_id=hospital_id).count()
+    active_appointments = Appointment.query.filter_by(hospital_id=hospital_id).filter(Appointment.status.notin_(['Completed', 'Cancelled'])).count()
+    completed_appointments = Appointment.query.filter_by(hospital_id=hospital_id, status='Completed').count()
+    cancelled_appointments = Appointment.query.filter_by(hospital_id=hospital_id, status='Cancelled').count()
 
-    total_lab_tests = LabTest.query.count()
-    completed_labs = LabTest.query.filter_by(status='Completed').count()
-    pending_payment_labs = LabTest.query.filter_by(status='Pending Payment').count()
+    total_lab_tests = LabTest.query.filter_by(hospital_id=hospital_id).count()
+    completed_labs = LabTest.query.filter_by(hospital_id=hospital_id, status='Completed').count()
+    pending_payment_labs = LabTest.query.filter_by(hospital_id=hospital_id, status='Pending Payment').count()
 
-    total_prescriptions = Prescription.query.count()
-    dispensed = Prescription.query.filter_by(status='Dispensed').count()
-    pending_dispense = Prescription.query.filter_by(status='Pending Dispense').count()
+    total_prescriptions = Prescription.query.filter_by(hospital_id=hospital_id).count()
+    dispensed = Prescription.query.filter_by(hospital_id=hospital_id, status='Dispensed').count()
+    pending_dispense = Prescription.query.filter_by(hospital_id=hospital_id, status='Pending Dispense').count()
 
     lab_revenue = completed_labs * 50  # ₹50 per test
 
     # Status breakdown for pie chart
     status_counts = {}
-    for a in Appointment.query.all():
+    for a in Appointment.query.filter_by(hospital_id=hospital_id).all():
         status_counts[a.status] = status_counts.get(a.status, 0) + 1
 
     status_breakdown = [{"name": k, "value": v} for k, v in status_counts.items()]
@@ -55,15 +85,19 @@ def get_admin_analytics():
         },
         "revenue": lab_revenue,
         "status_breakdown": status_breakdown,
-        "avg_rating": round(db.session.query(db.func.avg(Rating.stars)).scalar() or 0, 1),
-        "total_ratings": Rating.query.count()
+        "avg_rating": round(db.session.query(db.func.avg(Rating.stars)).filter(Rating.hospital_id == hospital_id).scalar() or 0, 1),
+        "total_ratings": Rating.query.filter_by(hospital_id=hospital_id).count()
     })
 
 @hospital_bp.route('/queue', methods=['GET'])
+@require_roles('staff', 'admin', 'superadmin')
 def get_hospital_queue():
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
     # Admin/Staff can see everyone Arrived but not Consult_Done
     # For now, let's just fetch Scheduled, Arrived, Vitals_Taken
-    appts = Appointment.query.filter(Appointment.status.in_(['Scheduled', 'Arrived', 'Vitals_Taken'])).all()
+    appts = Appointment.query.filter_by(hospital_id=hospital_id).filter(Appointment.status.in_(['Scheduled', 'Arrived', 'Vitals_Taken'])).all()
     
     result = []
     for a in appts:
@@ -82,15 +116,25 @@ def get_hospital_queue():
     return jsonify(result)
 
 @hospital_bp.route('/doctor/<int:doc_id>/queue', methods=['GET'])
+@require_roles('doctor', 'admin', 'superadmin')
 def get_doctor_queue(doc_id):
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    user = current_user()
+    if user.role == 'doctor' and user.id != doc_id:
+        return forbidden("Doctors can only access their own queue")
+    doctor = User.query.filter_by(id=doc_id, hospital_id=hospital_id, role='doctor', is_active=True).first()
+    if not doctor:
+        return jsonify({"error": "Doctor not found"}), 404
     # Doctor sees patients ready, arrived, or returning from lab
-    appts = Appointment.query.filter_by(doctor_id=doc_id).filter(Appointment.status.in_(['Arrived', 'Vitals_Taken', 'Lab_Pending', 'Consult_Pending_Review'])).all()
+    appts = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).filter(Appointment.status.in_(['Arrived', 'Vitals_Taken', 'Lab_Pending', 'Consult_Pending_Review'])).all()
     
     result = []
     for a in appts:
         patient = User.query.get(a.patient_id)
         # Fetch vitals if they exist
-        vitals_entry = Vitals.query.filter_by(appointment_id=a.id).first()
+        vitals_entry = Vitals.query.filter_by(hospital_id=hospital_id, appointment_id=a.id).first()
         result.append({
             "id": a.id,
             "patient_id": patient.id,
@@ -115,30 +159,40 @@ def get_doctor_queue(doc_id):
                     "test_name": t.test_name,
                     "status": t.status,
                     "result_text": t.result_text
-                } for t in LabTest.query.filter_by(appointment_id=a.id).all()
+                } for t in LabTest.query.filter_by(hospital_id=a.hospital_id, appointment_id=a.id).all()
             ]
         })
     return jsonify(result)
 
 @hospital_bp.route('/doctor/<int:doc_id>/stats', methods=['GET'])
+@require_roles('doctor', 'admin', 'superadmin')
 def get_doctor_stats(doc_id):
     from models import Rating, db, Invoice, Appointment, LabTest, User
     from datetime import datetime
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    user = current_user()
+    if user.role == 'doctor' and user.id != doc_id:
+        return forbidden("Doctors can only access their own stats")
+    doctor = User.query.filter_by(id=doc_id, hospital_id=hospital_id, role='doctor', is_active=True).first()
+    if not doctor:
+        return jsonify({"error": "Doctor not found"}), 404
     
     # Patients seen today
     today = datetime.now().strftime('%Y-%m-%d')
-    patients_today = Appointment.query.filter_by(doctor_id=doc_id, status='Completed', date_str=today).count()
+    patients_today = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id, status='Completed', date_str=today).count()
     
     # Total revenue from this doctor's appointments (Consultation + Paid Labs)
-    appts = Appointment.query.filter_by(doctor_id=doc_id).all()
+    appts = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).all()
     revenue = 0
     for a in appts:
-        inv = Invoice.query.filter_by(appointment_id=a.id, status='Paid').first()
+        inv = Invoice.query.filter_by(hospital_id=hospital_id, appointment_id=a.id, status='Paid').first()
         if inv:
             revenue += inv.total
             
     # Avg rating
-    avg_rating = db.session.query(db.func.avg(Rating.stars)).filter(Rating.doctor_id == doc_id).scalar() or 0
+    avg_rating = db.session.query(db.func.avg(Rating.stars)).filter(Rating.hospital_id == hospital_id, Rating.doctor_id == doc_id).scalar() or 0
     
     return jsonify({
         "patients_today": patients_today,
@@ -147,9 +201,13 @@ def get_doctor_stats(doc_id):
     })
 
 @hospital_bp.route('/lab/queue', methods=['GET'])
+@require_roles('staff', 'admin', 'superadmin')
 def get_lab_queue():
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
     # Staff sees tests that are Paid - Needs Sample
-    tests = LabTest.query.filter_by(status='Paid - Needs Sample').all()
+    tests = LabTest.query.filter_by(hospital_id=hospital_id, status='Paid - Needs Sample').all()
     result = []
     for t in tests:
         patient = User.query.get(t.patient_id)
@@ -163,8 +221,18 @@ def get_lab_queue():
     return jsonify(result)
 
 @hospital_bp.route('/patient/<int:patient_id>/tests', methods=['GET'])
+@require_roles('patient', 'staff', 'doctor', 'admin', 'superadmin')
 def get_patient_tests(patient_id):
-    tests = LabTest.query.filter_by(patient_id=patient_id).order_by(LabTest.id.desc()).all()
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    user = current_user()
+    if user.role == 'patient' and user.id != patient_id:
+        return forbidden("Patients can only access their own tests")
+    query = LabTest.query.filter_by(hospital_id=hospital_id, patient_id=patient_id)
+    if user.role == 'doctor':
+        query = query.join(Appointment, Appointment.id == LabTest.appointment_id).filter(Appointment.doctor_id == user.id)
+    tests = query.order_by(LabTest.id.desc()).all()
     result = []
     for t in tests:
         result.append({
@@ -176,9 +244,13 @@ def get_patient_tests(patient_id):
     return jsonify(result)
 
 @hospital_bp.route('/pharmacy/queue', methods=['GET'])
+@require_roles('staff', 'admin', 'superadmin')
 def get_pharmacy_queue():
     from models import Prescription, User
-    prescriptions = Prescription.query.filter_by(status='Pending Dispense').all()
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    prescriptions = Prescription.query.filter_by(hospital_id=hospital_id, status='Pending Dispense').all()
     result = []
     for p in prescriptions:
         patient = User.query.get(p.patient_id)
@@ -194,16 +266,47 @@ def get_pharmacy_queue():
     return jsonify(result)
 
 @hospital_bp.route('/rating', methods=['POST'])
+@require_roles('patient', 'admin', 'superadmin')
 def submit_rating():
-    data = request.json
-    existing = Rating.query.filter_by(appointment_id=data['appointment_id']).first()
+    data, error, status = json_body()
+    if error:
+        return error, status
+    error, status = require_fields(data, 'appointment_id', 'patient_id', 'doctor_id', 'stars')
+    if error:
+        return error, status
+    appointment_id, error, status = int_field(data, 'appointment_id', minimum=1, required=True)
+    if error:
+        return error, status
+    patient_id, error, status = int_field(data, 'patient_id', minimum=1, required=True)
+    if error:
+        return error, status
+    doctor_id, error, status = int_field(data, 'doctor_id', minimum=1, required=True)
+    if error:
+        return error, status
+    stars, error, status = int_field(data, 'stars', minimum=1, maximum=5, required=True)
+    if error:
+        return error, status
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    user = current_user()
+    if user.role == 'patient' and user.id != patient_id:
+        return forbidden("Patients can only rate their own visits")
+    existing = Rating.query.filter_by(hospital_id=hospital_id, appointment_id=appointment_id).first()
     if existing:
         return jsonify({"error": "Already rated this visit"}), 409
+    appt = tenant_get(Appointment, appointment_id)
+    if not appt:
+        return jsonify({"error": "Appointment not found"}), 404
+    if appt.patient_id != patient_id or appt.doctor_id != doctor_id:
+        return jsonify({"error": "Rating does not match this appointment"}), 400
+    
     rating = Rating(
-        appointment_id=data['appointment_id'],
-        patient_id=data['patient_id'],
-        doctor_id=data['doctor_id'],
-        stars=data['stars'],
+        hospital_id=appt.hospital_id,
+        appointment_id=appointment_id,
+        patient_id=patient_id,
+        doctor_id=doctor_id,
+        stars=stars,
         comment=data.get('comment', '')
     )
     db.session.add(rating)
@@ -211,8 +314,15 @@ def submit_rating():
     return jsonify({"message": "Rating submitted"}), 201
 
 @hospital_bp.route('/doctor/<int:doc_id>/availability', methods=['PUT'])
+@require_roles('doctor', 'admin', 'superadmin')
 def toggle_availability(doc_id):
-    user = User.query.get(doc_id)
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    current = current_user()
+    if current.role == 'doctor' and current.id != doc_id:
+        return forbidden("Doctors can only update their own availability")
+    user = User.query.filter_by(id=doc_id, hospital_id=hospital_id).first()
     if not user or user.role != 'doctor':
         return jsonify({"error": "Doctor not found"}), 404
     user.is_available = not user.is_available
@@ -227,12 +337,19 @@ AVAILABLE_SLOTS = [
 ]
 
 @hospital_bp.route('/doctor/<int:doc_id>/slots', methods=['GET'])
+@require_roles('patient', 'staff', 'doctor', 'admin', 'superadmin')
 def get_available_slots(doc_id):
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
     date = request.args.get('date')
     if not date:
         return jsonify({"error": "Date parameter required"}), 400
+    doctor = User.query.filter_by(id=doc_id, hospital_id=hospital_id, role='doctor', is_active=True).first()
+    if not doctor:
+        return jsonify({"error": "Doctor not found"}), 404
     booked = Appointment.query.filter_by(
-        doctor_id=doc_id, date_str=date
+        hospital_id=hospital_id, doctor_id=doc_id, date_str=date
     ).filter(Appointment.status.notin_(['Cancelled'])).all()
     booked_times = [a.time_str for a in booked]
     open_slots = [s for s in AVAILABLE_SLOTS if s not in booked_times]
@@ -241,40 +358,57 @@ def get_available_slots(doc_id):
 # ===== CLINICAL NOTES (DOCTOR ONLY) =====
 
 @hospital_bp.route('/appointment/<int:appt_id>/notes', methods=['PUT'])
+@require_roles('doctor', 'admin', 'superadmin')
 def save_clinical_notes(appt_id):
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_get(Appointment, appt_id)
     if not appt:
         return jsonify({"error": "Appointment not found"}), 404
-    data = request.json
+    user = current_user()
+    if user.role == 'doctor' and user.id != appt.doctor_id:
+        return forbidden("Doctors can only edit notes for their own appointments")
+    data, error, status = json_body()
+    if error:
+        return error, status
     appt.clinical_notes = data.get('notes', '')
     db.session.commit()
     return jsonify({"message": "Notes saved"})
 
 @hospital_bp.route('/appointment/<int:appt_id>/notes', methods=['GET'])
+@require_roles('doctor', 'admin', 'superadmin')
 def get_clinical_notes(appt_id):
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_get(Appointment, appt_id)
     if not appt:
         return jsonify({"error": "Appointment not found"}), 404
+    user = current_user()
+    if user.role == 'doctor' and user.id != appt.doctor_id:
+        return forbidden("Doctors can only access notes for their own appointments")
     return jsonify({"notes": appt.clinical_notes or ''})
 
 # ===== RESCHEDULING =====
 
 @hospital_bp.route('/appointment/<int:appt_id>/reschedule', methods=['PUT'])
+@require_roles('patient', 'staff', 'admin', 'superadmin')
 def reschedule_appointment(appt_id):
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_get(Appointment, appt_id)
     if not appt:
         return jsonify({"error": "Appointment not found"}), 404
+    user = current_user()
+    if user.role == 'patient' and user.id != appt.patient_id:
+        return forbidden("Patients can only reschedule their own appointments")
     if appt.status != 'Scheduled':
         return jsonify({"error": "Can only reschedule scheduled appointments"}), 400
-    data = request.json
+    data, error, status = json_body()
+    if error:
+        return error, status
+    error, status = require_fields(data, 'date', 'time')
+    if error:
+        return error, status
     new_date = data.get('date')
     new_time = data.get('time')
-    if not new_date or not new_time:
-        return jsonify({"error": "Date and time required"}), 400
     # Check if slot is available
     conflict = Appointment.query.filter_by(
-        doctor_id=appt.doctor_id, date_str=new_date, time_str=new_time
-    ).filter(Appointment.status.notin_(['Cancelled'])).first()
+        hospital_id=appt.hospital_id, doctor_id=appt.doctor_id, date_str=new_date, time_str=new_time
+    ).filter(Appointment.id != appt.id, Appointment.status.notin_(['Cancelled'])).first()
     if conflict:
         return jsonify({"error": "This slot is already booked"}), 409
     appt.date_str = new_date
@@ -285,54 +419,49 @@ def reschedule_appointment(appt_id):
 # ===== BILLING & INVOICING =====
 
 @hospital_bp.route('/appointment/<int:appt_id>/invoice', methods=['POST'])
+@require_roles('admin', 'staff', 'doctor', 'superadmin')
 def generate_invoice(appt_id):
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_get(Appointment, appt_id)
     if not appt:
         return jsonify({"error": "Appointment not found"}), 404
-    existing = Invoice.query.filter_by(appointment_id=appt_id).first()
-    if existing:
-        return jsonify({"error": "Invoice already exists", "invoice_id": existing.id}), 409
-    doctor = User.query.get(appt.doctor_id)
-    consult_fee = doctor.consultation_fee if doctor else 0
-    lab_count = LabTest.query.filter_by(appointment_id=appt_id, status='Completed').count()
-    lab_charges = lab_count * 50.0
-    pharmacy_charges = 0  # could be extended later
-    total = consult_fee + lab_charges + pharmacy_charges
-    invoice = Invoice(
-        appointment_id=appt_id,
-        patient_id=appt.patient_id,
-        consultation_fee=consult_fee,
-        lab_charges=lab_charges,
-        pharmacy_charges=pharmacy_charges,
-        total=total
-    )
-    db.session.add(invoice)
-    db.session.commit()
+    user = current_user()
+    if user.role == 'doctor' and user.id != appt.doctor_id:
+        return forbidden("Doctors can only generate invoices for their own appointments")
+    invoice, created = create_invoice_for_appointment(appt)
+    if not created:
+        return jsonify({"error": "Invoice already exists", "invoice_id": invoice.id}), 409
     return jsonify({
         "id": invoice.id,
-        "consultation_fee": consult_fee,
-        "lab_charges": lab_charges,
-        "pharmacy_charges": pharmacy_charges,
-        "total": total,
+        "consultation_fee": invoice.consultation_fee,
+        "lab_charges": invoice.lab_charges,
+        "pharmacy_charges": invoice.pharmacy_charges,
+        "total": invoice.total,
         "status": invoice.status
     }), 201
 
 @hospital_bp.route('/patient/<int:patient_id>/invoices', methods=['GET'])
+@require_roles('patient', 'staff', 'admin', 'superadmin')
 def get_patient_invoices(patient_id):
-    invoices = Invoice.query.filter_by(patient_id=patient_id).all()
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    user = current_user()
+    if user.role == 'patient' and user.id != patient_id:
+        return forbidden("Patients can only access their own invoices")
+    invoices = Invoice.query.filter_by(hospital_id=hospital_id, patient_id=patient_id).all()
     result = []
     for inv in invoices:
         appt = Appointment.query.get(inv.appointment_id)
         doctor = User.query.get(appt.doctor_id) if appt else None
         
         # Dynamically recalculate lab charges from actual lab tests
-        lab_tests = LabTest.query.filter_by(appointment_id=inv.appointment_id).all()
+        lab_tests = LabTest.query.filter_by(hospital_id=inv.hospital_id, appointment_id=inv.appointment_id).all()
         # Count all tests ordered for this visit that are either Paid or Pending Payment
         active_lab_count = len([t for t in lab_tests if t.status != 'Cancelled'])
         lab_charges = active_lab_count * 50  # ₹50 per test
         
-        # Update invoice if lab charges changed
-        if lab_charges != inv.lab_charges:
+        # Update invoice if lab charges changed, but only if not already Paid
+        if inv.status != 'Paid' and lab_charges != inv.lab_charges:
             inv.lab_charges = lab_charges
             inv.total = inv.consultation_fee + lab_charges + inv.pharmacy_charges
             db.session.commit()
@@ -352,10 +481,14 @@ def get_patient_invoices(patient_id):
     return jsonify(result)
 
 @hospital_bp.route('/invoice/<int:inv_id>/pay', methods=['PUT'])
+@require_roles('patient', 'staff', 'admin', 'superadmin')
 def pay_invoice(inv_id):
-    inv = Invoice.query.get(inv_id)
+    inv = tenant_get(Invoice, inv_id)
     if not inv:
         return jsonify({"error": "Invoice not found"}), 404
+    user = current_user()
+    if user.role == 'patient' and user.id != inv.patient_id:
+        return forbidden("Patients can only pay their own invoices")
     inv.status = 'Paid'
     db.session.commit()
     return jsonify({"message": "Invoice paid"})
@@ -363,14 +496,22 @@ def pay_invoice(inv_id):
 # ===== CLINICAL SUMMARIES =====
 
 @hospital_bp.route('/appointment/<int:appt_id>/summary', methods=['GET'])
+@require_roles('patient', 'doctor', 'admin', 'staff', 'superadmin')
 def get_appointment_summary(appt_id):
-    appt = Appointment.query.get_or_404(appt_id)
+    appt = tenant_get(Appointment, appt_id)
+    if not appt:
+        return jsonify({"error": "Appointment not found"}), 404
+    user = current_user()
+    if user.role == 'patient' and user.id != appt.patient_id:
+        return forbidden("Patients can only access their own visit summaries")
+    if user.role == 'doctor' and user.id != appt.doctor_id:
+        return forbidden("Doctors can only access their own visit summaries")
     patient = User.query.get(appt.patient_id)
     doctor = User.query.get(appt.doctor_id)
     
-    vitals = Vitals.query.filter_by(appointment_id=appt_id).first()
-    labs = LabTest.query.filter_by(appointment_id=appt_id).all()
-    presc = Prescription.query.filter_by(appointment_id=appt_id).first()
+    vitals = Vitals.query.filter_by(hospital_id=appt.hospital_id, appointment_id=appt_id).first()
+    labs = LabTest.query.filter_by(hospital_id=appt.hospital_id, appointment_id=appt_id).all()
+    presc = Prescription.query.filter_by(hospital_id=appt.hospital_id, appointment_id=appt_id).first()
     
     return jsonify({
         "appointment": {
@@ -404,7 +545,11 @@ def get_appointment_summary(appt_id):
 # ===== ADMIN SEARCH & FILTERS =====
 
 @hospital_bp.route('/admin/search', methods=['GET'])
+@require_roles('admin', 'superadmin')
 def admin_search():
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
     query = request.args.get('q', '').lower()
     role_filter = request.args.get('role')
     date_from = request.args.get('from')
@@ -413,7 +558,7 @@ def admin_search():
     results = {"users": [], "appointments": []}
     
     # Search users
-    users_q = User.query
+    users_q = User.query.filter_by(hospital_id=hospital_id)
     if role_filter:
         users_q = users_q.filter_by(role=role_filter)
     users = users_q.all()
@@ -427,7 +572,7 @@ def admin_search():
         })
     
     # Search appointments
-    appts_q = Appointment.query
+    appts_q = Appointment.query.filter_by(hospital_id=hospital_id)
     if date_from:
         appts_q = appts_q.filter(Appointment.date_str >= date_from)
     if date_to:

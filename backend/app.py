@@ -1,27 +1,28 @@
-import os
 from flask import Flask, request, jsonify
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, join_room
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager, decode_token
+from flask_migrate import Migrate
 from models import db, User, Appointment, Vitals, LabTest, Prescription
 from auth_routes import auth_bp
 from patient_routes import patient_bp
 from hospital_routes import hospital_bp
+from config import Config
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'pulse_secret!'
+app.config.from_object(Config)
+Config.validate()
 
-# Ensure db path
-db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pulse_hms.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 db.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+jwt = JWTManager(app)
+migrate = Migrate(app, db)
+socketio = SocketIO(app, cors_allowed_origins=Config.CORS_ORIGINS, async_mode=Config.SOCKET_ASYNC_MODE)
+socket_sessions = {}
 
-# Create tables
-with app.app_context():
-    db.create_all()
+if Config.AUTO_CREATE_TABLES:
+    with app.app_context():
+        db.create_all()
 
 @app.route('/api/ping', methods=['GET'])
 def ping():
@@ -32,15 +33,86 @@ app.register_blueprint(patient_bp, url_prefix='/api/patients')
 app.register_blueprint(hospital_bp, url_prefix='/api/hospital')
 
 # -- Socket.IO Real-time Logic --
+def tenant_room(hospital_id):
+    return f"hospital:{hospital_id}"
+
+def socket_context():
+    return socket_sessions.get(request.sid)
+
+def require_socket_roles(*roles):
+    ctx = socket_context()
+    if not ctx or ctx.get('role') not in roles:
+        emit('auth_error', {'error': 'Unauthorized socket action'})
+        return None
+    return ctx
+
+def socket_payload(data):
+    if not isinstance(data, dict):
+        emit('action_error', {'error': 'Valid event payload is required'})
+        return None
+    return data
+
+def tenant_appointment(appt_id, hospital_id):
+    return Appointment.query.filter_by(id=appt_id, hospital_id=hospital_id).first()
+
+def tenant_lab_test(test_id, hospital_id):
+    return LabTest.query.filter_by(id=test_id, hospital_id=hospital_id).first()
+
+def tenant_prescription(rx_id, hospital_id):
+    return Prescription.query.filter_by(id=rx_id, hospital_id=hospital_id).first()
+
 @socketio.on('connect')
-def handle_connect():
-    print("Client connected")
+def handle_connect(auth=None):
+    token = (auth or {}).get('token')
+    if not token:
+        return False
+    try:
+        decoded = decode_token(token)
+        user_id = int(decoded['sub'])
+        user = db.session.get(User, user_id)
+        if not user or not user.is_active:
+            return False
+        ctx = {
+            'user_id': user.id,
+            'role': user.role,
+            'hospital_id': user.hospital_id
+        }
+        socket_sessions[request.sid] = ctx
+        join_room(tenant_room(user.hospital_id))
+        print(f"Client connected: user={user.id} role={user.role} hospital={user.hospital_id}")
+    except Exception:
+        return False
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    socket_sessions.pop(request.sid, None)
 
 @socketio.on('action_book_appointment')
 def handle_book_appointment(data):
     from datetime import datetime
+    from models import Invoice
+    ctx = require_socket_roles('patient')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
+    if not data.get('patientId') or not data.get('doctorId'):
+        emit('action_error', {'error': 'patientId and doctorId are required'})
+        return
+    if data.get('patientId') != ctx['user_id']:
+        emit('auth_error', {'error': 'Patients can only book for themselves'})
+        return
+    
+    patient = User.query.filter_by(id=data['patientId'], hospital_id=ctx['hospital_id'], role='patient').first()
+    if not patient: return
+    doctor = User.query.filter_by(id=data['doctorId'], hospital_id=ctx['hospital_id'], role='doctor', is_active=True).first()
+    if not doctor:
+        emit('action_error', {'error': 'Doctor not found'})
+        return
     
     new_appt = Appointment(
+        hospital_id=patient.hospital_id,
         patient_id=data['patientId'],
         doctor_id=data['doctorId'],
         date_str=data.get('date', datetime.now().strftime('%Y-%m-%d')),
@@ -52,11 +124,9 @@ def handle_book_appointment(data):
     db.session.add(new_appt)
     db.session.commit()
     
-    # Auto-generate invoice for this appointment
-    from models import Invoice
-    doctor = User.query.get(new_appt.doctor_id)
     consult_fee = doctor.consultation_fee if doctor else 0
     invoice = Invoice(
+        hospital_id=patient.hospital_id,
         appointment_id=new_appt.id,
         patient_id=new_appt.patient_id,
         consultation_fee=consult_fee,
@@ -70,32 +140,57 @@ def handle_book_appointment(data):
         'patient_id': new_appt.patient_id,
         'status': new_appt.status,
         'time': new_appt.time_str
-    }, broadcast=True)
+    }, room=tenant_room(ctx['hospital_id']))
 
 @socketio.on('action_arrive')
 def handle_action_arrive(data):
+    ctx = require_socket_roles('patient', 'staff', 'admin')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
     appt_id = data.get('appointmentId')
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_appointment(appt_id, ctx['hospital_id'])
     if appt:
+        if ctx['role'] == 'patient' and appt.patient_id != ctx['user_id']:
+            emit('auth_error', {'error': 'Patients can only mark their own appointment arrived'})
+            return
         appt.status = 'Arrived'
         db.session.commit()
-        emit('queue_updated', {'id': appt.id, 'status': 'Arrived'}, broadcast=True)
+        emit('queue_updated', {'id': appt.id, 'status': 'Arrived'}, room=tenant_room(ctx['hospital_id']))
 
 @socketio.on('action_cancel_appointment')
 def handle_action_cancel(data):
+    ctx = require_socket_roles('patient', 'staff', 'admin')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
     appt_id = data.get('appointmentId')
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_appointment(appt_id, ctx['hospital_id'])
     if appt and appt.status == 'Scheduled':
+        if ctx['role'] == 'patient' and appt.patient_id != ctx['user_id']:
+            emit('auth_error', {'error': 'Patients can only cancel their own appointment'})
+            return
         appt.status = 'Cancelled'
         db.session.commit()
-        emit('queue_updated', {'id': appt.id, 'status': 'Cancelled'}, broadcast=True)
+        emit('queue_updated', {'id': appt.id, 'status': 'Cancelled'}, room=tenant_room(ctx['hospital_id']))
 
 @socketio.on('action_submit_vitals')
 def handle_submit_vitals(data):
+    ctx = require_socket_roles('staff', 'admin')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
     appt_id = data.get('appointmentId')
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_appointment(appt_id, ctx['hospital_id'])
     if appt:
         vitals = Vitals(
+            hospital_id=appt.hospital_id,
             appointment_id=appt.id,
             patient_id=appt.patient_id,
             weight=data.get('weight'),
@@ -106,14 +201,27 @@ def handle_submit_vitals(data):
         db.session.add(vitals)
         appt.status = 'Vitals_Taken'
         db.session.commit()
-        emit('queue_updated', {'id': appt.id, 'status': 'Vitals_Taken'}, broadcast=True)
+        emit('queue_updated', {'id': appt.id, 'status': 'Vitals_Taken'}, room=tenant_room(ctx['hospital_id']))
 
 @socketio.on('action_prescribe_test')
 def handle_prescribe_test(data):
+    ctx = require_socket_roles('doctor', 'admin')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
+    if not data.get('appointmentId') or not data.get('test_name'):
+        emit('action_error', {'error': 'appointmentId and test_name are required'})
+        return
     appt_id = data.get('appointmentId')
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_appointment(appt_id, ctx['hospital_id'])
     if appt:
+        if ctx['role'] == 'doctor' and appt.doctor_id != ctx['user_id']:
+            emit('auth_error', {'error': 'Doctors can only order tests for their own appointments'})
+            return
         lab_test = LabTest(
+            hospital_id=appt.hospital_id,
             appointment_id=appt.id,
             patient_id=appt.patient_id,
             test_name=data.get('test_name'),
@@ -122,39 +230,67 @@ def handle_prescribe_test(data):
         db.session.add(lab_test)
         appt.status = 'Lab_Pending'
         db.session.commit()
-        emit('queue_updated', {'id': appt.id, 'status': 'Lab_Pending'}, broadcast=True)
+        emit('queue_updated', {'id': appt.id, 'status': 'Lab_Pending'}, room=tenant_room(ctx['hospital_id']))
 
 @socketio.on('action_pay_test')
 def handle_pay_test(data):
+    ctx = require_socket_roles('patient', 'staff', 'admin')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
     test_id = data.get('testId')
-    lab_test = LabTest.query.get(test_id)
+    lab_test = tenant_lab_test(test_id, ctx['hospital_id'])
     if lab_test:
+        if ctx['role'] == 'patient' and lab_test.patient_id != ctx['user_id']:
+            emit('auth_error', {'error': 'Patients can only pay their own lab tests'})
+            return
         lab_test.status = 'Paid - Needs Sample'
         db.session.commit()
-        emit('queue_updated', {'id': lab_test.appointment_id, 'status': 'Paid'}, broadcast=True)
+        emit('queue_updated', {'id': lab_test.appointment_id, 'status': 'Paid'}, room=tenant_room(ctx['hospital_id']))
 
 @socketio.on('action_upload_test_report')
 def handle_upload_test_report(data):
+    ctx = require_socket_roles('staff', 'admin')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
     test_id = data.get('testId')
-    lab_test = LabTest.query.get(test_id)
+    lab_test = tenant_lab_test(test_id, ctx['hospital_id'])
     if lab_test:
         lab_test.status = 'Completed'
         lab_test.result_text = data.get('result_text')
         
         # Move appointment back to Doctor for final review
-        appt = Appointment.query.get(lab_test.appointment_id)
+        appt = tenant_appointment(lab_test.appointment_id, ctx['hospital_id'])
         if appt:
             appt.status = 'Consult_Pending_Review'
         
         db.session.commit()
-        emit('queue_updated', {'id': lab_test.appointment_id, 'status': 'Completed'}, broadcast=True)
+        emit('queue_updated', {'id': lab_test.appointment_id, 'status': 'Consult_Pending_Review'}, room=tenant_room(ctx['hospital_id']))
 
 @socketio.on('action_prescribe_meds')
 def handle_prescribe_meds(data):
+    ctx = require_socket_roles('doctor', 'admin')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
+    if not data.get('appointmentId') or not data.get('medication_details'):
+        emit('action_error', {'error': 'appointmentId and medication_details are required'})
+        return
     appt_id = data.get('appointmentId')
-    appt = Appointment.query.get(appt_id)
+    appt = tenant_appointment(appt_id, ctx['hospital_id'])
     if appt:
+        if ctx['role'] == 'doctor' and appt.doctor_id != ctx['user_id']:
+            emit('auth_error', {'error': 'Doctors can only prescribe for their own appointments'})
+            return
         prescription = Prescription(
+            hospital_id=appt.hospital_id,
             appointment_id=appt.id,
             patient_id=appt.patient_id,
             doctor_id=appt.doctor_id,
@@ -168,23 +304,29 @@ def handle_prescribe_meds(data):
         db.session.commit()
         
         # Automatically generate invoice if it doesn't exist
-        from hospital_routes import generate_invoice
+        from hospital_routes import create_invoice_for_appointment
         try:
-            generate_invoice(appt.id) 
+            create_invoice_for_appointment(appt)
         except:
             pass # Already exists or other handled error
             
-        emit('queue_updated', {'id': appt.id, 'status': 'Completed'}, broadcast=True)
+        emit('queue_updated', {'id': appt.id, 'status': 'Completed'}, room=tenant_room(ctx['hospital_id']))
 
 @socketio.on('action_dispense_meds')
 def handle_dispense_meds(data):
+    ctx = require_socket_roles('staff', 'admin')
+    if not ctx:
+        return
+    data = socket_payload(data)
+    if data is None:
+        return
     rx_id = data.get('prescriptionId')
-    from models import Prescription, db
-    rx = Prescription.query.get(rx_id)
+    from models import db
+    rx = tenant_prescription(rx_id, ctx['hospital_id'])
     if rx:
         rx.status = 'Dispensed'
         db.session.commit()
-        emit('queue_updated', {'rx_id': rx.id, 'action': 'dispensed'}, broadcast=True)
+        emit('queue_updated', {'rx_id': rx.id, 'action': 'dispensed'}, room=tenant_room(ctx['hospital_id']))
 
 if __name__ == '__main__':
     print("Starting Pulse HMS Backend with SQLite on ws://localhost:5000")

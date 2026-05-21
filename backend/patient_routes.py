@@ -1,11 +1,35 @@
-from flask import Blueprint, jsonify
-from models import Appointment
+from flask import Blueprint, jsonify, request
+from models import Appointment, db, User
+from auth_utils import current_hospital_id, current_user, forbidden, require_hospital_context, require_roles
+from validation import int_field, json_body
 
 patient_bp = Blueprint('patient', __name__)
 
+def can_access_patient(patient_id):
+    user = current_user()
+    if user.role in ('admin', 'staff', 'superadmin') or user.id == patient_id:
+        return True
+    if user.role == 'doctor':
+        return Appointment.query.filter_by(
+            hospital_id=current_hospital_id(),
+            patient_id=patient_id,
+            doctor_id=user.id
+        ).first() is not None
+    return False
+
 @patient_bp.route('/<int:patient_id>/appointments', methods=['GET'])
+@require_roles('patient', 'admin', 'staff', 'doctor', 'superadmin')
 def get_patient_appointments(patient_id):
-    appts = Appointment.query.filter_by(patient_id=patient_id).order_by(Appointment.id.desc()).all()
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    if not can_access_patient(patient_id):
+        return forbidden("You can only access your own appointments")
+    query = Appointment.query.filter_by(patient_id=patient_id, hospital_id=hospital_id)
+    user = current_user()
+    if user.role == 'doctor':
+        query = query.filter_by(doctor_id=user.id)
+    appts = query.order_by(Appointment.id.desc()).all()
     result = [
         {
             "id": a.id,
@@ -21,9 +45,19 @@ def get_patient_appointments(patient_id):
     return jsonify(result)
 
 @patient_bp.route('/<int:patient_id>/prescriptions', methods=['GET'])
+@require_roles('patient', 'admin', 'staff', 'doctor', 'superadmin')
 def get_patient_prescriptions(patient_id):
     from models import Prescription, User
-    prescriptions = Prescription.query.filter_by(patient_id=patient_id).order_by(Prescription.id.desc()).all()
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    if not can_access_patient(patient_id):
+        return forbidden("You can only access your own prescriptions")
+    query = Prescription.query.filter_by(patient_id=patient_id, hospital_id=hospital_id)
+    user = current_user()
+    if user.role == 'doctor':
+        query = query.filter_by(doctor_id=user.id)
+    prescriptions = query.order_by(Prescription.id.desc()).all()
     result = []
     for p in prescriptions:
         doc = User.query.get(p.doctor_id)
@@ -37,17 +71,26 @@ def get_patient_prescriptions(patient_id):
     return jsonify(result)
 
 @patient_bp.route('/<int:patient_id>/profile', methods=['PUT'])
+@require_roles('patient', 'admin', 'superadmin')
 def update_patient_profile(patient_id):
-    from models import User, db
-    from flask import request
-    data = request.json
-    user = User.query.get(patient_id)
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    if not can_access_patient(patient_id):
+        return forbidden("You can only update your own profile")
+    data, error, status = json_body()
+    if error:
+        return error, status
+    user = User.query.filter_by(id=patient_id, hospital_id=hospital_id).first()
     if not user or user.role != 'patient':
         return jsonify({"error": "Patient not found"}), 404
         
     user.name = data.get('name', user.name)
     user.contact = data.get('contact', user.contact)
-    user.age = data.get('age', user.age)
+    age, error, status = int_field(data, 'age', minimum=0, maximum=130)
+    if error:
+        return error, status
+    user.age = age if age is not None else user.age
     user.gender = data.get('gender', user.gender)
     user.blood_type = data.get('blood_type', user.blood_type)
     user.height = data.get('height', user.height)

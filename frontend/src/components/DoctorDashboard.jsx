@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useNotification } from '../context/NotificationContext';
 import { User, Activity, AlertCircle, FileText, ToggleLeft, ToggleRight } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
@@ -17,9 +18,9 @@ export default function DoctorDashboard() {
   const [isAvailable, setIsAvailable] = useState(true);
   const [stats, setStats] = useState({ patients_today: 0, revenue: 0, rating: 0 });
 
-  const fetchQueue = async () => {
+  const fetchQueue = useCallback(async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/hospital/doctor/${user.id}/queue`);
+      const res = await apiFetch(`/hospital/doctor/${user.id}/queue`);
       const data = await res.json();
       const sortedQueue = data.sort((a,b) => (b.pain_level >= 8 ? 1 : 0) - (a.pain_level >= 8 ? 1 : 0));
       setQueue(sortedQueue);
@@ -28,30 +29,30 @@ export default function DoctorDashboard() {
       console.error(e);
       setLoading(false);
     }
-  };
+  }, [user.id]);
 
-  const fetchAvailability = async () => {
+  const fetchAvailability = useCallback(async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/admin/users`);
+      const res = await apiFetch('/auth/admin/users');
       const users = await res.json();
       const me = users.find(u => u.id === user.id);
       if (me) setIsAvailable(me.is_available);
     } catch (e) { console.error(e); }
-  };
+  }, [user.id]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/hospital/doctor/${user.id}/stats`);
+      const res = await apiFetch(`/hospital/doctor/${user.id}/stats`);
       const data = await res.json();
       setStats(data);
     } catch (e) { console.error(e); }
-  };
+  }, [user.id]);
 
   useEffect(() => {
     fetchQueue();
     fetchAvailability();
     fetchStats();
-  }, [user]);
+  }, [fetchAvailability, fetchQueue, fetchStats]);
 
   useEffect(() => {
     if (socket) {
@@ -62,7 +63,7 @@ export default function DoctorDashboard() {
     return () => {
       if (socket) socket.off('queue_updated');
     };
-  }, [socket]);
+  }, [fetchQueue, socket]);
 
   const prescribeTest = (e) => {
     e.preventDefault();
@@ -93,7 +94,7 @@ export default function DoctorDashboard() {
 
   const toggleAvailability = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/hospital/doctor/${user.id}/availability`, { method: 'PUT' });
+      const res = await apiFetch(`/hospital/doctor/${user.id}/availability`, { method: 'PUT' });
       const data = await res.json();
       setIsAvailable(data.is_available);
       notify.info(data.is_available ? 'You are now accepting patients.' : 'You are now marked unavailable.');
@@ -254,7 +255,7 @@ export default function DoctorDashboard() {
                   style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc', minHeight: '70px', marginBottom: '0.75rem' }}
                   onBlur={async (e) => {
                      try {
-                        await fetch(`http://localhost:5000/api/hospital/appointment/${activePatient.id}/notes`, {
+                        await apiFetch(`/hospital/appointment/${activePatient.id}/notes`, {
                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
                            body: JSON.stringify({ notes: e.target.value })
                         });

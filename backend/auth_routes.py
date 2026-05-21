@@ -1,35 +1,83 @@
 from flask import Blueprint, request, jsonify
-from models import db, User
+from models import db, User, Hospital
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import create_access_token, jwt_required
+from auth_utils import current_hospital_id, current_user, require_hospital_context, require_roles, user_claims
+from validation import int_field, json_body, require_fields
 
 auth_bp = Blueprint('auth', __name__)
 
+def make_token(user):
+    return create_access_token(identity=str(user.id), additional_claims=user_claims(user))
+
+@auth_bp.route('/register-hospital', methods=['POST'])
+def register_hospital():
+    data, error, status = json_body()
+    if error:
+        return error, status
+    error, status = require_fields(data, 'hospital_name', 'subdomain', 'admin_name', 'email', 'password')
+    if error:
+        return error, status
+    hospital_name = data.get('hospital_name')
+    subdomain = data.get('subdomain')
+    admin_name = data.get('admin_name')
+    email = data.get('email')
+    password = data.get('password')
+
+    existing_hospital = Hospital.query.filter_by(subdomain=subdomain).first()
+    if existing_hospital:
+        return jsonify({"error": "Subdomain already taken"}), 409
+
+    new_hospital = Hospital(name=hospital_name, subdomain=subdomain, plan='trial')
+    db.session.add(new_hospital)
+    db.session.commit()
+
+    admin_user = User(
+        hospital_id=new_hospital.id,
+        role='admin',
+        name=admin_name,
+        email=email,
+        password=generate_password_hash(password)
+    )
+    db.session.add(admin_user)
+    db.session.commit()
+
+    return jsonify({"message": "Hospital registered successfully", "hospital_id": new_hospital.id}), 201
+
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    data = request.json
+    data, error, status = json_body()
+    if error:
+        return error, status
+    error, status = require_fields(data, 'name', 'password', 'hospital_id')
+    if error:
+        return error, status
+    hospital_id, error, status = int_field(data, 'hospital_id', minimum=1, required=True)
+    if error:
+        return error, status
     name = data.get('name')
     contact = data.get('contact')
     email = data.get('email')
     password = data.get('password')
     
-    if not name or not password:
-        return jsonify({"error": "Name and password are required"}), 400
-    
     if not contact and not email:
         return jsonify({"error": "Contact number or email is required"}), 400
     
     # Check if user already exists
-    existing = User.query.filter(
-        db.or_(
-            User.contact == contact if contact else False,
-            User.email == email if email else False
-        )
-    ).first()
+    filters = [User.hospital_id == hospital_id]
+    user_filters = []
+    if contact:
+        user_filters.append(User.contact == contact)
+    if email:
+        user_filters.append(User.email == email)
+        
+    existing = User.query.filter(User.hospital_id == hospital_id, db.or_(*user_filters)).first() if user_filters else None
     
     if existing:
-        return jsonify({"error": "An account with this contact/email already exists"}), 409
+        return jsonify({"error": "An account with this contact/email already exists in this hospital"}), 409
     
     new_user = User(
+        hospital_id=hospital_id,
         role='patient',
         name=name,
         contact=contact,
@@ -39,76 +87,89 @@ def register():
     db.session.add(new_user)
     db.session.commit()
     
+    token = make_token(new_user)
+    
     return jsonify({
         "message": "Registration successful",
+        "token": token,
         "user": {
             "id": new_user.id,
             "role": new_user.role,
+            "hospital_id": new_user.hospital_id,
             "name": new_user.name,
             "email": new_user.email,
-            "contact": new_user.contact,
-            "age": new_user.age,
-            "gender": new_user.gender,
-            "blood_type": new_user.blood_type,
-            "specialization": new_user.specialization
+            "contact": new_user.contact
         }
     }), 201
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    data = request.json
+    data, error, status = json_body()
+    if error:
+        return error, status
+    error, status = require_fields(data, 'identifier', 'password')
+    if error:
+        return error, status
     email_or_contact = data.get('identifier')
     password = data.get('password')
     role_type = data.get('type') # 'patient' or 'staff'
+    hospital_id = data.get('hospital_id') # Needed to distinguish tenants
     
-    if not email_or_contact or not password:
-        return jsonify({"error": "Missing credentials"}), 400
-        
-    # Find user based on email (for staff/doctors) or contact (for patients)
-    user = User.query.filter(
-        db.or_(User.email == email_or_contact, User.contact == email_or_contact)
-    ).first()
+    # If superadmin logging in, they might not pass hospital_id or pass 0.
+    # For now, require hospital_id unless it's a superadmin email?
+    if email_or_contact == 'superadmin@pulsehms.com':
+        user = User.query.filter_by(email=email_or_contact, role='superadmin').first()
+    else:
+        if not hospital_id:
+            return jsonify({"error": "Hospital ID required"}), 400
+        hospital_id, error, status = int_field(data, 'hospital_id', minimum=1, required=True)
+        if error:
+            return error, status
+        user = User.query.filter(
+            User.hospital_id == hospital_id,
+            db.or_(User.email == email_or_contact, User.contact == email_or_contact)
+        ).first()
     
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
     
-    # Support both hashed and plain-text passwords (for seeded users during dev)
-    password_valid = False
-    if user.password.startswith('pbkdf2:') or user.password.startswith('scrypt:'):
-        password_valid = check_password_hash(user.password, password)
-    else:
-        password_valid = (user.password == password)
-    
-    if not password_valid:
+    if not user.password or not check_password_hash(user.password, password):
         return jsonify({"error": "Invalid credentials"}), 401
         
-    if role_type == 'patient' and user.role != 'patient':
-        return jsonify({"error": "Invalid role type selected"}), 401
-    if role_type == 'staff' and user.role == 'patient':
-        return jsonify({"error": "Invalid role type selected"}), 401
+    if user.role != 'superadmin':
+        if role_type == 'patient' and user.role != 'patient':
+            return jsonify({"error": "Invalid role type selected"}), 401
+        if role_type == 'staff' and user.role == 'patient':
+            return jsonify({"error": "Invalid role type selected"}), 401
+
+    token = make_token(user)
 
     return jsonify({
         "message": "Login successful",
+        "token": token,
         "user": {
             "id": user.id,
             "role": user.role,
+            "hospital_id": user.hospital_id,
             "name": user.name,
             "email": user.email,
-            "contact": user.contact,
-            "age": user.age,
-            "gender": user.gender,
-            "blood_type": user.blood_type,
-            "height": user.height,
-            "weight_baseline": user.weight_baseline,
-            "allergies": user.allergies,
-            "specialization": user.specialization
+            "contact": user.contact
         }
     })
 
 @auth_bp.route('/doctors', methods=['GET'])
+@jwt_required()
 def get_doctors():
     from models import Rating
-    doctors = User.query.filter_by(role='doctor', is_active=True, is_available=True).all()
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    doctors = User.query.filter_by(
+        hospital_id=hospital_id,
+        role='doctor',
+        is_active=True,
+        is_available=True
+    ).all()
     result = []
     for doc in doctors:
         avg = db.session.query(db.func.avg(Rating.stars)).filter(Rating.doctor_id == doc.id).scalar()
@@ -127,10 +188,18 @@ def get_doctors():
     return jsonify(result)
 
 @auth_bp.route('/doctors/all', methods=['GET'])
+@jwt_required()
 def get_all_doctors():
     """Returns ALL active doctors (including unavailable) - used for displaying info on existing appointments."""
     from models import Rating
-    doctors = User.query.filter_by(role='doctor', is_active=True).all()
+    hospital_id, error, status = require_hospital_context()
+    if error:
+        return error, status
+    doctors = User.query.filter_by(
+        hospital_id=hospital_id,
+        role='doctor',
+        is_active=True
+    ).all()
     result = []
     for doc in doctors:
         avg = db.session.query(db.func.avg(Rating.stars)).filter(Rating.doctor_id == doc.id).scalar()
@@ -152,8 +221,15 @@ def get_all_doctors():
 # ===== ADMIN USER MANAGEMENT =====
 
 @auth_bp.route('/admin/users', methods=['GET'])
+@require_roles('admin', 'doctor', 'superadmin')
 def get_all_users():
-    users = User.query.all()
+    user = current_user()
+    if user.role == 'superadmin':
+        users = User.query.all()
+    elif user.role == 'doctor':
+        users = User.query.filter_by(id=user.id, hospital_id=user.hospital_id).all()
+    else:
+        users = User.query.filter_by(hospital_id=user.hospital_id).all()
     result = [{
         "id": u.id,
         "role": u.role,
@@ -167,9 +243,23 @@ def get_all_users():
     return jsonify(result)
 
 @auth_bp.route('/admin/users', methods=['POST'])
+@require_roles('admin', 'superadmin')
 def create_user():
-    data = request.json
+    data, error, status = json_body()
+    if error:
+        return error, status
+    error, status = require_fields(data, 'name')
+    if error:
+        return error, status
+    hospital_id = current_hospital_id()
+    if current_user().role == 'superadmin' and data.get('hospital_id'):
+        hospital_id, error, status = int_field(data, 'hospital_id', minimum=1, required=True)
+        if error:
+            return error, status
+    if hospital_id is None:
+        return jsonify({"error": "hospital_id is required to create a user"}), 400
     existing = User.query.filter(
+        User.hospital_id == hospital_id,
         db.or_(
             User.email == data.get('email') if data.get('email') else False,
             User.contact == data.get('contact') if data.get('contact') else False
@@ -179,6 +269,7 @@ def create_user():
         return jsonify({"error": "User with this email/contact already exists"}), 409
 
     new_user = User(
+        hospital_id=hospital_id,
         role=data.get('role', 'staff'),
         name=data['name'],
         email=data.get('email'),
@@ -191,11 +282,16 @@ def create_user():
     return jsonify({"message": "User created", "id": new_user.id}), 201
 
 @auth_bp.route('/admin/users/<int:user_id>', methods=['PUT'])
+@require_roles('admin', 'superadmin')
 def update_user(user_id):
-    data = request.json
-    user = User.query.get(user_id)
+    data, error, status = json_body()
+    if error:
+        return error, status
+    user = User.query.get(user_id) if current_user().role == 'superadmin' else User.query.filter_by(id=user_id, hospital_id=current_hospital_id()).first()
     if not user:
         return jsonify({"error": "User not found"}), 404
+    if user.role == 'superadmin' and current_user().id != user.id:
+        return jsonify({"error": "Superadmin accounts cannot be managed from tenant user screens"}), 403
     user.name = data.get('name', user.name)
     user.email = data.get('email', user.email)
     user.contact = data.get('contact', user.contact)
@@ -207,10 +303,13 @@ def update_user(user_id):
     return jsonify({"message": "User updated"})
 
 @auth_bp.route('/admin/users/<int:user_id>/deactivate', methods=['PUT'])
+@require_roles('admin', 'superadmin')
 def deactivate_user(user_id):
-    user = User.query.get(user_id)
+    user = User.query.get(user_id) if current_user().role == 'superadmin' else User.query.filter_by(id=user_id, hospital_id=current_hospital_id()).first()
     if not user:
         return jsonify({"error": "User not found"}), 404
+    if user.role == 'superadmin':
+        return jsonify({"error": "Superadmin accounts cannot be deactivated from tenant user screens"}), 403
     user.is_active = not user.is_active
     db.session.commit()
     return jsonify({"message": f"User {'activated' if user.is_active else 'deactivated'}"})

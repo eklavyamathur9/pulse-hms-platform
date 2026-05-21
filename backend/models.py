@@ -3,12 +3,28 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-class User(db.Model):
+class Hospital(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    role = db.Column(db.String(20), nullable=False) # 'patient', 'doctor', 'staff'
     name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=True)
-    contact = db.Column(db.String(20), unique=True, nullable=True)
+    subdomain = db.Column(db.String(50), unique=True, nullable=False)
+    plan = db.Column(db.String(50), default='trial') # trial, basic, pro, enterprise
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class User(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('hospital_id', 'email', name='uq_user_hospital_email'),
+        db.UniqueConstraint('hospital_id', 'contact', name='uq_user_hospital_contact'),
+        db.Index('ix_user_hospital_role', 'hospital_id', 'role'),
+        db.Index('ix_user_hospital_active', 'hospital_id', 'is_active'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=False)
+    role = db.Column(db.String(20), nullable=False) # 'patient', 'doctor', 'staff', 'superadmin'
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=True) # Unique per hospital handled in app logic
+    contact = db.Column(db.String(20), nullable=True) # Unique per hospital handled in app logic
     password = db.Column(db.String(200), nullable=True)
     
     # Patient specifics
@@ -29,7 +45,16 @@ class User(db.Model):
     is_active = db.Column(db.Boolean, default=True)  # soft-delete
     
 class Appointment(db.Model):
+    __table_args__ = (
+        db.Index('ix_appointment_doctor_slot', 'hospital_id', 'doctor_id', 'date_str', 'time_str'),
+        db.Index('ix_appointment_hospital_status', 'hospital_id', 'status'),
+        db.Index('ix_appointment_patient', 'hospital_id', 'patient_id'),
+        db.Index('ix_appointment_doctor', 'hospital_id', 'doctor_id'),
+        db.Index('ix_appointment_date', 'hospital_id', 'date_str'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=False)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     doctor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     date_str = db.Column(db.String(20), nullable=False)
@@ -42,7 +67,13 @@ class Appointment(db.Model):
     clinical_notes = db.Column(db.Text, nullable=True)    # private doctor notes
 
 class Vitals(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('hospital_id', 'appointment_id', name='uq_vitals_appointment'),
+        db.Index('ix_vitals_patient', 'hospital_id', 'patient_id'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=False)
     appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=False)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     weight = db.Column(db.String(20), nullable=True)
@@ -52,7 +83,14 @@ class Vitals(db.Model):
     taken_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class LabTest(db.Model):
+    __table_args__ = (
+        db.Index('ix_lab_test_hospital_status', 'hospital_id', 'status'),
+        db.Index('ix_lab_test_patient', 'hospital_id', 'patient_id'),
+        db.Index('ix_lab_test_appointment', 'hospital_id', 'appointment_id'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=False)
     appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=False)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     test_name = db.Column(db.String(100), nullable=False)
@@ -61,7 +99,14 @@ class LabTest(db.Model):
     ordered_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Prescription(db.Model):
+    __table_args__ = (
+        db.Index('ix_prescription_hospital_status', 'hospital_id', 'status'),
+        db.Index('ix_prescription_patient', 'hospital_id', 'patient_id'),
+        db.Index('ix_prescription_doctor', 'hospital_id', 'doctor_id'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=False)
     appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=False)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     doctor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -71,7 +116,14 @@ class Prescription(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Rating(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('hospital_id', 'appointment_id', name='uq_rating_appointment'),
+        db.Index('ix_rating_doctor', 'hospital_id', 'doctor_id'),
+        db.Index('ix_rating_patient', 'hospital_id', 'patient_id'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=False)
     appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=False)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     doctor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -80,7 +132,14 @@ class Rating(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Invoice(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('hospital_id', 'appointment_id', name='uq_invoice_appointment'),
+        db.Index('ix_invoice_patient', 'hospital_id', 'patient_id'),
+        db.Index('ix_invoice_status', 'hospital_id', 'status'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=False)
     appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), nullable=False)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     consultation_fee = db.Column(db.Float, default=0.0)

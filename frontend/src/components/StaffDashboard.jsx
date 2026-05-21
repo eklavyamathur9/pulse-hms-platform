@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { Activity, Clipboard, CheckCircle } from 'lucide-react';
+import { apiFetch } from '../lib/api';
 
 export default function StaffDashboard() {
   const socket = useSocket();
@@ -17,16 +18,16 @@ export default function StaffDashboard() {
 
   const fetchQueue = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/hospital/queue');
+      const res = await apiFetch('/hospital/queue');
       const data = await res.json();
       const sortedQueue = data.sort((a,b) => (b.pain_level >= 8 ? 1 : 0) - (a.pain_level >= 8 ? 1 : 0));
       setQueue(sortedQueue);
       
-      const labRes = await fetch('http://localhost:5000/api/hospital/lab/queue');
+      const labRes = await apiFetch('/hospital/lab/queue');
       const labData = await labRes.json();
       setLabQueue(labData);
 
-      const rxRes = await fetch('http://localhost:5000/api/hospital/pharmacy/queue');
+      const rxRes = await apiFetch('/hospital/pharmacy/queue');
       const rxData = await rxRes.json();
       setPharmacyQueue(rxData);
 

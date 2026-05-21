@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { HeartPulse, ShieldCheck, LogIn, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../lib/api';
 
 export default function Login() {
   const [mode, setMode] = useState('login'); // 'login' or 'register'
   const [tab, setTab] = useState('patient');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [hospitalId, setHospitalId] = useState('1'); // Default to 1 for demo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -27,20 +29,20 @@ export default function Login() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await apiFetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password, type: tab })
+        body: JSON.stringify({ identifier, password, type: tab, hospital_id: parseInt(hospitalId) })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Login failed');
       
-      login(data.user);
-      
+      login(data.user, data.token);
       if (data.user.role === 'patient') navigate('/patient');
       else if (data.user.role === 'doctor') navigate('/doctor');
       else if (data.user.role === 'admin') navigate('/admin');
       else if (data.user.role === 'staff') navigate('/staff');
+      else if (data.user.role === 'superadmin') navigate('/superadmin');
       
     } catch (err) {
       setError(err.message);
@@ -67,14 +69,15 @@ export default function Login() {
     }
     
     try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
+      const response = await apiFetch('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: regName,
           contact: regContact || null,
           email: regEmail || null,
-          password: regPassword
+          password: regPassword,
+          hospital_id: parseInt(hospitalId)
         })
       });
       const data = await response.json();
@@ -140,6 +143,10 @@ export default function Login() {
             </div>
 
             <form onSubmit={handleLogin}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Workspace ID</label>
+                <input type="number" value={hospitalId} onChange={e => setHospitalId(e.target.value)} placeholder="1" style={inputStyle} required />
+              </div>
               {tab === 'staff' ? (
                 <>
                   <div style={{ marginBottom: '1rem' }}>
@@ -188,6 +195,10 @@ export default function Login() {
           <>
             {/* REGISTRATION FORM */}
             <form onSubmit={handleRegister}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Workspace ID *</label>
+                <input type="number" value={hospitalId} onChange={e => setHospitalId(e.target.value)} placeholder="1" style={inputStyle} required />
+              </div>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Full Name *</label>
                 <input type="text" value={regName} onChange={e => setRegName(e.target.value)} placeholder="John Doe" style={inputStyle} required />

@@ -1,10 +1,14 @@
+import React from 'react';
 import { LogOut, HeartPulse, Shield, Stethoscope, Users, User, Sun, Moon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const roleConfig = {
   patient: { label: 'Patient', color: '#6366f1', bg: '#eef2ff', icon: <User size={14} /> },
   doctor:  { label: 'Doctor',  color: '#059669', bg: '#ecfdf5', icon: <Stethoscope size={14} /> },
   staff:   { label: 'Staff',   color: '#d97706', bg: '#fffbeb', icon: <Users size={14} /> },
   admin:   { label: 'Admin',   color: '#dc2626', bg: '#fef2f2', icon: <Shield size={14} /> },
+  superadmin: { label: 'Super Admin', color: '#7c3aed', bg: '#f3e8ff', icon: <Shield size={14} /> },
 };
 
 export default function Layout({ children, toggleTheme, theme }) {

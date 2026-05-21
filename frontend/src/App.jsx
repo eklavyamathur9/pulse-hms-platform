@@ -9,11 +9,14 @@ import PatientDashboard from './components/PatientDashboard';
 import DoctorDashboard from './components/DoctorDashboard';
 import StaffDashboard from './components/StaffDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
+import LandingPage from './components/LandingPage';
+import HospitalRegistration from './components/HospitalRegistration';
 
 const ProtectedRoute = ({ children, role, toggleTheme, theme }) => {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/" />;
-  if (role && user.role !== role) return <Navigate to="/" />;
+  if (!user) return <Navigate to="/login" />;
+  if (role && user.role !== role) return <Navigate to="/login" />;
   return <Layout toggleTheme={toggleTheme} theme={theme}>{children}</Layout>;
 };
 
@@ -22,11 +25,14 @@ function AppRoutes({ toggleTheme, theme }) {
 
   return (
     <Routes>
-      <Route path="/" element={user ? <Navigate to={`/${user.role}`} /> : <Login />} />
+      <Route path="/" element={user ? <Navigate to={`/${user.role}`} /> : <LandingPage />} />
+      <Route path="/login" element={user ? <Navigate to={`/${user.role}`} /> : <Login />} />
+      <Route path="/register-hospital" element={user ? <Navigate to={`/${user.role}`} /> : <HospitalRegistration />} />
       <Route path="/patient" element={<ProtectedRoute role="patient" toggleTheme={toggleTheme} theme={theme}><PatientDashboard /></ProtectedRoute>} />
       <Route path="/doctor" element={<ProtectedRoute role="doctor" toggleTheme={toggleTheme} theme={theme}><DoctorDashboard /></ProtectedRoute>} />
       <Route path="/staff" element={<ProtectedRoute role="staff" toggleTheme={toggleTheme} theme={theme}><StaffDashboard /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute role="admin" toggleTheme={toggleTheme} theme={theme}><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/superadmin" element={<ProtectedRoute role="superadmin" toggleTheme={toggleTheme} theme={theme}><SuperAdminDashboard /></ProtectedRoute>} />
     </Routes>
   );
 }

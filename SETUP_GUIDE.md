@@ -64,7 +64,7 @@ source venv/bin/activate
 
 ### 2.3 Install Python dependencies
 ```bash
-pip install flask flask-socketio flask-cors flask-sqlalchemy werkzeug eventlet
+pip install -r requirements.txt
 ```
 
 ### 2.4 Seed the database with test data
@@ -72,7 +72,13 @@ pip install flask flask-socketio flask-cors flask-sqlalchemy werkzeug eventlet
 python seed.py
 ```
 
-You should see: `Database seeded successfully with test users!`
+You should see: `Database seeded successfully.`
+
+This command is idempotent and hashes all demo passwords. If you intentionally want a clean local SQLite database, run:
+
+```bash
+python seed.py --reset
+```
 
 ### 2.5 Start the backend server
 ```bash
@@ -289,7 +295,7 @@ Follow this exact sequence to test the complete patient journey:
 | `npm run dev` fails | Make sure you ran `npm install` first |
 | Backend won't start | Make sure venv is activated: `.\venv\Scripts\Activate.ps1` |
 | "Cannot connect to server" in browser | Make sure backend is running on port 5000 |
-| Login fails with seeded accounts | Run `python seed.py` again to reset the database |
+| Login fails with seeded accounts | Run `python seed.py` to refresh demo users, or `python seed.py --reset` for a clean local reset |
 | Real-time updates not working | Check both backend (port 5000) and frontend (port 5173) are running |
 | Port 5000 already in use | Kill the process: `netstat -ano | findstr :5000` then `taskkill /PID <pid> /F` |
 | Python not found | Use `python3` instead of `python` on Mac/Linux |
