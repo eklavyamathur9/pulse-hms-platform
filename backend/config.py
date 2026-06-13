@@ -36,6 +36,8 @@ class Config:
                 missing.append("JWT_SECRET_KEY")
             if cls.AUTO_CREATE_TABLES:
                 missing.append("AUTO_CREATE_TABLES=false")
+            if "sqlite" in cls.SQLALCHEMY_DATABASE_URI:
+                missing.append("DATABASE_URL (must use PostgreSQL in production)")
             if missing:
                 raise RuntimeError(
                     "Production startup requires secure values/settings for: "

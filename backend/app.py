@@ -20,6 +20,7 @@ migrate = Migrate(app, db)
 socketio = SocketIO(app, cors_allowed_origins=Config.CORS_ORIGINS, async_mode=Config.SOCKET_ASYNC_MODE)
 socket_sessions = {}
 
+# Auto-create tables for dev convenience when no migration system is used
 if Config.AUTO_CREATE_TABLES:
     with app.app_context():
         db.create_all()
@@ -27,6 +28,31 @@ if Config.AUTO_CREATE_TABLES:
 @app.route('/api/ping', methods=['GET'])
 def ping():
     return jsonify({"status": "ok", "message": "Pulse HMS Backend is running"})
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    status = "healthy"
+    db_ok = True
+    try:
+        with app.app_context():
+            db.session.execute(db.text("SELECT 1"))
+    except Exception:
+        db_ok = False
+        status = "degraded"
+    return jsonify({
+        "status": status,
+        "database": "connected" if db_ok else "disconnected",
+        "version": "1.0.0",
+    })
+
+@app.route('/api/health/db', methods=['GET'])
+def health_db():
+    try:
+        with app.app_context():
+            db.session.execute(db.text("SELECT 1"))
+        return jsonify({"status": "healthy", "database": "connected"})
+    except Exception as e:
+        return jsonify({"status": "degraded", "database": "disconnected", "error": str(e)}), 503
 
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
 app.register_blueprint(patient_bp, url_prefix='/api/patients')
