@@ -8,8 +8,6 @@ select = ["E", "F", "W", "I", "UP", "N", "SIM", "S"]
 [tool.ruff.lint.per-file-ignores]
 "backend/tests/*" = ["SIM", "S"]
 "backend/seed.py" = ["S"]
-
-[tool.ruff.lint.extend-safe]
 "backend/config.py" = ["S"]
 
 [tool.pytest.ini_options]
