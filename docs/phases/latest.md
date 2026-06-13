@@ -46,6 +46,9 @@ Current docs:
 - Updated `docs/current-status.md`, `docs/architecture.md`, `docs/phases/latest.md`
 - Updated `.env.example` with clear separation
 - Validated backend compile and frontend build
+- Established git workflow: feature branches → PR → merge
+- Set up branch protection on `main` (no direct pushes)
+- Created and merged first PR (Phase 0 cleanup)
 
 ## Important Findings
 

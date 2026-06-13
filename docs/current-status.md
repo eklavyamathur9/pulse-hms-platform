@@ -53,6 +53,9 @@ Current implemented capabilities:
 - Updated favicon to medical cross theme.
 - Updated `index.html` title.
 - Refreshed `AGENTS.md` with accurate test status.
+- Established git workflow: feature branches → PR → merge.
+- Set up branch protection on `main` (no direct pushes).
+- Created and merged first PR (Phase 0 cleanup).
 
 ## Pending Work
 
