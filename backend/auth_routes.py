@@ -135,6 +135,9 @@ def login():
     
     if not user.password or not check_password_hash(user.password, password):
         return jsonify({"error": "Invalid credentials"}), 401
+
+    if not user.is_active:
+        return jsonify({"error": "Account is deactivated"}), 401
         
     if user.role != 'superadmin':
         if role_type == 'patient' and user.role != 'patient':
