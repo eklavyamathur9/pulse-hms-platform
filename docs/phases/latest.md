@@ -4,104 +4,87 @@ Date: 2026-06-13
 
 ## Current Repository State
 
-The repository is a documented AI-native workspace for the current Pulse HMS prototype.
+The repository has safety rails, CI, and expanded test coverage.
 
 Current implementation:
 
 - React + Vite frontend (`frontend/`)
 - Flask + Flask-SocketIO backend (`backend/`)
 - SQLite database (`backend/pulse_hms.db`)
-- JWT auth with role and tenant claims
+- JWT auth with role and tenant claims (with is_active check)
 - Tenant-scoped REST routes and Socket.IO room events
 - Development Docker Compose
-- Backend tests: 7 API + 6 socket tests in `backend/tests/`
+- Backend tests: 29 tests in `backend/tests/`
+- CI: GitHub Actions workflow (backend + frontend)
+- Linting: ruff (Python), ESLint (JS/JSX)
 
-Current docs:
+## What Was Done (Phase 1: Safety Rails & CI Foundation)
 
-- `AGENTS.md`
-- `README.md`
-- `docs/architecture.md`
-- `docs/backend.md`
-- `docs/frontend.md`
-- `docs/database.md`
-- `docs/api.md`
-- `docs/deployment.md`
-- `docs/coding-standards.md`
-- `docs/current-status.md`
-- `docs/roadmap.md`
-- `docs/architectural-weaknesses.md`
-- `docs/ai-bootstrap.md`
-- ADRs in `docs/decisions/`
-- Templates in `docs/templates/`
+### CI/CD Infrastructure
+- Created `.github/workflows/ci.yml` with two jobs:
+  - Backend: Python compile + pytest
+  - Frontend: npm ci + lint + build
+- Added `pyproject.toml` with ruff configuration
+- Added `.pre-commit-config.yaml` with ruff and quality hooks
 
-## What Was Done (Initial Setup & Cleanup)
+### Test Expansion (13 → 29 tests)
+- Added `backend/tests/test_workflow.py` with 16 new tests:
+  - Full appointment lifecycle (book → arrive → vitals → lab → prescribe → dispense)
+  - Cancel appointment and edge cases
+  - Cross-role authorization (doctor cannot submit vitals, staff cannot prescribe)
+  - Cross-tenant isolation (cannot access other tenant's data)
+  - Admin user management (list, create, deactivate)
+  - Input validation and missing fields
+  - 404 handling for non-existent endpoints
 
-- Explored and documented full project structure
-- Removed deprecated code: `old_vanilla_version/`
-- Removed empty placeholders: `examples/`, `scripts/`
-- Removed unused Vite starter assets: `react.svg`, `vite.svg`, `hero.png`, `App.css`, `icons.svg`
-- Updated favicon to medical cross theme
-- Updated `index.html` title
-- Refreshed `AGENTS.md` with accurate test/CI status
-- Updated `docs/current-status.md`, `docs/architecture.md`, `docs/phases/latest.md`
-- Updated `.env.example` with clear separation
-- Validated backend compile and frontend build
-- Established git workflow: feature branches → PR → merge
-- Set up branch protection on `main` (no direct pushes)
-- Created and merged first PR (Phase 0 cleanup)
+### Security Fix
+- `backend/auth_routes.py:139` — Login now checks `user.is_active` before issuing JWT
 
 ## Important Findings
 
-- Backend tests exist but coverage is limited (13 tests total).
-- No DB migrations exist (Alembic initialized but no migration applied).
-- No CI exists.
-- Superadmin UI is mock data.
-- Current Docker setup is for development.
-- Tenant isolation exists and must be preserved.
-- Large route/dashboard files are risky to modify without tests.
+- Backend tests expanded to 29, covering auth, tenant isolation, workflow, and edge cases.
+- CI is active — future PRs will have automated checks.
+- No DB migrations yet (Alembic initialized but unused).
+- Login was missing `is_active` check — fixed.
+- Superadmin UI is still mock data.
+- Docker setup is still development-only.
+- Large dashboard files remain risky to modify.
 
-## Architectural Weaknesses
+## Architectural Weaknesses (Updated)
 
-Canonical list: `docs/architectural-weaknesses.md`.
+Highest priority remaining:
 
-Highest priority:
-
-- Missing tests.
-- Missing migrations.
-- SQLite persistence.
-- Coupled Socket.IO workflow logic.
-- Large dashboard components.
-- No audit logs.
-- Dev-only deployment.
+1. Missing migrations (Alembic initialized but no migration applied).
+2. SQLite persistence (no production database path).
+3. Coupled Socket.IO workflow logic in `app.py`.
+4. Large dashboard components (PatientDashboard: 915 lines).
+5. No audit logs.
+6. Dev-only deployment.
+7. No pre-commit hooks installed locally (config exists).
 
 ## Suggested Next Phase
 
-Phase 1: testing and safety rails.
+**Phase 2: Database Migration Foundation**
 
-Start by adding tests around current behavior before refactoring:
-
-- Login and token claims.
-- `require_roles` behavior.
-- Tenant isolation for patient/admin endpoints.
-- Socket authorization helpers, if feasible.
-- Basic frontend build/lint CI.
+Focus:
+- Create baseline Alembic migration capturing current schema.
+- Add PostgreSQL configuration for production path.
+- Add database indexes for common queries.
+- Add proper foreign key constraints.
+- Stop relying on `db.create_all()`.
 
 ## Likely Impacted Modules For Next Phase
 
-- `backend/auth_utils.py`
-- `backend/auth_routes.py`
-- `backend/patient_routes.py`
-- `backend/hospital_routes.py`
-- `backend/app.py`
-- `backend/models.py`
-- new `backend/tests/`
-- potential CI workflow files
+- `backend/app.py` (AUTO_CREATE_TABLES flag)
+- `backend/config.py` (database URL switching)
+- `backend/models.py` (constraints, indexes)
+- `backend/migrations/versions/` (new migration)
+- `docker-compose.yml` (PostgreSQL service)
+- `.env.example` (database URL)
 
 ## Implementation Cautions
 
-- Do not rewrite architecture while adding tests.
-- Use current SQLite test setup unless creating a dedicated test DB is part of the phase.
-- Avoid running `seed.py` against non-local data.
-- Do not remove current demo flows while adding safety rails.
-- Update this file after phase completion.
-
+- Keep `AUTO_CREATE_TABLES` as fallback for dev until migration is tested.
+- Do not drop existing data in local dev — test migration on a fresh database first.
+- Update `docs/database.md` with any schema changes.
+- Run all 29 tests after migration changes.
