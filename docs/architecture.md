@@ -1,6 +1,6 @@
 # Pulse HMS Architecture
 
-Last reviewed: 2026-05-16
+Last reviewed: 2026-06-13
 
 This document describes the architecture that exists in the current implementation. It does not describe a target architecture unless explicitly marked as an improvement.
 
@@ -24,7 +24,7 @@ Current runtime components:
 - `backend/`: Flask API, Flask-SocketIO server, SQLAlchemy models.
 - `backend/pulse_hms.db`: SQLite database used by the local app.
 - `docker-compose.yml`: development-oriented backend and frontend services.
-- `old_vanilla_version/`: legacy implementation, not part of the current React/Flask runtime.
+- `(removed) old_vanilla_version/`: legacy implementation, archived and removed.
 
 ## Folder Structure
 
