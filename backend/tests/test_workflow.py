@@ -51,13 +51,16 @@ def test_appointment_full_workflow(client, seeded):
 
     # 3. Staff submits vitals
     staff_socket.get_received()
-    staff_socket.emit("action_submit_vitals", {
-        "appointmentId": appt_id,
-        "weight": "75",
-        "hr": "72",
-        "bp": "118/78",
-        "temp": "98.4",
-    })
+    staff_socket.emit(
+        "action_submit_vitals",
+        {
+            "appointmentId": appt_id,
+            "weight": "75",
+            "hr": "72",
+            "bp": "118/78",
+            "temp": "98.4",
+        },
+    )
     payload = received_payload(staff_socket, "queue_updated")
     assert payload["status"] == "Vitals_Taken"
     vitals = Vitals.query.filter_by(appointment_id=appt_id).first()
@@ -66,10 +69,13 @@ def test_appointment_full_workflow(client, seeded):
 
     # 4. Doctor orders lab test
     doctor_socket.get_received()
-    doctor_socket.emit("action_prescribe_test", {
-        "appointmentId": appt_id,
-        "test_name": "Complete Blood Count",
-    })
+    doctor_socket.emit(
+        "action_prescribe_test",
+        {
+            "appointmentId": appt_id,
+            "test_name": "Complete Blood Count",
+        },
+    )
     payload = received_payload(doctor_socket, "queue_updated")
     assert payload["status"] == "Lab_Pending"
     lab = LabTest.query.filter_by(appointment_id=appt_id).first()
@@ -85,21 +91,27 @@ def test_appointment_full_workflow(client, seeded):
 
     # 6. Staff uploads test result
     staff_socket.get_received()
-    staff_socket.emit("action_upload_test_report", {
-        "testId": lab.id,
-        "result_text": "All values within normal range",
-    })
+    staff_socket.emit(
+        "action_upload_test_report",
+        {
+            "testId": lab.id,
+            "result_text": "All values within normal range",
+        },
+    )
     payload = received_payload(staff_socket, "queue_updated")
     assert payload["status"] == "Consult_Pending_Review"
     assert db.session.get(LabTest, lab.id).status == "Completed"
 
     # 7. Doctor prescribes medication
     doctor_socket.get_received()
-    doctor_socket.emit("action_prescribe_meds", {
-        "appointmentId": appt_id,
-        "medication_details": "Paracetamol 500mg - 1 tab twice daily x 5 days\nAmoxicillin 250mg - 1 tab thrice daily x 7 days",
-        "followup_days": 7,
-    })
+    doctor_socket.emit(
+        "action_prescribe_meds",
+        {
+            "appointmentId": appt_id,
+            "medication_details": "Paracetamol 500mg - 1 tab twice daily x 5 days\nAmoxicillin 250mg - 1 tab thrice daily x 7 days",
+            "followup_days": 7,
+        },
+    )
     payload = received_payload(doctor_socket, "queue_updated")
     assert payload["status"] == "Completed"
     rx = Prescription.query.filter_by(appointment_id=appt_id).first()
@@ -147,7 +159,9 @@ def test_staff_cannot_prescribe_test(client, seeded):
     staff_token = login(client, "staff@one.test", "staffpass", seeded["hospital_one_id"])
     staff_socket = socket_client(staff_token)
     staff_socket.get_received()
-    staff_socket.emit("action_prescribe_test", {"appointmentId": seeded["scheduled_appointment_id"], "test_name": "X-Ray"})
+    staff_socket.emit(
+        "action_prescribe_test", {"appointmentId": seeded["scheduled_appointment_id"], "test_name": "X-Ray"}
+    )
     payload = received_payload(staff_socket, "auth_error")
     assert payload["error"] == "Unauthorized socket action"
 
@@ -186,13 +200,16 @@ def test_no_double_booking_on_same_slot(client, seeded):
     doctor_socket.get_received()
 
     # Book in same slot as existing
-    patient_socket.emit("action_book_appointment", {
-        "patientId": seeded["patient_id"],
-        "doctorId": seeded["doctor_id"],
-        "date": "2026-05-22",
-        "time_slot": "10:00 AM",
-        "symptoms": "Routine",
-    })
+    patient_socket.emit(
+        "action_book_appointment",
+        {
+            "patientId": seeded["patient_id"],
+            "doctorId": seeded["doctor_id"],
+            "date": "2026-05-22",
+            "time_slot": "10:00 AM",
+            "symptoms": "Routine",
+        },
+    )
     # This may succeed — the app doesn't prevent double-booking currently
     # At minimum verify the socket responds
     booking = received_payload(patient_socket, "appointment_booked")
@@ -238,7 +255,13 @@ def test_admin_user_management(client, seeded):
     # Can create a new staff user
     response = client.post(
         "/api/auth/admin/users",
-        json={"name": "New Staff", "role": "staff", "email": "new@one.test", "password": "pass123", "contact": "+1 555-9999"},
+        json={
+            "name": "New Staff",
+            "role": "staff",
+            "email": "new@one.test",
+            "password": "pass123",
+            "contact": "+1 555-9999",
+        },
         headers=auth_header(admin_token),
     )
     assert response.status_code == 201
@@ -276,7 +299,13 @@ def test_missing_payload_returns_error(client, seeded):
 def test_register_hospital_with_duplicate_subdomain(client, seeded):
     response = client.post(
         "/api/auth/register-hospital",
-        json={"name": "Second Pulse", "subdomain": "pulse-one", "admin_name": "Admin", "admin_email": "a@b.com", "admin_password": "pass123"},
+        json={
+            "name": "Second Pulse",
+            "subdomain": "pulse-one",
+            "admin_name": "Admin",
+            "admin_email": "a@b.com",
+            "admin_password": "pass123",
+        },
     )
     assert response.status_code == 400
 

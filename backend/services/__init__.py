@@ -1,8 +1,7 @@
 from flask import request
-from flask_socketio import emit, join_room
 from flask_jwt_extended import decode_token
-from models import User, Appointment, LabTest, Prescription, db
-
+from flask_socketio import emit, join_room
+from models import Appointment, LabTest, Prescription, User, db
 
 socket_sessions = {}
 
@@ -17,15 +16,15 @@ def socket_context():
 
 def require_socket_roles(*roles):
     ctx = socket_context()
-    if not ctx or ctx.get('role') not in roles:
-        emit('auth_error', {'error': 'Unauthorized socket action'})
+    if not ctx or ctx.get("role") not in roles:
+        emit("auth_error", {"error": "Unauthorized socket action"})
         return None
     return ctx
 
 
 def socket_payload(data):
     if not isinstance(data, dict):
-        emit('action_error', {'error': 'Valid event payload is required'})
+        emit("action_error", {"error": "Valid event payload is required"})
         return None
     return data
 
@@ -43,20 +42,16 @@ def tenant_prescription(rx_id, hospital_id):
 
 
 def handle_connect(auth=None):
-    token = (auth or {}).get('token')
+    token = (auth or {}).get("token")
     if not token:
         return False
     try:
         decoded = decode_token(token)
-        user_id = int(decoded['sub'])
+        user_id = int(decoded["sub"])
         user = db.session.get(User, user_id)
         if not user or not user.is_active:
             return False
-        ctx = {
-            'user_id': user.id,
-            'role': user.role,
-            'hospital_id': user.hospital_id
-        }
+        ctx = {"user_id": user.id, "role": user.role, "hospital_id": user.hospital_id}
         socket_sessions[request.sid] = ctx
         join_room(tenant_room(user.hospital_id))
         print(f"Client connected: user={user.id} role={user.role} hospital={user.hospital_id}")

@@ -2,8 +2,7 @@ from functools import wraps
 
 from flask import jsonify, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
-
-from models import db, User
+from models import User, db
 
 
 def user_claims(user):
@@ -66,7 +65,9 @@ def require_roles(*roles):
             if user.role not in roles:
                 return forbidden("You do not have permission to access this resource")
             return fn(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 

@@ -1,6 +1,5 @@
 import os
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'pulse_hms.db')}"
 DEV_SECRET = "pulse-dev-secret"
@@ -21,9 +20,7 @@ class Config:
     AUTO_CREATE_TABLES = _env("AUTO_CREATE_TABLES", "true").lower() == "true"
     SOCKET_ASYNC_MODE = _env("SOCKET_ASYNC_MODE", "threading")
     CORS_ORIGINS = [
-        origin.strip()
-        for origin in _env("CORS_ORIGINS", "http://localhost:5173").split(",")
-        if origin.strip()
+        origin.strip() for origin in _env("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()
     ]
 
     @classmethod
@@ -39,7 +36,4 @@ class Config:
             if "sqlite" in cls.SQLALCHEMY_DATABASE_URI:
                 missing.append("DATABASE_URL (must use PostgreSQL in production)")
             if missing:
-                raise RuntimeError(
-                    "Production startup requires secure values/settings for: "
-                    + ", ".join(missing)
-                )
+                raise RuntimeError("Production startup requires secure values/settings for: " + ", ".join(missing))

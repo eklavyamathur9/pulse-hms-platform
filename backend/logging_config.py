@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 import os
@@ -5,7 +6,6 @@ import uuid
 from datetime import datetime
 
 from flask import g, request
-
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -36,11 +36,9 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        try:
+        with contextlib.suppress(Exception):
             if hasattr(g, "request_id"):
                 log_entry["request_id"] = g.request_id
-        except Exception:
-            pass
 
         if record.exc_info and record.exc_info[0]:
             log_entry["exception"] = self.formatException(record.exc_info)

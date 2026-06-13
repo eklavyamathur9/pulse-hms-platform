@@ -1,19 +1,19 @@
-from flask import Flask, g, jsonify
-from flask_socketio import SocketIO
+from auth_routes import auth_bp
+from config import Config
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
-from models import db
-from auth_routes import auth_bp
-from patient_routes import patient_bp
+from flask_socketio import SocketIO
 from hospital_routes import hospital_bp
-from config import Config
-from logging_config import setup_logging, request_id_middleware, log_request_response
+from logging_config import log_request_response, request_id_middleware, setup_logging
+from models import db
+from patient_routes import patient_bp
 from services import handle_connect, handle_disconnect
 from services.appointment import register as register_appointment
-from services.vitals import register as register_vitals
 from services.lab import register as register_lab
 from services.pharmacy import register as register_pharmacy
+from services.vitals import register as register_vitals
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -49,13 +49,13 @@ def after_request(response):
     return log_request_response(response)
 
 
-@app.route('/api/ping', methods=['GET'])
+@app.route("/api/ping", methods=["GET"])
 def ping():
     app.logger.info("Ping endpoint called")
     return jsonify({"status": "ok", "message": "Pulse HMS Backend is running"})
 
 
-@app.route('/api/health', methods=['GET'])
+@app.route("/api/health", methods=["GET"])
 def health():
     status = "healthy"
     db_ok = True
@@ -65,14 +65,16 @@ def health():
     except Exception:
         db_ok = False
         status = "degraded"
-    return jsonify({
-        "status": status,
-        "database": "connected" if db_ok else "disconnected",
-        "version": "1.0.0",
-    })
+    return jsonify(
+        {
+            "status": status,
+            "database": "connected" if db_ok else "disconnected",
+            "version": "1.0.0",
+        }
+    )
 
 
-@app.route('/api/health/db', methods=['GET'])
+@app.route("/api/health/db", methods=["GET"])
 def health_db():
     try:
         with app.app_context():
@@ -82,21 +84,21 @@ def health_db():
         return jsonify({"status": "degraded", "database": "disconnected", "error": str(e)}), 503
 
 
-app.register_blueprint(auth_bp, url_prefix='/api/auth')
-app.register_blueprint(patient_bp, url_prefix='/api/patients')
-app.register_blueprint(hospital_bp, url_prefix='/api/hospital')
+app.register_blueprint(auth_bp, url_prefix="/api/auth")
+app.register_blueprint(patient_bp, url_prefix="/api/patients")
+app.register_blueprint(hospital_bp, url_prefix="/api/hospital")
 
 
-@socketio.on('connect')
+@socketio.on("connect")
 def handle_connect_wrapper(auth=None):
     return handle_connect(auth)
 
 
-@socketio.on('disconnect')
+@socketio.on("disconnect")
 def handle_disconnect_wrapper():
     handle_disconnect()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.logger.info("Starting Pulse HMS Backend on ws://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+    socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)

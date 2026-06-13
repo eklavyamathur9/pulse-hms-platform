@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 
 from flask import g
-
 from models import AuditLog, db
 
 
