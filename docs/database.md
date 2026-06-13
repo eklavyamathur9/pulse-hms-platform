@@ -1,19 +1,20 @@
 # Database Documentation
 
-Last reviewed: 2026-05-20
+Last reviewed: 2026-06-13
 
 This document describes the current SQLAlchemy model layer in `backend/models.py`.
 
 ## Current Database
 
-- Engine in local development: SQLite
-- File: `backend/pulse_hms.db`
+- Engine in local development: SQLite (`backend/pulse_hms.db`)
+- Engine in production: PostgreSQL (via `DATABASE_URL` env var)
 - ORM: Flask-SQLAlchemy
-- Schema creation: `db.create_all()` only when `AUTO_CREATE_TABLES=true`
-- Seed: `backend/seed.py` upserts local demo data and hashes demo passwords
+- Schema creation (legacy): `db.create_all()` when `AUTO_CREATE_TABLES=true`
+- Schema creation (recommended): `flask db upgrade` via Alembic migrations
+- Seed: `backend/seed.py` upserts local demo data
 - Reset: `backend/seed.py --reset` drops and recreates local SQLite tables after safety checks
-- Migrations: Flask-Migrate/Alembic initialized in `backend/migrations`
-- Current migration head: `9eb8f3530f9f`
+- Migrations: Flask-Migrate/Alembic — baseline migration in `backend/migrations/versions/`
+- Current migration head: `58e5f1bc23af` (initial baseline — creates all tables with indexes and constraints)
 
 ## Model Overview
 
@@ -242,11 +243,7 @@ Routes and socket handlers should always filter tenant-owned records by `hospita
 
 | Issue | Severity | Affected Modules | Probable Impact | Incremental Improvement | Difficulty |
 | --- | --- | --- | --- | --- | --- |
-| No migrations | High | `models.py`, deployment | Schema changes are risky and manual | Add Flask-Migrate/Alembic | Medium |
-| SQLite active database | High | whole backend | Not suitable for concurrent production workloads | Move to PostgreSQL | Medium |
-| No DB uniqueness for tenant email/contact | Medium | `User`, auth routes | Race conditions can create duplicate accounts | Add unique constraints | Medium |
+| SQLite default in dev | Low | whole backend | Not suitable for concurrent production workloads | Use PostgreSQL via DATABASE_URL in production | Low |
 | String statuses | Medium | workflow routes, socket events | Typos and invalid states possible | Centralize constants/enums | Low |
 | No relationship properties | Medium | all route modules | Repeated manual lookups and N+1 patterns | Add SQLAlchemy relationships | Medium |
-| No indexes beyond PK/unique subdomain | Medium | queue/search endpoints | Slow queries as data grows | Add indexes for tenant/status/date fields | Medium |
-| Seed reset drops all data | Low | `seed.py --reset` | Dangerous if misused | Reset mode is explicit and guarded against production/non-local use | Low |
 | No audit tables | High | clinical/billing/admin actions | Weak compliance and traceability | Add `AuditLog` model | Medium |

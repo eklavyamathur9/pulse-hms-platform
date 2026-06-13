@@ -122,6 +122,13 @@ def seed_db(reset=False):
             db.drop_all()
 
         db.create_all()
+
+        inspector = db.inspect(db.engine)
+        tables = inspector.get_table_names()
+        if not tables:
+            print("No tables found. Run `flask db upgrade` first or set AUTO_CREATE_TABLES=true")
+            return
+
         hospital = upsert_hospital()
         db.session.flush()
 

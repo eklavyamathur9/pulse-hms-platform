@@ -6,13 +6,19 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - FLASK_ENV=development
+      - FLASK_ENV=${FLASK_ENV:-development}
       - SECRET_KEY=${SECRET_KEY:-pulse-dev-secret}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-pulse-dev-jwt-secret}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///app/pulse_hms.db}
+      - AUTO_CREATE_TABLES=${AUTO_CREATE_TABLES:-true}
     volumes:
       - ./backend:/app
     command: python app.py
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
 
   frontend:
     build:
@@ -23,3 +29,22 @@ services:
       - VITE_API_URL=http://localhost:5000/api
       - VITE_SOCKET_URL=http://localhost:5000
     command: npm run dev -- --host 0.0.0.0
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: pulse_hms
+      POSTGRES_USER: pulse_user
+      POSTGRES_PASSWORD: pulse_pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse_user -d pulse_hms"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:

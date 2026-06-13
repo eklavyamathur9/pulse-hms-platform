@@ -1,6 +1,6 @@
 # Deployment Documentation
 
-Last reviewed: 2026-05-16
+Last reviewed: 2026-06-13
 
 This document describes the current deployment and runtime setup. It is development-oriented.
 
@@ -29,15 +29,16 @@ Default URLs:
 
 ## Docker Compose
 
-`docker-compose.yml` defines two services:
+`docker-compose.yml` defines three services:
 
 ```mermaid
 flowchart LR
   Compose[docker-compose.yml] --> Backend[backend service]
   Compose --> Frontend[frontend service]
+  Compose --> DB[db - PostgreSQL 16]
   Backend --> Python[python app.py]
+  Backend -.-> DB[(PostgreSQL)]
   Frontend --> Vite[npm run dev -- --host 0.0.0.0]
-  Python --> SQLite[(backend/pulse_hms.db)]
 ```
 
 Backend service:
@@ -46,6 +47,16 @@ Backend service:
 - Port: `5000:5000`
 - Mount: `./backend:/app`
 - Command: `python app.py`
+- Depends on: `db` (optional, falls back to SQLite if unavailable)
+
+Database service:
+
+- Image: `postgres:16-alpine`
+- Port: `5432:5432`
+- Default credentials: `pulse_user` / `pulse_pass`
+- Database: `pulse_hms`
+- Persistent volume: `pgdata`
+- Health check via `pg_isready`
 
 Frontend service:
 
@@ -61,7 +72,8 @@ Backend:
 
 - `SECRET_KEY`
 - `JWT_SECRET_KEY`
-- `DATABASE_URL`
+- `DATABASE_URL` — `sqlite:///...` for dev, `postgresql://user:pass@host/db` for production
+- `AUTO_CREATE_TABLES` — `true` (dev, create tables via SQLAlchemy) or `false` (use Alembic migrations)
 - `CORS_ORIGINS`
 - `FLASK_ENV`
 
@@ -90,20 +102,18 @@ npm run build
 
 Current state:
 
-- No CI configuration exists.
-- No deployment pipeline exists.
-- No automated test job exists.
-- No migration check exists.
+- GitHub Actions CI in `.github/workflows/ci.yml` runs on push/PR to main.
+- Backend: `py_compile` all Python files, `pytest` test suite (29 tests).
+- Frontend: `npm run build` and `npm run lint`.
+- Migration check: not yet in CI.
 
 ## Production Readiness Gaps
 
 | Issue | Severity | Affected Modules | Probable Impact | Incremental Improvement | Difficulty |
 | --- | --- | --- | --- | --- | --- |
 | Docker uses dev servers | High | Dockerfiles, Compose | Not production safe | Add production backend server and static frontend serving | Medium |
-| SQLite persistence | High | backend, database | Poor concurrency/recovery | Use managed PostgreSQL | Medium |
-| No migrations | High | backend models | Unsafe schema evolution | Add Flask-Migrate/Alembic | Medium |
-| Secrets default in code | Medium | backend config | Weak prod security if unset | Fail startup for missing prod secrets | Low |
-| No CI/CD | High | repository | Manual regressions likely | Add GitHub Actions/GitLab CI | Low |
+| PostgreSQL optional in Compose | Medium | docker-compose.yml | Manual override needed for PG | Make PG required and env-configurable | Low |
 | No backup flow | High | database | Data loss risk | Document backup/restore for DB | Medium |
 | No observability | Medium | runtime | Failures hard to diagnose | Add logs, Sentry, metrics | Medium |
+| No migration check in CI | Medium | CI workflow | Migration VCS drift uncaught | Add `flask db check` to CI | Low |
 

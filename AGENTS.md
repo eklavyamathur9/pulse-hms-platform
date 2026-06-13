@@ -10,11 +10,13 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 
 - Frontend: React + Vite SPA in `frontend/`
 - Backend: Flask + Flask-SocketIO API in `backend/`
-- Database: local SQLite file at `backend/pulse_hms.db`
+- Database: SQLite (dev) / PostgreSQL (production) via `DATABASE_URL`
+- Schema management: Alembic migrations (baseline: `58e5f1bc23af`)
 - Realtime: Socket.IO events handled in `backend/app.py`
-- Deployment scaffold: development Docker Compose
+- CI: GitHub Actions (backend compile + pytest, frontend build + lint)
+- Deployment scaffold: development Docker Compose with optional PostgreSQL service
 
-Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, but no migrations, limited tests, no CI, no production server config, and no real payment/compliance integrations.
+Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, local migrations, 29 backend tests, CI, no production server config, and no real payment/compliance integrations.
 
 ## Tech Stack
 
@@ -26,7 +28,7 @@ Backend:
 - Flask-JWT-Extended
 - Flask-SocketIO
 - Flask-CORS
-- SQLite for current local persistence
+- SQLite for current local persistence (PostgreSQL via DATABASE_URL for production)
 
 Frontend:
 
@@ -99,9 +101,10 @@ Known current lint behavior: lint exits successfully but reports four React hook
 
 Current repository state:
 
-- Backend tests exist in `backend/tests/` (pytest suite with 7 API + 6 socket tests).
+- Backend tests exist in `backend/tests/` (pytest suite with 29 tests: 7 API + 6 socket + 16 workflow).
 - No frontend tests exist.
-- No CI exists.
+- CI exists in `.github/workflows/ci.yml` (backend compile + pytest, frontend build + lint).
+- Baseline Alembic migration `58e5f1bc23af` creating all 8 tables with indexes/constraints.
 
 When expanding tests, prioritize:
 
