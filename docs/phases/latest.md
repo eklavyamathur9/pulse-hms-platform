@@ -4,7 +4,7 @@ Date: 2026-06-13
 
 ## Current Repository State
 
-The repository has a database migration foundation, safety rails, CI, and expanded test coverage.
+Socket.IO workflow logic extracted from `app.py` into a domain-organized service layer. All 29 tests pass without changes.
 
 Current implementation:
 
@@ -13,74 +13,81 @@ Current implementation:
 - SQLite database for dev, PostgreSQL config for production
 - JWT auth with role and tenant claims (with is_active check)
 - Tenant-scoped REST routes and Socket.IO room events
+- Domain service layer in `backend/services/` (appointment, vitals, lab, pharmacy)
 - Development Docker Compose with optional PostgreSQL service
 - Alembic baseline migration creating all 8 tables with indexes/constraints
 - Backend tests: 29 tests in `backend/tests/`
 - CI: GitHub Actions workflow (backend + frontend)
 - Linting: ruff (Python), ESLint (JS/JSX)
 
-## What Was Done (Phase 2: Database Migration Foundation)
+## What Was Done (Phase 3: Backend Service Layer Extraction)
 
-### Alembic Baseline Migration
-- Created full baseline migration `58e5f1bc23af` that creates all 8 tables from scratch.
-- Removed old partial migration (`9eb8f3530f9f`) that only added indexes/constraints.
-- Migration verified: applies clean on fresh SQLite, seed works, all 29 tests pass.
-- AUTO_CREATE_TABLES=false mode tested end-to-end.
+### Service Layer Extraction
+- Created `backend/services/__init__.py` with shared socket helpers:
+  - `socket_sessions` dictionary (moved from app.py)
+  - `tenant_room()`, `socket_context()`, `require_socket_roles()`, `socket_payload()`
+  - `tenant_appointment()`, `tenant_lab_test()`, `tenant_prescription()`
+  - `handle_connect()`, `handle_disconnect()`
+- Created `backend/services/appointment.py`:
+  - `action_book_appointment` — book, create invoice, broadcast to tenant room
+  - `action_arrive` — mark arrived with role/ownership checks
+  - `action_cancel_appointment` — cancel if status=Scheduled with ownership check
+- Created `backend/services/vitals.py`:
+  - `action_submit_vitals` — record vitals, transition to Vitals_Taken
+- Created `backend/services/lab.py`:
+  - `action_prescribe_test` — order lab test, transition to Lab_Pending
+  - `action_pay_test` — mark paid (patient self-service check)
+  - `action_upload_test_report` — complete test, transition to Consult_Pending_Review
+- Created `backend/services/pharmacy.py`:
+  - `action_prescribe_meds` — prescribe, auto-generate invoice, transition to Completed
+  - `action_dispense_meds` — mark dispensed
+- Updated `backend/app.py`:
+  - Imports domain modules and registers handlers via `register(socketio)`
+  - Removed inline socket event handlers (~300 lines → cleaner setup)
+  - Retains `handle_connect`/`handle_disconnect` wrappers
 
-### PostgreSQL Support
-- Added `DATABASE_URL` env var support to `config.py`.
-- Production environment validation rejects SQLite in production.
-- `docker-compose.yml` adds optional PostgreSQL 16 service with health check.
-- `.env.example` updated with both SQLite and PostgreSQL connection strings.
-
-### Documentation Updates
-- `docs/database.md`: Updated for migration workflow, PostgreSQL, current migration head.
-- `docs/deployment.md`: Updated for CI existence, PostgreSQL service, migration workflow.
-- `docs/phases/latest.md`: This handoff document.
-
-### Code Changes
-- `backend/config.py`: Production validation now rejects SQLite.
-- `backend/seed.py`: Added table existence check before seeding.
-- `backend/.env.example`: Documented both database backends.
-- `docker-compose.yml`: Added PostgreSQL 16 service, optional dependency.
+### No Behavioral Changes
+- All socket event payloads, responses, auth logic, role checks, and DB operations are identical.
+- All 29 existing tests pass without modification.
 
 ## Important Findings
 
-- Alembic migrations now handle schema creation — no more reliance on `db.create_all()`.
-- PostgreSQL path is config-ready but untested in CI (no PG service in GitHub Actions).
-- 29 tests pass in both AUTO_CREATE_TABLES=true and migration modes.
-- Docker Compose PostgreSQL is optional — dev defaults to SQLite.
+- The `register(socketio)` pattern avoids circular imports and keeps each domain self-contained.
+- Shared helpers in `services/__init__.py` eliminate duplication across domains.
+- `socket_sessions` remains importable from `app` for test compatibility.
+- No tests needed modification — the extraction is purely structural.
 
 ## Architectural Weaknesses (Updated)
 
 Highest priority remaining:
 
-1. Coupled Socket.IO workflow logic in `app.py` (extract to service layer).
-2. Large dashboard components (PatientDashboard: 915 lines).
-3. No audit logs.
-4. Dev-only deployment (no production server).
-5. No pre-commit hooks installed locally (config exists).
-6. PostgreSQL not tested in CI.
+1. Large dashboard components (PatientDashboard: 915 lines).
+2. No audit logs.
+3. Dev-only deployment (no production server).
+4. No pre-commit hooks installed locally (config exists).
+5. PostgreSQL not tested in CI.
+6. No service-layer unit tests beyond socket integration tests.
 
 ## Suggested Next Phase
 
-**Phase 3: Backend Service Layer Extraction**
+**Phase 4: Observability & Audit Trail**
 
 Focus:
-- Extract Socket.IO event handling from `app.py` into dedicated service modules.
-- Organize by domain (appointment, lab, pharmacy, billing).
-- Add unit tests for service logic.
-- Keep route handlers thin.
+- Add structured logging (Python logging, JSON format for production).
+- Add `AuditLog` database model and middleware for clinical/billing actions.
+- Add request ID tracking for traceability.
+- Add health check enhancements (Socket.IO status, migration status).
 
 ## Likely Impacted Modules For Next Phase
 
-- `backend/app.py` (socket event handlers → service layer)
-- `backend/services/` (new directory with domain modules)
-- `backend/tests/` (service unit tests)
+- `backend/models.py` (AuditLog model + migration)
+- `backend/app.py` (logging middleware, request ID)
+- `backend/services/` (audit logging in service handlers)
+- `backend/tests/` (audit log tests)
 
 ## Implementation Cautions
 
-- Do not change route or socket payload formats — frontend depends on them.
-- Extract one domain at a time, test thoroughly between extractions.
-- Run all 29 tests after each extraction.
-- Update `docs/backend.md` with service layer documentation.
+- Keep audit logging non-blocking — never fail the primary operation if audit write fails.
+- Do not log PII to stdout in production.
+- Run all 29 tests before and after adding audit model.
+- Generate Alembic migration for AuditLog table.
