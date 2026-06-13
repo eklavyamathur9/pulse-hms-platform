@@ -1,7 +1,9 @@
 from datetime import datetime
 
+from flask import g
 from flask_socketio import emit
 
+from audit import log_action
 from models import Appointment, Invoice, User, db
 from services import (
     require_socket_roles,
@@ -59,6 +61,16 @@ def register(socketio):
         db.session.add(invoice)
         db.session.commit()
 
+        log_action(
+            hospital_id=ctx['hospital_id'],
+            user_id=ctx['user_id'],
+            action='book_appointment',
+            resource_type='appointment',
+            resource_id=new_appt.id,
+            details={'doctor_id': doctor.id, 'date': new_appt.date_str},
+            ip_address=getattr(g, 'ip_address', None),
+        )
+
         emit('appointment_booked', {
             'id': new_appt.id,
             'patient_id': new_appt.patient_id,
@@ -100,4 +112,12 @@ def register(socketio):
                 return
             appt.status = 'Cancelled'
             db.session.commit()
+            log_action(
+                hospital_id=ctx['hospital_id'],
+                user_id=ctx['user_id'],
+                action='cancel_appointment',
+                resource_type='appointment',
+                resource_id=appt.id,
+                ip_address=getattr(g, 'ip_address', None),
+            )
             emit('queue_updated', {'id': appt.id, 'status': 'Cancelled'}, room=tenant_room(ctx['hospital_id']))

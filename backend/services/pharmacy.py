@@ -1,5 +1,7 @@
+from flask import g
 from flask_socketio import emit
 
+from audit import log_action
 from models import Prescription, db
 from hospital_routes import create_invoice_for_appointment
 from services import (
@@ -48,6 +50,16 @@ def register(socketio):
             except Exception:
                 pass
 
+            log_action(
+                hospital_id=ctx['hospital_id'],
+                user_id=ctx['user_id'],
+                action='prescribe_meds',
+                resource_type='prescription',
+                resource_id=prescription.id,
+                details={'appointment_id': appt.id},
+                ip_address=getattr(g, 'ip_address', None),
+            )
+
             emit('queue_updated', {'id': appt.id, 'status': 'Completed'}, room=tenant_room(ctx['hospital_id']))
 
     @socketio.on('action_dispense_meds')
@@ -63,4 +75,12 @@ def register(socketio):
         if rx:
             rx.status = 'Dispensed'
             db.session.commit()
+            log_action(
+                hospital_id=ctx['hospital_id'],
+                user_id=ctx['user_id'],
+                action='dispense_meds',
+                resource_type='prescription',
+                resource_id=rx.id,
+                ip_address=getattr(g, 'ip_address', None),
+            )
             emit('queue_updated', {'rx_id': rx.id, 'action': 'dispensed'}, room=tenant_room(ctx['hospital_id']))

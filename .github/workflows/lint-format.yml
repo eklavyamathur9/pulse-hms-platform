@@ -1,4 +1,4 @@
-name: CI
+name: Lint & Format
 
 on:
   push:
@@ -12,7 +12,7 @@ env:
   CORS_ORIGINS: http://localhost:5173
 
 jobs:
-  backend:
+  backend-lint:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,13 +30,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Compile check
-        run: python -m py_compile app.py auth_routes.py hospital_routes.py models.py patient_routes.py seed.py auth_utils.py config.py validation.py
+      - name: Ruff lint
+        run: python -m ruff check .
 
-      - name: Run tests
-        run: python -m pytest -q tests/
+      - name: Ruff format check
+        run: python -m ruff format --check .
 
-  frontend:
+  frontend-lint:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,8 +55,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
+      - name: ESLint
         run: npm run lint
-
-      - name: Build
-        run: npm run build

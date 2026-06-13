@@ -1,11 +1,15 @@
 # ===== Backend (Python/Flask) =====
 backend/venv/
+backend/.venv/
 backend/__pycache__/
 backend/*.pyc
 backend/pulse_hms.db
 *.pyc
 __pycache__/
 .pytest_cache/
+.ruff_cache/
+*.egg-info/
+requirements-lock.txt
 
 # ===== Frontend (Node/Vite) =====
 frontend/node_modules/
@@ -34,3 +38,8 @@ desktop.ini
 # ===== Logs =====
 *.log
 npm-debug.log*
+
+# ===== Build Artifacts =====
+*.pyc
+__pycache__/
+.ruff_cache/

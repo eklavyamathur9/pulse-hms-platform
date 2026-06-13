@@ -1,5 +1,7 @@
+from flask import g
 from flask_socketio import emit
 
+from audit import log_action
 from models import LabTest, db
 from services import (
     require_socket_roles,
@@ -38,6 +40,15 @@ def register(socketio):
             db.session.add(lab_test)
             appt.status = 'Lab_Pending'
             db.session.commit()
+            log_action(
+                hospital_id=ctx['hospital_id'],
+                user_id=ctx['user_id'],
+                action='prescribe_test',
+                resource_type='lab_test',
+                resource_id=lab_test.id,
+                details={'test_name': data.get('test_name')},
+                ip_address=getattr(g, 'ip_address', None),
+            )
             emit('queue_updated', {'id': appt.id, 'status': 'Lab_Pending'}, room=tenant_room(ctx['hospital_id']))
 
     @socketio.on('action_pay_test')

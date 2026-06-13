@@ -148,3 +148,23 @@ class Invoice(db.Model):
     total = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(30), default='Unpaid')  # Unpaid, Paid
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class AuditLog(db.Model):
+    __table_args__ = (
+        db.Index('ix_audit_log_hospital', 'hospital_id'),
+        db.Index('ix_audit_log_user', 'user_id'),
+        db.Index('ix_audit_log_resource', 'resource_type', 'resource_id'),
+        db.Index('ix_audit_log_created', 'created_at'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey('hospital.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    action = db.Column(db.String(100), nullable=False)
+    resource_type = db.Column(db.String(50), nullable=False)
+    resource_id = db.Column(db.Integer, nullable=True)
+    details = db.Column(db.Text, nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    request_id = db.Column(db.String(36), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

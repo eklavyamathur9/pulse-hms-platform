@@ -10,7 +10,8 @@ os.environ.setdefault("SOCKET_ASYNC_MODE", "threading")
 import pytest
 from werkzeug.security import generate_password_hash
 
-from app import app, socket_sessions, socketio
+from app import app, socketio
+from services import socket_sessions
 from models import Appointment, Hospital, Invoice, User, db
 
 
