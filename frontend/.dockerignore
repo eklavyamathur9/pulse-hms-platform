@@ -1,0 +1,24 @@
+# Environment
+.env
+.env.*
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Git
+.git
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

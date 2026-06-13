@@ -3,7 +3,7 @@ repos:
     rev: v0.9.0
     hooks:
       - id: ruff
-        args: [--fix]
+        args: [--fix, --select, "E,F,W,I,UP,N,SIM,S"]
       - id: ruff-format
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

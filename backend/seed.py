@@ -1,11 +1,9 @@
 import argparse
 import os
 
-from werkzeug.security import generate_password_hash
-
 from app import app, db
 from models import Hospital, User
-
+from werkzeug.security import generate_password_hash
 
 DEMO_HOSPITAL = {
     "name": "Pulse Care General",
@@ -73,9 +71,7 @@ def guard_reset():
     database_url = app.config.get("SQLALCHEMY_DATABASE_URI", "")
     allow_reset = os.environ.get("PULSE_ALLOW_DB_RESET") == "true"
     if not database_url.startswith("sqlite:///") and not allow_reset:
-        raise RuntimeError(
-            "Refusing to reset a non-SQLite database unless PULSE_ALLOW_DB_RESET=true."
-        )
+        raise RuntimeError("Refusing to reset a non-SQLite database unless PULSE_ALLOW_DB_RESET=true.")
 
 
 def upsert_hospital():

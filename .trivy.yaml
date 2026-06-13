@@ -1,0 +1,14 @@
+severity:
+  - HIGH
+  - CRITICAL
+
+vulnerability:
+  ignore-unfixed: true
+  type:
+    - os
+    - library
+
+scan:
+  skip-dirs:
+    - frontend/node_modules
+    - backend/venv

@@ -4,7 +4,7 @@ Date: 2026-06-13
 
 ## Current Repository State
 
-Socket.IO workflow logic extracted from `app.py` into a domain-organized service layer. All 29 tests pass without changes.
+Infrastructure improvements (Makefile, CI split, Dockerfiles, security) + observability (AuditLog, structured logging, request IDs).
 
 Current implementation:
 
@@ -14,80 +14,108 @@ Current implementation:
 - JWT auth with role and tenant claims (with is_active check)
 - Tenant-scoped REST routes and Socket.IO room events
 - Domain service layer in `backend/services/` (appointment, vitals, lab, pharmacy)
+- Audit logging for clinical/billing actions
+- Structured JSON logging with request ID tracking
+- Multi-stage Dockerfiles with non-root user
+- Focused CI workflows (lint, test, security, docker-build)
 - Development Docker Compose with optional PostgreSQL service
-- Alembic baseline migration creating all 8 tables with indexes/constraints
+- Alembic migrations (baseline + audit_log)
 - Backend tests: 29 tests in `backend/tests/`
-- CI: GitHub Actions workflow (backend + frontend)
+- CI: GitHub Actions (4 workflows)
 - Linting: ruff (Python), ESLint (JS/JSX)
+- Security: ruff security rules, pip-audit in CI, Trivy config
+- Makefile for common dev tasks
 
-## What Was Done (Phase 3: Backend Service Layer Extraction)
+## What Was Done (Phase 3.5 + Phase 4)
 
-### Service Layer Extraction
-- Created `backend/services/__init__.py` with shared socket helpers:
-  - `socket_sessions` dictionary (moved from app.py)
-  - `tenant_room()`, `socket_context()`, `require_socket_roles()`, `socket_payload()`
-  - `tenant_appointment()`, `tenant_lab_test()`, `tenant_prescription()`
-  - `handle_connect()`, `handle_disconnect()`
-- Created `backend/services/appointment.py`:
-  - `action_book_appointment` — book, create invoice, broadcast to tenant room
-  - `action_arrive` — mark arrived with role/ownership checks
-  - `action_cancel_appointment` — cancel if status=Scheduled with ownership check
-- Created `backend/services/vitals.py`:
-  - `action_submit_vitals` — record vitals, transition to Vitals_Taken
-- Created `backend/services/lab.py`:
-  - `action_prescribe_test` — order lab test, transition to Lab_Pending
-  - `action_pay_test` — mark paid (patient self-service check)
-  - `action_upload_test_report` — complete test, transition to Consult_Pending_Review
-- Created `backend/services/pharmacy.py`:
-  - `action_prescribe_meds` — prescribe, auto-generate invoice, transition to Completed
-  - `action_dispense_meds` — mark dispensed
-- Updated `backend/app.py`:
-  - Imports domain modules and registers handlers via `register(socketio)`
-  - Removed inline socket event handlers (~300 lines → cleaner setup)
-  - Retains `handle_connect`/`handle_disconnect` wrappers
+### Makefile
+- `make lint`, `make test`, `make build`, `make clean`
+- `make compose-up`, `make compose-down`, `make setup`, `make dev`
+- `make security-scan`, `make freeze` (generate lockfile)
 
-### No Behavioral Changes
-- All socket event payloads, responses, auth logic, role checks, and DB operations are identical.
-- All 29 existing tests pass without modification.
+### CI/CD Improvements
+- Split monolithic `ci.yml` into 4 focused workflows:
+  - `lint-format.yml` — ruff lint + format (backend), eslint (frontend)
+  - `test.yml` — pytest (backend), npm build (frontend)
+  - `security-scan.yml` — pip-audit + ruff security rules, weekly schedule
+  - `docker-build.yml` — validate both images build (no push)
+
+### Docker Improvements
+- `.dockerignore` at root, backend, and frontend to reduce build context
+- Multi-stage Dockerfiles with non-root user:
+  - Backend: builder stage → slim runtime as `pulse` user, healthcheck
+  - Frontend: builder stage → nginx runtime, proxy config for `/api/` and `/socket.io/`
+
+### Security
+- Pre-commit hooks updated: ruff `--select S` (security rules) enabled
+- `.trivy.yaml` configured for HIGH/CRITICAL vulnerability scanning
+- Ruff security lint added to pyproject.toml (`select = ["S"]`)
+- pip-audit workflow runs on PR and weekly schedule
+
+### Scripts
+- `scripts/setup.sh` — full local dev setup (deps, DB migrations, seed)
+- `scripts/seed.sh` — database seed wrapper
+- `scripts/health-check.sh` — endpoint health verification
+
+### AuditLog Model (Phase 4)
+- `backend/models.py`: Added `AuditLog` table
+  - Columns: `hospital_id`, `user_id`, `action`, `resource_type`, `resource_id`, `details`, `ip_address`, `request_id`, `created_at`
+  - Indexes on: hospital, user, resource, created_at
+- Migration `aaed159d1748` creates the audit_log table
+- `backend/audit.py`: `log_action()` helper for recording audit events
+- Integrated audit logging into critical socket handlers:
+  - `book_appointment`, `cancel_appointment`
+  - `prescribe_test`
+  - `prescribe_meds`, `dispense_meds`
+
+### Structured Logging (Phase 4)
+- `backend/logging_config.py`:
+  - JSON log formatter with timestamp, level, logger, message
+  - Request ID via `X-Request-ID` header (auto-generated if missing)
+  - `LOG_LEVEL` and `LOG_FORMAT` env vars
+- `app.py`: before/after request hooks for request ID middleware
+- All responses now include `X-Request-ID` header for traceability
+
+### Code Quality
+- `pyproject.toml` updated with ruff security rules + pytest config
+- Ruff security exclusions for test files and seed.py
 
 ## Important Findings
 
-- The `register(socketio)` pattern avoids circular imports and keeps each domain self-contained.
-- Shared helpers in `services/__init__.py` eliminate duplication across domains.
-- `socket_sessions` remains importable from `app` for test compatibility.
-- No tests needed modification — the extraction is purely structural.
+- JSON logging formatter must handle `g` access outside app context gracefully (fixed with try/except)
+- Socket sessions moved to `services/__init__.py` — conftest.py updated accordingly
+- All 29 existing tests pass without behavioral changes
+- Audit logging is non-blocking and runs after primary DB commit
+- Request ID is propagated in response headers for client-side debugging
 
 ## Architectural Weaknesses (Updated)
 
 Highest priority remaining:
 
 1. Large dashboard components (PatientDashboard: 915 lines).
-2. No audit logs.
-3. Dev-only deployment (no production server).
-4. No pre-commit hooks installed locally (config exists).
-5. PostgreSQL not tested in CI.
-6. No service-layer unit tests beyond socket integration tests.
+2. No pre-commit hooks installed locally (config exists, `pre-commit install` not run).
+3. PostgreSQL not tested in CI.
+4. No service-layer unit tests beyond socket integration tests.
+5. No production server config (gunicorn not wired into Docker CMD in production mode).
 
 ## Suggested Next Phase
 
-**Phase 4: Observability & Audit Trail**
+**Phase 5: Frontend Code Splitting & Component Extraction**
 
 Focus:
-- Add structured logging (Python logging, JSON format for production).
-- Add `AuditLog` database model and middleware for clinical/billing actions.
-- Add request ID tracking for traceability.
-- Add health check enhancements (Socket.IO status, migration status).
+- Split PatientDashboard (915 lines) into smaller components.
+- Add React Router lazy loading for role dashboards.
+- Add frontend error boundaries.
+- Consider adding component tests.
 
 ## Likely Impacted Modules For Next Phase
 
-- `backend/models.py` (AuditLog model + migration)
-- `backend/app.py` (logging middleware, request ID)
-- `backend/services/` (audit logging in service handlers)
-- `backend/tests/` (audit log tests)
+- `frontend/src/components/` (new component files)
+- `frontend/src/App.jsx` (lazy routes)
+- `frontend/src/dashboards/PatientDashboard.jsx` (refactor)
 
 ## Implementation Cautions
 
-- Keep audit logging non-blocking — never fail the primary operation if audit write fails.
-- Do not log PII to stdout in production.
-- Run all 29 tests before and after adding audit model.
-- Generate Alembic migration for AuditLog table.
+- Do not change API or socket payload contracts.
+- Extract one dashboard section at a time.
+- Verify all role dashboards still render after changes.

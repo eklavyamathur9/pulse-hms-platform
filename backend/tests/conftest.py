@@ -8,10 +8,10 @@ os.environ.setdefault("CORS_ORIGINS", "http://localhost:5173")
 os.environ.setdefault("SOCKET_ASYNC_MODE", "threading")
 
 import pytest
-from werkzeug.security import generate_password_hash
-
-from app import app, socket_sessions, socketio
+from app import app, socketio
 from models import Appointment, Hospital, Invoice, User, db
+from services import socket_sessions
+from werkzeug.security import generate_password_hash
 
 
 @pytest.fixture()
@@ -50,8 +50,12 @@ def seeded(client):
             specialization="Cardiology",
             consultation_fee=500,
         )
-        other_patient = make_user(hospital_two.id, "patient", "Patient Two", contact="2222222222", password="patientpass")
-        other_doctor = make_user(hospital_two.id, "doctor", "Doctor Two", email="doctor@two.test", password="doctorpass")
+        other_patient = make_user(
+            hospital_two.id, "patient", "Patient Two", contact="2222222222", password="patientpass"
+        )
+        other_doctor = make_user(
+            hospital_two.id, "doctor", "Doctor Two", email="doctor@two.test", password="doctorpass"
+        )
 
         appointment = Appointment(
             hospital_id=hospital_one.id,

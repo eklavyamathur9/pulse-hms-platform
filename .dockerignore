@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Environment
+.env
+.env.*
+backend/.env
+backend/.env.*
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.ruff_cache/
+*.egg-info/
+
+# Dependencies
+**/venv/
+**/.venv/
+node_modules/
+
+# Build artifacts
+frontend/dist/
+frontend/node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs (not needed in runtime image)
+docs/
+AGENTS.md
+Makefile
+README.md
+
+# CI
+.github/
