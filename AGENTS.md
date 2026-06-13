@@ -2,7 +2,7 @@
 
 Persistent project memory for AI-assisted development in Pulse HMS.
 
-Last reviewed: 2026-05-16
+Last reviewed: 2026-06-13
 
 ## Project Snapshot
 
@@ -14,7 +14,7 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 - Realtime: Socket.IO events handled in `backend/app.py`
 - Deployment scaffold: development Docker Compose
 
-Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, but no migrations, no automated tests, no CI, no production server config, and no real payment/compliance integrations.
+Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, but no migrations, limited tests, no CI, no production server config, and no real payment/compliance integrations.
 
 ## Tech Stack
 
@@ -79,7 +79,11 @@ Frontend:
 Run from repository root unless noted:
 
 ```bash
-python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py
+```
+
+```bash
+python -m pytest -q backend/tests/
 ```
 
 Run from `frontend/`:
@@ -95,11 +99,11 @@ Known current lint behavior: lint exits successfully but reports four React hook
 
 Current repository state:
 
-- No backend tests exist.
+- Backend tests exist in `backend/tests/` (pytest suite with 7 API + 6 socket tests).
 - No frontend tests exist.
 - No CI exists.
 
-When tests are added, prioritize:
+When expanding tests, prioritize:
 
 - Tenant isolation.
 - Role authorization.
@@ -116,7 +120,7 @@ When tests are added, prioritize:
 - Do not use `db.drop_all()` outside local seed/reset workflows.
 - Do not invent external integrations in documentation.
 - Do not silently rewrite large dashboard components during documentation tasks.
-- Do not treat `old_vanilla_version/` as active runtime code.
+- `old_vanilla_version/` has been removed; do not reintroduce archived code.
 
 ## Implementation Philosophy
 

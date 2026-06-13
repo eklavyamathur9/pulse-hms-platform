@@ -1,6 +1,6 @@
 # Pulse HMS Platform
 
-Pulse HMS is a hospital management SaaS prototype with a React frontend, Flask backend, Socket.IO real-time workflows, and a local SQLite database.
+Pulse HMS is a hospital management SaaS platform with a React frontend, Flask backend, Socket.IO real-time workflows, and a local SQLite database.
 
 This repository has been initialized as an AI-native engineering workspace. Start future work by reading:
 
@@ -14,7 +14,7 @@ This repository has been initialized as an AI-native engineering workspace. Star
 - Frontend: React + Vite
 - Backend: Flask + Flask-SocketIO
 - Auth: JWT via Flask-JWT-Extended
-- Database: SQLite through Flask-SQLAlchemy
+- Database: SQLite through Flask-SQLAlchemy (target: PostgreSQL)
 - Realtime: Socket.IO
 - Local deployment: Docker Compose or manual dev servers
 
@@ -35,6 +35,7 @@ Backend:
 
 ```bash
 cd backend
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python seed.py
@@ -61,20 +62,20 @@ Default local URLs:
 Backend syntax:
 
 ```bash
-backend/venv/bin/python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py
 ```
 
 Backend tests:
 
 ```bash
-backend/venv/bin/pytest -q
+python -m pytest -q backend/tests/
 ```
 
 Database migrations:
 
 ```bash
-backend/venv/bin/flask --app backend/app.py db -d backend/migrations check
-backend/venv/bin/flask --app backend/app.py db -d backend/migrations upgrade
+flask --app backend/app.py db -d backend/migrations check
+flask --app backend/app.py db -d backend/migrations upgrade
 ```
 
 Frontend:
@@ -84,6 +85,10 @@ cd frontend
 npm run build
 npm run lint
 ```
+
+## Enterprise Roadmap
+
+See `docs/enterprise-roadmap.md` for the full 10-phase plan to production.
 
 ## Documentation Map
 
@@ -95,11 +100,12 @@ npm run lint
 - `docs/deployment.md`: local deployment and env
 - `docs/coding-standards.md`: current conventions
 - `docs/current-status.md`: repository state and priorities
-- `docs/roadmap.md`: suggested phased roadmap
-- `docs/ai-bootstrap.md`: future chat/bootstrap process
+- `docs/enterprise-roadmap.md`: enterprise development roadmap
+- `docs/roadmap.md`: legacy phased roadmap (superseded)
+- `docs/ai-bootstrap.md`: AI session bootstrap process
 - `docs/decisions/`: architectural decision records
 - `docs/phases/`: phase analyses and handoffs
 
 ## Important Caveat
 
-This project is not production-ready. Known gaps include missing migrations, missing tests, SQLite persistence, development Docker images, limited validation, and no real payment/compliance integrations.
+This project is not production-ready. Known gaps include missing migrations, limited tests, SQLite persistence, development Docker images, limited validation, and no real payment/compliance integrations.

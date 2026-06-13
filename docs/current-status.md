@@ -1,6 +1,6 @@
 # Current Status
 
-Last reviewed: 2026-05-16
+Last reviewed: 2026-06-13
 
 ## Completed Systems And Features
 
@@ -44,6 +44,15 @@ Current implemented capabilities:
 - Keep docs updated after architecture-affecting changes.
 - Keep work phase-based.
 - Current runtime is development-first.
+
+## Recent Cleanup
+
+- Removed `old_vanilla_version/` (legacy archive).
+- Removed `examples/` and `scripts/` (empty placeholders).
+- Removed unused Vite starter assets (`react.svg`, `vite.svg`, `hero.png`, `App.css`, `icons.svg`).
+- Updated favicon to medical cross theme.
+- Updated `index.html` title.
+- Refreshed `AGENTS.md` with accurate test status.
 
 ## Pending Work
 

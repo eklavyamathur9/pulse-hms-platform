@@ -1,8 +1,10 @@
-# Roadmap
+# Roadmap (Legacy)
 
-Last reviewed: 2026-05-16
+Last reviewed: 2026-06-13
 
-This roadmap is inferred from current implementation and known gaps. It is a suggested sequence, not a commitment.
+This roadmap has been superseded by `docs/enterprise-roadmap.md`, which provides an expanded, enterprise-focused 10-phase plan.
+
+This file is retained for reference.
 
 ## Phase 0: AI-Native Repository Memory
 

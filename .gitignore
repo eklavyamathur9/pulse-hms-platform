@@ -5,6 +5,7 @@ backend/*.pyc
 backend/pulse_hms.db
 *.pyc
 __pycache__/
+.pytest_cache/
 
 # ===== Frontend (Node/Vite) =====
 frontend/node_modules/
