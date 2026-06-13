@@ -1,6 +1,6 @@
 # Backend Architecture
 
-Last reviewed: 2026-05-20
+Last reviewed: 2026-06-13
 
 The backend is a Flask application with REST endpoints, Flask-SocketIO real-time events, SQLAlchemy models, and JWT-based role/tenant authorization.
 
@@ -18,20 +18,26 @@ It currently does all of the following:
 - Initializes Socket.IO.
 - Calls `db.create_all()` only when `AUTO_CREATE_TABLES=true`.
 - Registers route blueprints.
-- Defines Socket.IO event handlers.
+- Registers domain socket handlers from `services/`.
 - Starts the dev server when run directly.
 
 ## Backend Folder Structure
 
 ```text
 backend/
-  app.py             # Flask app and Socket.IO events
+  app.py             # Flask app and socket handler registration
   auth_routes.py     # Auth, doctors, admin users
   auth_utils.py      # JWT/RBAC/tenant helper functions
   hospital_routes.py # Hospital operations and billing APIs
   patient_routes.py  # Patient-specific APIs
   models.py          # SQLAlchemy models
   seed.py            # Local idempotent seed script, with guarded --reset mode
+  services/          # Domain service layer (socket event handlers)
+    __init__.py      # Shared socket helpers and session management
+    appointment.py   # Appointment booking, arrival, cancellation
+    vitals.py        # Vitals submission
+    lab.py           # Lab test prescribing, payment, reporting
+    pharmacy.py      # Prescription and dispensing
   migrations/        # Flask-Migrate/Alembic migration repository
   pulse_hms.db       # Local SQLite database file
   requirements.txt
@@ -185,7 +191,16 @@ Superadmin handling exists in helpers, but most tenant routes still use `current
 
 ## Socket.IO Layer
 
-Socket.IO handlers are defined in `app.py`.
+Socket.IO handlers are organized as domain service modules in `backend/services/`.
+
+| Module | Handlers | Roles |
+| --- | --- | --- |
+| `services/appointment.py` | `action_book_appointment`, `action_arrive`, `action_cancel_appointment` | patient, staff, admin |
+| `services/vitals.py` | `action_submit_vitals` | staff, admin |
+| `services/lab.py` | `action_prescribe_test`, `action_pay_test`, `action_upload_test_report` | doctor, patient, staff, admin |
+| `services/pharmacy.py` | `action_prescribe_meds`, `action_dispense_meds` | doctor, staff, admin |
+
+`services/__init__.py` provides shared helpers (`require_socket_roles`, `socket_payload`, `tenant_appointment`, etc.) and manages `socket_sessions`.
 
 Connection flow:
 
@@ -203,7 +218,7 @@ sequenceDiagram
   S->>S: join room hospital:<hospital_id>
 ```
 
-Socket session data is stored in an in-memory dictionary named `socket_sessions`.
+Socket session data is stored in `services.socket_sessions`.
 Local/test Socket.IO uses `SOCKET_ASYNC_MODE=threading`; production deployment strategy is still pending.
 
 Tenant room naming:
@@ -347,7 +362,7 @@ Canonical detailed list: `docs/architectural-weaknesses.md`.
 
 Backend-specific highlights:
 
-- `app.py` mixes app setup and Socket.IO workflow logic.
+- Socket.IO handlers extracted from `app.py` into `backend/services/` (appointment, vitals, lab, pharmacy).
 - Flask-Migrate/Alembic is initialized in `backend/migrations`.
 - Startup schema creation is controlled by `AUTO_CREATE_TABLES`.
 - SQLite is used as the active database.
@@ -361,12 +376,11 @@ Backend-specific highlights:
 ## Suggested Backend Improvements
 
 - Use Flask-Migrate/Alembic for all further schema changes.
-- Move workflow logic from routes/socket handlers into service modules.
+- Add unit tests for service module functions.
 - Add tests for each role and tenant boundary.
 - Add request schemas with Marshmallow, Pydantic, or similar.
 - Add structured logging and audit logs.
 - Replace SQLite with PostgreSQL for production.
 - Add relationship properties and continue refining constraints/indexes as workflows mature.
 - Replace string statuses with enums/constants.
-- Split Socket.IO event handlers into a separate module.
 - Add Redis/message queue support before scaling Socket.IO horizontally.
