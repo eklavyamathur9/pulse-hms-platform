@@ -12,8 +12,6 @@ RUN npm run build
 # ---- Runtime Stage ----
 FROM nginx:alpine
 
-RUN adduser -D -H -u 1000 -s /bin/sh nginx
-
 COPY --from=builder /build/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

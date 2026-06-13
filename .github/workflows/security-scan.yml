@@ -45,7 +45,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt ruff
 
       - name: Ruff security lint
         run: python -m ruff check --select S .
