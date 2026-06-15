@@ -103,6 +103,33 @@ Side effects:
 - Audit logs via `log_action()` with amount, payment_id, transaction_id, method
 - Emits `payment_processed` socket event to tenant room
 
+## Superadmin REST Endpoints
+
+All superadmin endpoints require `role == "superadmin"`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/superadmin/stats` | Platform-wide statistics (hospitals, users, appointments, revenue) |
+| GET | `/api/superadmin/hospitals` | List all hospitals with stats (users, appointments, revenue) |
+| GET | `/api/superadmin/hospitals/<id>` | Single hospital detail with feature_flags |
+| POST | `/api/superadmin/hospitals` | Create a new hospital with admin account (password policy enforced) |
+| PUT | `/api/superadmin/hospitals/<id>` | Update hospital (name, subdomain, plan, is_active) |
+| GET | `/api/superadmin/hospitals/<id>/users` | List all users in a hospital |
+
+Plan change triggers automatic `feature_flags` update. Available plans: `trial`, `basic`, `pro`, `enterprise`.
+
+## Feature Flags by Plan
+
+| Feature | trial | basic | pro | enterprise |
+| --- | --- | --- | --- | --- |
+| Max users | 10 | 50 | 200 | 1000 |
+| Max doctors | 3 | 10 | 50 | 200 |
+| Analytics | No | Yes | Yes | Yes |
+| Billing module | No | Yes | Yes | Yes |
+| Export data | No | No | Yes | Yes |
+| Custom branding | No | No | Yes | Yes |
+| API access | No | No | No | Yes |
+
 ## Socket.IO Events
 
 Socket connection:

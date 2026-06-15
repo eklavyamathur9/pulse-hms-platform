@@ -1,115 +1,550 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Building, Users, CreditCard, CheckCircle, XCircle } from 'lucide-react';
+import {
+  Activity, Building, Users, CreditCard, CheckCircle, XCircle,
+  Shield, Plus, Edit2, Search,
+  BarChart3, Stethoscope, DollarSign, UserPlus,
+  Eye, ArrowLeft,
+} from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
+import { apiFetch } from '../lib/api';
+
+const PLANS = ['trial', 'basic', 'pro', 'enterprise'];
+const PLAN_COLORS = { trial: '#9ca3af', basic: '#3b82f6', pro: '#7c3aed', enterprise: '#059669' };
+const ROLE_OPTIONS = ['doctor', 'staff', 'admin', 'patient'];
+const ROLE_COLORS = {
+  doctor: '#059669', staff: '#d97706', admin: '#dc2626', patient: '#6366f1', superadmin: '#7c3aed',
+};
+const ROLE_BGS = {
+  doctor: '#ecfdf5', staff: '#fffbeb', admin: '#fef2f2', patient: '#eef2ff', superadmin: '#f3e8ff',
+};
+
+const inputStyle = { width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ccc' };
 
 export default function SuperAdminDashboard() {
+  const notify = useNotification();
+  const [tab, setTab] = useState('overview');
+  const [stats, setStats] = useState(null);
   const [hospitals, setHospitals] = useState([]);
-  const [stats, setStats] = useState({ total_hospitals: 0, active_hospitals: 0, mrr: 0 });
-  const { showNotification } = useNotification();
+  const [loading, setLoading] = useState(true);
+  const [selectedHospital, setSelectedHospital] = useState(null);
+  const [hospitalUsers, setHospitalUsers] = useState([]);
+  const [showCreateHospital, setShowCreateHospital] = useState(false);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [planFilter, setPlanFilter] = useState('');
+
+  const [newHospital, setNewHospital] = useState({
+    name: '', subdomain: '', plan: 'trial', admin_name: '', admin_email: '', admin_password: '',
+  });
+  const [newUser, setNewUser] = useState({
+    name: '', email: '', contact: '', password: 'changeme', role: 'doctor', specialization: '', hospital_id: '',
+  });
+
+
+  const fetchStats = async () => {
+    try {
+      const data = await (await apiFetch('/superadmin/stats')).json();
+      setStats(data);
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchHospitals = async () => {
+    try {
+      const data = await (await apiFetch('/superadmin/hospitals')).json();
+      setHospitals(data);
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchHospitalUsers = async (hospitalId) => {
+    try {
+      const res = await apiFetch(`/superadmin/hospitals/${hospitalId}/users`);
+      return await res.json();
+    } catch { return []; }
+  };
 
   useEffect(() => {
-    // In a full implementation, we would fetch from /api/superadmin/hospitals
-    // Mocking for MVP based on models.py structure
-    const fetchHospitals = async () => {
-      try {
-        // Mock data for demo
-        setHospitals([
-          { id: 1, name: 'Pulse Care General', subdomain: 'pulsecare', plan: 'pro', is_active: true, created_at: '2026-05-15' },
-          { id: 2, name: 'City Clinic', subdomain: 'cityclinic', plan: 'basic', is_active: true, created_at: '2026-05-14' },
-          { id: 3, name: 'Metro Health', subdomain: 'metro', plan: 'trial', is_active: false, created_at: '2026-05-10' }
-        ]);
-        setStats({ total_hospitals: 3, active_hospitals: 2, mrr: 198 });
-      } catch (err) {
-        showNotification('Failed to load hospitals', 'error');
-      }
+    const loadAll = async () => {
+      setLoading(true);
+      await Promise.all([fetchStats(), fetchHospitals()]);
+      setLoading(false);
     };
-    fetchHospitals();
-  }, [showNotification]);
+    loadAll();
+  }, []);
+
+  const createHospital = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiFetch('/superadmin/hospitals', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newHospital),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      notify.success(`Hospital "${newHospital.name}" created!`);
+      setShowCreateHospital(false);
+      setNewHospital({ name: '', subdomain: '', plan: 'trial', admin_name: '', admin_email: '', admin_password: '' });
+      fetchHospitals();
+      fetchStats();
+    } catch (err) { notify.error(err.message); }
+  };
+
+  const updateHospital = async (id, updates) => {
+    try {
+      const res = await apiFetch(`/superadmin/hospitals/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      notify.success('Hospital updated');
+      fetchHospitals();
+      fetchStats();
+    } catch (err) { notify.error(err.message); }
+  };
+
+  const toggleHospitalStatus = async (id, currentStatus) => {
+    await updateHospital(id, { is_active: !currentStatus });
+  };
+
+  const changePlan = async (id, plan) => {
+    await updateHospital(id, { plan });
+    setEditingPlan(null);
+  };
+
+  const viewHospitalUsers = async (hospital) => {
+    setSelectedHospital(hospital);
+    const users = await fetchHospitalUsers(hospital.id);
+    setHospitalUsers(users);
+  };
+
+  const createUserInHospital = async (e) => {
+    e.preventDefault();
+    try {
+      const hospitalId = newUser.hospital_id || selectedHospital?.id;
+      if (!hospitalId) { notify.error('Select a hospital first'); return; }
+      const res = await apiFetch('/auth/admin/users', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newUser, hospital_id: parseInt(hospitalId) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      notify.success(`User "${newUser.name}" created`);
+      setShowCreateUser(false);
+      setNewUser({ name: '', email: '', contact: '', password: 'changeme', role: 'doctor', specialization: '', hospital_id: '' });
+      const users = await fetchHospitalUsers(selectedHospital.id);
+      setHospitalUsers(users);
+    } catch (err) { notify.error(err.message); }
+  };
+
+  const filteredHospitals = hospitals.filter(h => {
+    if (searchQuery && !h.name.toLowerCase().includes(searchQuery.toLowerCase()) && !h.subdomain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (planFilter && h.plan !== planFilter) return false;
+    return true;
+  });
+
+  if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading Super Admin Platform...</div>;
+  if (!stats) return null;
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-3 mb-8">
-        <Activity size={32} className="text-blue-600" />
-        <h1 className="text-2xl font-bold text-gray-800">SaaS Super Admin Platform</h1>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+
+      <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+        <h1 style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+          <Shield color="#7c3aed" /> SaaS Super Admin Platform
+        </h1>
+        <p style={{ color: 'var(--text-muted)' }}>Multi-tenant platform management and monitoring</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-4 bg-blue-50 rounded-lg text-blue-600"><Building size={24} /></div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Total Hospitals</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.total_hospitals}</p>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-4 bg-green-50 rounded-lg text-green-600"><CheckCircle size={24} /></div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Active Tenants</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.active_hospitals}</p>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-4 bg-purple-50 rounded-lg text-purple-600"><CreditCard size={24} /></div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium">Estimated MRR</p>
-            <p className="text-2xl font-bold text-gray-800">${stats.mrr}</p>
-          </div>
-        </div>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid #e2e8f0' }}>
+        {['overview', 'hospitals', 'users'].map(t => (
+          <button key={t} className="btn" style={{
+            padding: '0.5rem 1rem', background: 'none',
+            borderBottom: tab === t ? '3px solid #7c3aed' : '3px solid transparent',
+            borderRadius: 0, fontWeight: tab === t ? 700 : 500, textTransform: 'capitalize',
+          }} onClick={() => setTab(t)}>{t}</button>
+        ))}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">Registered Hospitals</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm">
-                <th className="p-4 font-medium">Hospital Name</th>
-                <th className="p-4 font-medium">Subdomain URL</th>
-                <th className="p-4 font-medium">Subscription Plan</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="p-4 font-medium">Joined Date</th>
-                <th className="p-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {hospitals.map(h => (
-                <tr key={h.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                  <td className="p-4 font-medium text-gray-800">{h.name}</td>
-                  <td className="p-4 text-blue-600">
-                    <a href={`http://${h.subdomain}.pulsehms.com`} target="_blank" rel="noreferrer">
-                      {h.subdomain}.pulsehms.com
-                    </a>
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-xs font-medium uppercase tracking-wider
-                      ${h.plan === 'pro' ? 'bg-purple-100 text-purple-700' : 
-                        h.plan === 'basic' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                      {h.plan}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    {h.is_active ? (
-                      <span className="flex items-center gap-1 text-sm text-green-600 font-medium"><CheckCircle size={16} /> Active</span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-sm text-red-500 font-medium"><XCircle size={16} /> Suspended</span>
-                    )}
-                  </td>
-                  <td className="p-4 text-sm text-gray-500">{h.created_at}</td>
-                  <td className="p-4">
-                    <button className="text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors">
-                      Manage
-                    </button>
-                  </td>
+      {tab === 'overview' && !selectedHospital && <OverviewTab stats={stats} hospitals={hospitals} />}
+      {tab === 'overview' && selectedHospital && <HospitalDetailTab
+        hospital={selectedHospital}
+        users={hospitalUsers}
+        onBack={() => setSelectedHospital(null)}
+        onUserCreated={() => {
+          fetchHospitalUsers(selectedHospital.id).then(setHospitalUsers);
+        }}
+        notify={notify}
+      />}
+
+      {tab === 'hospitals' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1 }}>
+              <div style={{ position: 'relative', flex: 1, maxWidth: '300px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search hospitals..." style={{ ...inputStyle, paddingLeft: '2rem' }} />
+              </div>
+              <select value={planFilter} onChange={e => setPlanFilter(e.target.value)} style={{ ...inputStyle, width: '140px', background: 'white' }}>
+                <option value="">All Plans</option>
+                {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <button className="btn btn-primary" onClick={() => setShowCreateHospital(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <Plus size={16} /> New Hospital
+            </button>
+          </div>
+
+          {showCreateHospital && (
+            <form onSubmit={createHospital} className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Hospital Name *</label>
+                <input required value={newHospital.name} onChange={e => setNewHospital({...newHospital, name: e.target.value})} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Subdomain *</label>
+                <input required value={newHospital.subdomain} onChange={e => setNewHospital({...newHospital, subdomain: e.target.value})} style={inputStyle} placeholder="myhospital" />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Plan</label>
+                <select value={newHospital.plan} onChange={e => setNewHospital({...newHospital, plan: e.target.value})} style={{...inputStyle, background: 'white'}}>
+                  {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Admin Name *</label>
+                <input required value={newHospital.admin_name} onChange={e => setNewHospital({...newHospital, admin_name: e.target.value})} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Admin Email *</label>
+                <input required type="email" value={newHospital.admin_email} onChange={e => setNewHospital({...newHospital, admin_email: e.target.value})} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Admin Password *</label>
+                <input required type="password" value={newHospital.admin_password} onChange={e => setNewHospital({...newHospital, admin_password: e.target.value})} style={inputStyle} />
+              </div>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem' }}>
+                <button type="submit" className="btn btn-primary"><Plus size={16} /> Create Hospital</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateHospital(false)}>Cancel</button>
+              </div>
+            </form>
+          )}
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table>
+              <thead style={{ background: 'var(--bg-main)' }}>
+                <tr>
+                  <th>Hospital</th><th>Subdomain</th><th>Plan</th><th>Status</th><th>Users</th><th>Appts</th><th>Revenue</th><th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredHospitals.length === 0 ? (
+                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No hospitals found.</td></tr>
+                ) : filteredHospitals.map(h => (
+                  <tr key={h.id} style={{ opacity: h.is_active ? 1 : 0.5 }}>
+                      <td style={{ fontWeight: 600 }}>{h.name}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{h.subdomain}.pulsehms.com</td>
+                      <td>
+                        {editingPlan === h.id ? (
+                          <select value={h.plan} onChange={e => changePlan(h.id, e.target.value)}
+                            onBlur={() => setEditingPlan(null)} style={{ ...inputStyle, width: '120px', background: 'white' }} autoFocus>
+                            {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                        ) : (
+                          <span onClick={() => setEditingPlan(h.id)} style={{ cursor: 'pointer', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', background: `${PLAN_COLORS[h.plan]}20`, color: PLAN_COLORS[h.plan] }}>
+                            {h.plan} <Edit2 size={12} style={{ marginLeft: '0.25rem', opacity: 0.5 }} />
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {h.is_active ? (
+                          <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><CheckCircle size={14} /> Active</span>
+                        ) : (
+                          <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><XCircle size={14} /> Suspended</span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: '0.85rem' }}>{h.stats?.total_users || 0}</td>
+                      <td style={{ fontSize: '0.85rem' }}>{h.stats?.appointments || 0}</td>
+                      <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>${(h.stats?.revenue || 0).toFixed(0)}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.3rem' }}>
+                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                            onClick={() => viewHospitalUsers(h)}><Eye size={14} /> View</button>
+                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                            onClick={() => toggleHospitalStatus(h.id, h.is_active)}>
+                            {h.is_active ? <XCircle size={14} /> : <CheckCircle size={14} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'users' && (
+        <div>
+          {!selectedHospital ? (
+            <div>
+              <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--spacing-lg)' }}>Select a hospital to view and manage its users.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                {hospitals.filter(h => h.is_active).map(h => (
+                  <div key={h.id} className="card" style={{ padding: '1.25rem', cursor: 'pointer' }}
+                    onClick={() => viewHospitalUsers(h)}>
+                    <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>{h.name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{h.subdomain}.pulsehms.com</div>
+                    <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem' }}>
+                      <span><Users size={14} /> {h.stats?.total_users || 0} users</span>
+                      <span><Stethoscope size={14} /> {h.stats?.doctors || 0} doctors</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem' }} onClick={() => { setSelectedHospital(null); setHospitalUsers([]); }}>
+                    <ArrowLeft size={16} />
+                  </button>
+                  <h2 style={{ margin: 0 }}><Building size={20} color="#7c3aed" /> {selectedHospital.name}</h2>
+                  <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', background: `${PLAN_COLORS[selectedHospital.plan]}20`, color: PLAN_COLORS[selectedHospital.plan] }}>{selectedHospital.plan}</span>
+                </div>
+                <button className="btn btn-primary" onClick={() => setShowCreateUser(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <UserPlus size={16} /> Create User
+                </button>
+              </div>
+
+              {showCreateUser && (
+                <form onSubmit={createUserInHospital} className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Name *</label>
+                    <input required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
+                    <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{...inputStyle, background: 'white'}}>
+                      {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Email</label>
+                    <input type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Contact</label>
+                    <input value={newUser.contact} onChange={e => setNewUser({...newUser, contact: e.target.value})} style={inputStyle} />
+                  </div>
+                  {newUser.role === 'doctor' && (
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Specialization</label>
+                      <input value={newUser.specialization} onChange={e => setNewUser({...newUser, specialization: e.target.value})} style={inputStyle} />
+                    </div>
+                  )}
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem' }}>
+                    <button type="submit" className="btn btn-primary"><UserPlus size={16} /> Create User</button>
+                    <button type="button" className="btn btn-secondary" onClick={() => setShowCreateUser(false)}>Cancel</button>
+                  </div>
+                </form>
+              )}
+
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <table>
+                  <thead style={{ background: 'var(--bg-main)' }}>
+                    <tr><th>ID</th><th>Name</th><th>Role</th><th>Email / Contact</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {hospitalUsers.length === 0 ? (
+                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No users in this hospital.</td></tr>
+                    ) : hospitalUsers.map(u => (
+                      <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
+                        <td>#{u.id}</td>
+                        <td style={{ fontWeight: 600 }}>{u.name}{u.specialization ? ` (${u.specialization})` : ''}</td>
+                        <td>
+                          <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', background: ROLE_BGS[u.role] || '#f3f4f6', color: ROLE_COLORS[u.role] || '#374151' }}>{u.role}</span>
+                        </td>
+                        <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{u.email || u.contact || '—'}</td>
+                        <td>{u.is_active ? <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.85rem' }}>Active</span> : <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.85rem' }}>Inactive</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OverviewTab({ stats, hospitals }) {
+  return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: 'var(--spacing-xl)' }}>
+        <StatCard icon={<Building />} label="Total Hospitals" value={stats.hospitals.total} color="#7c3aed" bg="#f3e8ff" />
+        <StatCard icon={<CheckCircle />} label="Active Tenants" value={stats.hospitals.active} color="#059669" bg="#ecfdf5" />
+        <StatCard icon={<Users />} label="Total Users" value={stats.users.total} color="#6366f1" bg="#eef2ff" />
+        <StatCard icon={<BarChart3 />} label="Appointments" value={stats.appointments.total} color="#f59e0b" bg="#fffbeb" />
+        <StatCard icon={<DollarSign />} label="Total Revenue" value={`$${stats.revenue.total.toLocaleString()}`} color="#16a34a" bg="#f0fdf4" />
+        <StatCard icon={<CreditCard />} label="Paid Invoices" value={`${stats.revenue.paid_invoices}/${stats.revenue.total_invoices}`} color="#8b5cf6" bg="#faf5ff" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xl)' }}>
+        <div className="card glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
+          <h3 style={{ marginBottom: '1rem' }}><Users size={18} color="#7c3aed" /> Users by Role</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {Object.entries(stats.users).filter(([k]) => k !== 'total').map(([role, count]) => (
+              <div key={role} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>{role}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, marginLeft: '1rem' }}>
+                  <div style={{ flex: 1, height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${stats.users.total > 0 ? (count / stats.users.total) * 100 : 0}%`, height: '100%', background: ROLE_COLORS[role] || '#7c3aed', borderRadius: '4px' }} />
+                  </div>
+                </div>
+                <span style={{ fontWeight: 700, color: ROLE_COLORS[role] || '#7c3aed' }}>{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
+          <h3 style={{ marginBottom: '1rem' }}><Building size={18} color="#7c3aed" /> Hospitals by Plan</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {PLANS.map(plan => {
+              const count = hospitals.filter(h => h.plan === plan).length;
+              const pct = hospitals.length > 0 ? (count / hospitals.length) * 100 : 0;
+              return (
+                <div key={plan} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>{plan}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, marginLeft: '1rem' }}>
+                    <div style={{ flex: 1, height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: PLAN_COLORS[plan], borderRadius: '4px' }} />
+                    </div>
+                  </div>
+                  <span style={{ fontWeight: 700, color: PLAN_COLORS[plan] }}>{count}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
+
+      <div className="card glass-panel" style={{ padding: 'var(--spacing-xl)', marginTop: 'var(--spacing-xl)' }}>
+        <h3 style={{ marginBottom: '1rem' }}><Activity size={18} color="#7c3aed" /> Platform Activity</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Active Rate</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats.hospitals.total > 0 ? Math.round((stats.hospitals.active / stats.hospitals.total) * 100) : 0}%</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Avg Users / Hospital</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats.hospitals.total > 0 ? (stats.users.total / stats.hospitals.total).toFixed(0) : 0}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Avg Revenue / Hospital</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>${stats.hospitals.total > 0 ? (stats.revenue.total / stats.hospitals.total).toFixed(0) : 0}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function HospitalDetailTab({ hospital, users, onBack, onUserCreated, notify }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [newUser, setNewUser] = useState({ name: '', email: '', contact: '', password: 'changeme', role: 'doctor', specialization: '' });
+
+  const createUser = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await apiFetch('/auth/admin/users', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newUser, hospital_id: hospital.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      notify.success(`User "${newUser.name}" created`);
+      setShowCreate(false);
+      setNewUser({ name: '', email: '', contact: '', password: 'changeme', role: 'doctor', specialization: '' });
+      onUserCreated();
+    } catch (err) { notify.error(err.message); }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 'var(--spacing-lg)' }}>
+        <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem' }} onClick={onBack}><ArrowLeft size={16} /></button>
+        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Building size={20} color="#7c3aed" /> {hospital.name}
+          <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', background: `${PLAN_COLORS[hospital.plan]}20`, color: PLAN_COLORS[hospital.plan] }}>{hospital.plan}</span>
+        </h2>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: 'var(--spacing-xl)' }}>
+        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Doctors</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#059669' }}>{hospital.stats?.doctors || 0}</div></div>
+        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Patients</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1' }}>{hospital.stats?.patients || 0}</div></div>
+        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Appointments</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b' }}>{hospital.stats?.appointments || 0}</div></div>
+        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Revenue</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a' }}>${(hospital.stats?.revenue || 0).toFixed(0)}</div></div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+        <h3><Users size={18} color="#7c3aed" /> Users ({users.length})</h3>
+        <button className="btn btn-primary" onClick={() => setShowCreate(!showCreate)}>
+          <UserPlus size={16} /> {showCreate ? 'Cancel' : 'Create User'}
+        </button>
+      </div>
+
+      {showCreate && (
+        <form onSubmit={createUser} className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <input required placeholder="Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} style={inputStyle} />
+          <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{...inputStyle, background: 'white'}}>
+            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <input type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} style={inputStyle} />
+          <input placeholder="Contact" value={newUser.contact} onChange={e => setNewUser({...newUser, contact: e.target.value})} style={inputStyle} />
+          {newUser.role === 'doctor' && (
+            <input placeholder="Specialization" value={newUser.specialization} onChange={e => setNewUser({...newUser, specialization: e.target.value})} style={{...inputStyle, gridColumn: '1 / -1'}} />
+          )}
+          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem' }}>
+            <button type="submit" className="btn btn-primary">Create</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
+          </div>
+        </form>
+      )}
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <table>
+          <thead style={{ background: 'var(--bg-main)' }}>
+            <tr><th>ID</th><th>Name</th><th>Role</th><th>Email / Contact</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {users.length === 0 ? (
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No users in this hospital.</td></tr>
+            ) : users.map(u => (
+              <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
+                <td>#{u.id}</td>
+                <td style={{ fontWeight: 600 }}>{u.name}{u.specialization ? ` (${u.specialization})` : ''}</td>
+                <td><span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', background: ROLE_BGS[u.role] || '#f3f4f6', color: ROLE_COLORS[u.role] || '#374151' }}>{u.role}</span></td>
+                <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{u.email || u.contact || '—'}</td>
+                <td>{u.is_active ? <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.85rem' }}>Active</span> : <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.85rem' }}>Inactive</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ icon, label, value, color, bg }) {
+  return (
+    <div className="card" style={{ padding: '1.25rem', background: bg, border: 'none', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      <div style={{ color, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>{icon} {label}</div>
+      <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-dark)' }}>{value}</div>
     </div>
   );
 }

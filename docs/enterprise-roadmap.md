@@ -154,30 +154,35 @@ make security-scan
 
 ---
 
-## Phase 6: Superadmin & Multi-Tenant Operations (Partially Done — Billing Foundation)
+## Phase 6: Superadmin & Multi-Tenant Operations (Complete)
 
-**Goal:** Replace mock superadmin dashboard with real tenant management and billing.
+**Goal:** Replace mock superadmin dashboard with real tenant management, plan-based feature flags, and platform monitoring.
 
 ### Tasks (Completed)
-- ~~Payment model and migration~~ — `e7f242c6b558`, fields for method, transaction_id, status, paid_at
-- ~~pay_invoice route creates Payment record + audit log + socket event~~
-- ~~Admin analytics uses real paid invoice revenue~~ — replaces mock `completed_labs * 50`
+- ~~Payment model and migration~~ — `e7f242c6b558`, fields for method, transaction_id, status, paid_at (Phase 5)
+- ~~pay_invoice route creates Payment record + audit log + socket event~~ (Phase 5)
+- ~~Admin analytics uses real paid invoice revenue~~ — replaces mock `completed_labs * 50` (Phase 5)
+- ~~Superadmin REST API endpoints~~ — `GET /api/superadmin/stats`, `GET/POST/PUT /api/superadmin/hospitals`, `GET /api/superadmin/hospitals/<id>/users`
+- ~~Plan-based feature flags~~ — `feature_flags` JSON column on Hospital, `PLAN_FEATURES` dict defining capabilities per plan (trial/basic/pro/enterprise), auto-set on plan change
+- ~~Real SuperAdminDashboard frontend~~ — Rewrote with real API integration, 3 tabs (Overview, Hospitals, Users), hospital CRUD, plan editing, user creation per hospital
+- ~~feature_flags auto-set on register-hospital and seed~~ — seed.py and auth_routes.py both set feature_flags based on plan
 
-### Tasks (Pending for actual Phase 6)
-- Superadmin REST API endpoints — **not yet done**
-- Plan-based feature flags — **not yet done**
-- Real SuperAdminDashboard frontend — **not yet done**
-- Tenant onboarding improvements — **not yet done**
+### Tasks (Deferred)
+- Tenant onboarding flow improvements (wizard, email verification) — **deferred to later phase**
+- Subscription billing / Stripe integration — **deferred to later phase**
 
 ### Validation
 ```bash
 python -m pytest -q backend/tests/
-# Manual: invoice pay creates payment record and updates analytics
+# Manual: superadmin login → dashboard shows real stats from API
 ```
 
 ### Deliverables
-- Payment model with migration (done)
-- Real revenue in admin analytics (done)
+- `backend/superadmin_routes.py` — 6 endpoints for hospital CRUD + stats
+- `feature_flags` JSON column + migration `a5f3b1c2d4e6`
+- `PLAN_FEATURES` mapping for trial/basic/pro/enterprise
+- Rewritten `SuperAdminDashboard.jsx` with real API data
+- Updated seed.py and auth_routes.py to set feature_flags
 
 ---
 
@@ -342,10 +347,10 @@ pytest -q tests/
 | Phase 3.5 — Tooling & Infrastructure | **Complete** |
 | Phase 4 — Observability & Audit | **Complete** |
 | Phase 5 — Frontend Code Splitting | **Complete** |
-| Phase 6 — Billing Foundation | **Partially Complete** (Payment model, real revenue, audit trail; no gateway yet) |
+| Phase 6 — Superadmin & Multi-Tenant | **Complete** (REST API, feature flags, real dashboard, tenant CRUD) |
 | Phase 7 — Security Hardening | **Complete** |
-| Phase 8 — Frontend Modernization | **Blocked on Phase 7** |
+| Phase 8 — Frontend Modernization | Not started |
 | Phase 9 — Performance & Scalability | Not started |
 | Phase 10 — External Integrations | Not started |
 
-**Next focus: Phase 6 continued — Superadmin & Multi-Tenant Operations.**
+**Next focus: Phase 8 — Frontend Modernization.**

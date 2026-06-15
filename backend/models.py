@@ -11,6 +11,7 @@ class Hospital(db.Model):
     subdomain = db.Column(db.String(50), unique=True, nullable=False)
     plan = db.Column(db.String(50), default="trial")  # trial, basic, pro, enterprise
     is_active = db.Column(db.Boolean, default=True)
+    feature_flags = db.Column(db.JSON, default=dict)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 

@@ -3,6 +3,7 @@ import os
 
 from app import app, db
 from models import Hospital, User
+from superadmin_routes import PLAN_FEATURES
 from werkzeug.security import generate_password_hash
 
 DEMO_HOSPITAL = {
@@ -76,14 +77,16 @@ def guard_reset():
 
 def upsert_hospital():
     hospital = Hospital.query.filter_by(subdomain=DEMO_HOSPITAL["subdomain"]).first()
+    plan = DEMO_HOSPITAL.get("plan", "pro")
     if not hospital:
-        hospital = Hospital(**DEMO_HOSPITAL)
+        hospital = Hospital(**{**DEMO_HOSPITAL, "feature_flags": PLAN_FEATURES.get(plan, {})})
         db.session.add(hospital)
         db.session.flush()
     else:
         hospital.name = DEMO_HOSPITAL["name"]
-        hospital.plan = DEMO_HOSPITAL["plan"]
+        hospital.plan = plan
         hospital.is_active = True
+        hospital.feature_flags = PLAN_FEATURES.get(plan, {})
     return hospital
 
 
