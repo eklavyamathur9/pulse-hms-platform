@@ -83,6 +83,7 @@ def register(socketio):
             },
             room=tenant_room(ctx["hospital_id"]),
         )
+        emit("queue_updated", {"id": new_appt.id, "status": "Scheduled"}, room=tenant_room(ctx["hospital_id"]))
 
     @socketio.on("action_arrive")
     def handle_action_arrive(data):
