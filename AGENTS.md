@@ -83,7 +83,7 @@ Frontend:
 Run from repository root unless noted:
 
 ```bash
-python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/rate_limit.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
 ```
 
 ```bash
@@ -106,7 +106,7 @@ Current repository state:
 - Backend tests exist in `backend/tests/` (pytest suite with 29 tests: 7 API + 6 socket + 16 workflow).
 - No frontend tests exist.
 - CI split into 4 focused workflows (lint-format, test, security-scan, docker-build).
-- Alembic migrations (baseline `58e5f1bc23af`, latest `e7f242c6b558`) covering 10 tables.
+- Alembic migrations (baseline `58e5f1bc23af`, latest `58ad529942f8`) covering 11 tables (+ RefreshToken).
 
 When expanding tests, prioritize:
 

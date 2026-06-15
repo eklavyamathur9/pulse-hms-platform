@@ -306,6 +306,7 @@ erDiagram
   Invoice ||--o{ Payment : has
   User ||--o{ Payment : payer
   User ||--o{ AuditLog : actor
+  User ||--o{ RefreshToken : has
 ```
 
 SQLAlchemy models currently define foreign keys but not full relationship properties. Most route code fetches related rows manually with `User.query.get(...)`, `Appointment.query.get(...)`, or filtered queries.

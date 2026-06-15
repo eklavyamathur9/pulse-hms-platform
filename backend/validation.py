@@ -1,3 +1,5 @@
+import re
+
 from flask import jsonify, request
 
 
@@ -30,3 +32,18 @@ def int_field(data, field, *, minimum=None, maximum=None, required=False):
     if maximum is not None and value > maximum:
         return None, jsonify({"error": f"{field} must be at most {maximum}"}), 400
     return value, None, None
+
+
+def validate_password_strength(password):
+    errors = []
+    if len(password) < 8:
+        errors.append("Password must be at least 8 characters long")
+    if not re.search(r"[A-Z]", password):
+        errors.append("Password must contain an uppercase letter")
+    if not re.search(r"[a-z]", password):
+        errors.append("Password must contain a lowercase letter")
+    if not re.search(r"\d", password):
+        errors.append("Password must contain a digit")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-]", password):
+        errors.append("Password must contain a special character")
+    return errors

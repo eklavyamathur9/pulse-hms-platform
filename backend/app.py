@@ -9,6 +9,7 @@ from hospital_routes import hospital_bp
 from logging_config import log_request_response, request_id_middleware, setup_logging
 from models import db
 from patient_routes import patient_bp
+from rate_limit import limiter
 from services import handle_connect, handle_disconnect
 from services.appointment import register as register_appointment
 from services.lab import register as register_lab
@@ -22,17 +23,20 @@ Config.validate()
 setup_logging(app)
 
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
+
+app.config["RATELIMIT_DEFAULT"] = Config.RATELIMIT_DEFAULT
+app.config["RATELIMIT_ENABLED"] = Config.RATELIMIT_ENABLED
+limiter.init_app(app)
+
 db.init_app(app)
 jwt = JWTManager(app)
 migrate = Migrate(app, db)
 socketio = SocketIO(app, cors_allowed_origins=Config.CORS_ORIGINS, async_mode=Config.SOCKET_ASYNC_MODE)
 
-# Auto-create tables for dev convenience when no migration system is used
 if Config.AUTO_CREATE_TABLES:
     with app.app_context():
         db.create_all()
 
-# Register domain socket handlers
 register_appointment(socketio)
 register_vitals(socketio)
 register_lab(socketio)
@@ -46,6 +50,11 @@ def before_request():
 
 @app.after_request
 def after_request(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "0"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Cache-Control"] = "no-store"
     return log_request_response(response)
 
 
