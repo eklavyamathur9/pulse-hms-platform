@@ -1,10 +1,10 @@
 # Latest Phase Handoff
 
-Date: 2026-06-13
+Date: 2026-06-15
 
 ## Current Repository State
 
-Infrastructure improvements (Makefile, CI split, Dockerfiles, security) + observability (AuditLog, structured logging, request IDs).
+Payment tracking foundation with Payment model, migration, audit-logged payment route, and real revenue in admin analytics.
 
 Current implementation:
 
@@ -19,103 +19,79 @@ Current implementation:
 - Multi-stage Dockerfiles with non-root user
 - Focused CI workflows (lint, test, security, docker-build)
 - Development Docker Compose with optional PostgreSQL service
-- Alembic migrations (baseline + audit_log)
+- Alembic migrations (baseline + audit_log + payment)
 - Backend tests: 29 tests in `backend/tests/`
 - CI: GitHub Actions (4 workflows)
-- Linting: ruff (Python), ESLint (JS/JSX)
+- Linting: ruff (Python), ESLint (JS/JSX) — 0 errors, 0 warnings
 - Security: ruff security rules, pip-audit in CI, Trivy config
 - Makefile for common dev tasks
 
-## What Was Done (Phase 3.5 + Phase 4)
+## What Was Done (Phase 6 — Billing Foundation)
 
-### Makefile
-- `make lint`, `make test`, `make build`, `make clean`
-- `make compose-up`, `make compose-down`, `make setup`, `make dev`
-- `make security-scan`, `make freeze` (generate lockfile)
+### Payment Model
 
-### CI/CD Improvements
-- Split monolithic `ci.yml` into 4 focused workflows:
-  - `lint-format.yml` — ruff lint + format (backend), eslint (frontend)
-  - `test.yml` — pytest (backend), npm build (frontend)
-  - `security-scan.yml` — pip-audit + ruff security rules, weekly schedule
-  - `docker-build.yml` — validate both images build (no push)
+- `backend/models.py`: Added `Payment` table with:
+  - `hospital_id`, `invoice_id`, `patient_id`, `amount`, `method`, `transaction_id`, `status`, `paid_at`
+  - Indexes on `(hospital_id, invoice_id)` and `(hospital_id, patient_id)`
+- Migration `e7f242c6b558` creates the payment table
+- ER diagram in `docs/database.md` updated with Payment relationship
 
-### Docker Improvements
-- `.dockerignore` at root, backend, and frontend to reduce build context
-- Multi-stage Dockerfiles with non-root user:
-  - Backend: builder stage → slim runtime as `pulse` user, healthcheck
-  - Frontend: builder stage → nginx runtime, proxy config for `/api/` and `/socket.io/`
+### Payment Route
 
-### Security
-- Pre-commit hooks updated: ruff `--select S` (security rules) enabled
-- `.trivy.yaml` configured for HIGH/CRITICAL vulnerability scanning
-- Ruff security lint added to pyproject.toml (`select = ["S"]`)
-- pip-audit workflow runs on PR and weekly schedule
+- `PUT /api/hospital/invoice/<id>/pay` now:
+  - Rejects already-paid invoices (409)
+  - Creates a `Payment` record with auto-generated `transaction_id`
+  - Sets payment method default to `cash`
+  - Records audit log via `log_action()` with amount, payment_id, transaction_id, method
+  - Emits `payment_processed` socket event to tenant room for live dashboard updates
+  - Returns `payment_id` and `transaction_id` in response
 
-### Scripts
-- `scripts/setup.sh` — full local dev setup (deps, DB migrations, seed)
-- `scripts/seed.sh` — database seed wrapper
-- `scripts/health-check.sh` — endpoint health verification
+### Real Revenue in Admin Analytics
 
-### AuditLog Model (Phase 4)
-- `backend/models.py`: Added `AuditLog` table
-  - Columns: `hospital_id`, `user_id`, `action`, `resource_type`, `resource_id`, `details`, `ip_address`, `request_id`, `created_at`
-  - Indexes on: hospital, user, resource, created_at
-- Migration `aaed159d1748` creates the audit_log table
-- `backend/audit.py`: `log_action()` helper for recording audit events
-- Integrated audit logging into critical socket handlers:
-  - `book_appointment`, `cancel_appointment`
-  - `prescribe_test`
-  - `prescribe_meds`, `dispense_meds`
+- `GET /api/hospital/admin/analytics` now computes revenue from actual paid invoices:
+  - `SUM(Invoice.total) WHERE hospital_id = X AND status = 'Paid'`
+  - Replaces old mock `completed_labs * 50` hardcoded value
 
-### Structured Logging (Phase 4)
-- `backend/logging_config.py`:
-  - JSON log formatter with timestamp, level, logger, message
-  - Request ID via `X-Request-ID` header (auto-generated if missing)
-  - `LOG_LEVEL` and `LOG_FORMAT` env vars
-- `app.py`: before/after request hooks for request ID middleware
-- All responses now include `X-Request-ID` header for traceability
+### Frontend
 
-### Code Quality
-- `pyproject.toml` updated with ruff security rules + pytest config
-- Ruff security exclusions for test files and seed.py
+- AdminDashboard: added `payment_processed` socket listener to refresh analytics
 
 ## Important Findings
 
-- JSON logging formatter must handle `g` access outside app context gracefully (fixed with try/except)
-- Socket sessions moved to `services/__init__.py` — conftest.py updated accordingly
-- All 29 existing tests pass without behavioral changes
-- Audit logging is non-blocking and runs after primary DB commit
-- Request ID is propagated in response headers for client-side debugging
+- Flask-SQLAlchemy with autogenerate detected the new table and indexes correctly.
+- The `stamp` command was needed before generating the migration because audit_log table already existed in the DB.
+- Payment amounts stored as Float on the `Invoice.total` field — no separate line-item tracking yet.
 
 ## Architectural Weaknesses (Updated)
 
 Highest priority remaining:
 
-1. Large dashboard components (PatientDashboard: 915 lines).
-2. No pre-commit hooks installed locally (config exists, `pre-commit install` not run).
-3. PostgreSQL not tested in CI.
-4. No service-layer unit tests beyond socket integration tests.
-5. No production server config (gunicorn not wired into Docker CMD in production mode).
+1. Real payment gateway integration (Stripe/Razorpay) not wired.
+2. Admin/Doctor/Staff dashboards still mix data fetching, UI, and workflow logic.
+3. No pre-commit hooks installed locally.
+4. PostgreSQL not tested in CI.
+5. No service-layer unit tests beyond socket integration tests.
+6. No production server config (gunicorn).
 
 ## Suggested Next Phase
 
-**Phase 5: Frontend Code Splitting & Component Extraction**
+**Phase 7: Security Hardening**
 
 Focus:
-- Split PatientDashboard (915 lines) into smaller components.
-- Add React Router lazy loading for role dashboards.
-- Add frontend error boundaries.
-- Consider adding component tests.
+- Refresh token rotation (short-lived access + long-lived refresh).
+- Password policy enforcement (complexity, expiry).
+- Rate limiting on auth endpoints.
+- CORS hardening per environment.
 
 ## Likely Impacted Modules For Next Phase
 
-- `frontend/src/components/` (new component files)
-- `frontend/src/App.jsx` (lazy routes)
-- `frontend/src/dashboards/PatientDashboard.jsx` (refactor)
+- `backend/auth_routes.py` (token rotation, rate limiting)
+- `backend/config.py` (rate limit settings)
+- `backend/models.py` (refresh token model)
+- `frontend/src/context/AuthContext.jsx` (token refresh flow)
 
 ## Implementation Cautions
 
-- Do not change API or socket payload contracts.
-- Extract one dashboard section at a time.
-- Verify all role dashboards still render after changes.
+- Do not change existing API or socket payload contracts.
+- Keep the existing demo workflow functional.
+- All 29 backend tests and frontend build must pass.

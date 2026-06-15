@@ -1,6 +1,6 @@
 # Database Documentation
 
-Last reviewed: 2026-06-13
+Last reviewed: 2026-06-15
 
 This document describes the current SQLAlchemy model layer in `backend/models.py`.
 
@@ -14,7 +14,7 @@ This document describes the current SQLAlchemy model layer in `backend/models.py
 - Seed: `backend/seed.py` upserts local demo data
 - Reset: `backend/seed.py --reset` drops and recreates local SQLite tables after safety checks
 - Migrations: Flask-Migrate/Alembic — baseline migration in `backend/migrations/versions/`
-- Current migration head: `58e5f1bc23af` (initial baseline — creates all tables with indexes and constraints)
+- Current migration head: `e7f242c6b558` (adds Payment table)
 
 ## Model Overview
 
@@ -34,6 +34,7 @@ erDiagram
   Appointment ||--o{ Prescription : appointment_id
   Appointment ||--o{ Rating : appointment_id
   Appointment ||--o{ Invoice : appointment_id
+  Invoice ||--o{ Payment : invoice_id
 ```
 
 Important note: the code declares foreign keys but does not define SQLAlchemy relationship properties. Route code manually queries related records.
@@ -236,8 +237,37 @@ Tenant-owned tables include `hospital_id`:
 - `Prescription`
 - `Rating`
 - `Invoice`
+- `Payment`
 
 Routes and socket handlers should always filter tenant-owned records by `hospital_id`.
+
+### `payment`
+
+Payment tracking table.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | Integer PK | Payment id |
+| `hospital_id` | FK hospital.id | Required |
+| `invoice_id` | FK invoice.id | Required |
+| `patient_id` | FK user.id | Required |
+| `amount` | Float | Required |
+| `method` | String(30) | Defaults `cash` |
+| `transaction_id` | String(100) | Nullable, auto-generated |
+| `status` | String(20) | Defaults `completed` |
+| `paid_at` | DateTime | Defaults UTC now |
+
+Observed statuses:
+
+- `completed`
+- `pending`
+- `failed`
+- `refunded`
+
+Indexes:
+
+- `(hospital_id, invoice_id)`
+- `(hospital_id, patient_id)`
 
 ## Current Database Weaknesses
 
@@ -246,4 +276,5 @@ Routes and socket handlers should always filter tenant-owned records by `hospita
 | SQLite default in dev | Low | whole backend | Not suitable for concurrent production workloads | Use PostgreSQL via DATABASE_URL in production | Low |
 | String statuses | Medium | workflow routes, socket events | Typos and invalid states possible | Centralize constants/enums | Low |
 | No relationship properties | Medium | all route modules | Repeated manual lookups and N+1 patterns | Add SQLAlchemy relationships | Medium |
-| No audit tables | High | clinical/billing/admin actions | Weak compliance and traceability | Add `AuditLog` model | Medium |
+| ~~No audit tables~~ | ~~High~~ | ~~clinical/billing/admin actions~~ | ~~Weak compliance and traceability~~ | ~~Add `AuditLog` model~~ | ~~Medium~~ |
+| ~~Mock revenue~~ | ~~Medium~~ | ~~admin analytics~~ | ~~Revenue is hardcoded (`completed_labs * 50`)~~ | ~~Use actual payment data from Invoice/Payment tables~~ | ~~Low~~ |

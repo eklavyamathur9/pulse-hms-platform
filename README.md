@@ -62,7 +62,7 @@ Default local URLs:
 Backend syntax:
 
 ```bash
-python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py backend/services/__init__.py
 ```
 
 Backend tests:
@@ -108,4 +108,4 @@ See `docs/enterprise-roadmap.md` for the full 10-phase plan to production.
 
 ## Important Caveat
 
-This project is not production-ready. Known gaps include missing migrations, limited tests, SQLite persistence, development Docker images, limited validation, and no real payment/compliance integrations.
+This project is not production-ready. Known gaps include SQLite in CI/dev, limited test coverage (29 tests), development Docker images, no payment gateway integration, no monitoring/alerting, and no compliance integrations.

@@ -46,7 +46,7 @@ These standards reflect current repository patterns plus guardrails for future w
 Backend:
 
 ```bash
-backend/venv/bin/python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
 backend/venv/bin/pytest -q
 backend/venv/bin/flask --app backend/app.py db -d backend/migrations check
 ```
