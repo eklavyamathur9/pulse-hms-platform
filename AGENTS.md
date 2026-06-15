@@ -11,7 +11,7 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 - Frontend: React + Vite SPA in `frontend/`
 - Backend: Flask + Flask-SocketIO API in `backend/`
 - Database: SQLite (dev) / PostgreSQL (production) via `DATABASE_URL`
-- Schema management: Alembic migrations (baseline: `58e5f1bc23af`, latest: `e7f242c6b558`)
+- Schema management: Alembic migrations (baseline: `58e5f1bc23af`, latest: `a5f3b1c2d4e6`)
 - Realtime: Socket.IO events handled in `backend/services/` domain modules
 - CI: GitHub Actions (backend compile + pytest, frontend build + lint)
 - Deployment scaffold: development Docker Compose with optional PostgreSQL service
@@ -19,6 +19,8 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, local migrations, 29 backend tests, CI, no production server config, and no real payment/compliance integrations.
 
 PatientDashboard was split into 7 focused components. PDF generation extracted to `lib/pdf.js`. All dashboards are lazy-loaded with Suspense + ErrorBoundary. ESLint passes with 0 errors, 0 warnings.
+
+Superadmin API (`backend/superadmin_routes.py`) enables hospital CRUD, plan changes, platform-wide stats. Plan-based feature flags (`PLAN_FEATURES`) gate capabilities per tier (trial/basic/pro/enterprise). The `feature_flags` JSON column on Hospital auto-syncs on plan changes.
 
 ## Tech Stack
 
@@ -83,7 +85,7 @@ Frontend:
 Run from repository root unless noted:
 
 ```bash
-python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/rate_limit.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/rate_limit.py backend/superadmin_routes.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
 ```
 
 ```bash

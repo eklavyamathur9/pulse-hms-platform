@@ -14,7 +14,7 @@ This document describes the current SQLAlchemy model layer in `backend/models.py
 - Seed: `backend/seed.py` upserts local demo data
 - Reset: `backend/seed.py --reset` drops and recreates local SQLite tables after safety checks
 - Migrations: Flask-Migrate/Alembic — baseline migration in `backend/migrations/versions/`
-- Current migration head: `58ad529942f8` (adds RefreshToken table + password_changed_at on User)
+- Current migration head: `a5f3b1c2d4e6` (adds feature_flags to Hospital)
 
 ## Model Overview
 
@@ -52,6 +52,7 @@ Tenant/workspace table.
 | `subdomain` | String(50) | Unique, required |
 | `plan` | String(50) | Defaults to `trial` |
 | `is_active` | Boolean | Defaults true |
+| `feature_flags` | JSON | Nullable; plan-based capability flags set by superadmin |
 | `created_at` | DateTime | Defaults UTC now |
 
 ### `user`

@@ -15,6 +15,7 @@ from services.appointment import register as register_appointment
 from services.lab import register as register_lab
 from services.pharmacy import register as register_pharmacy
 from services.vitals import register as register_vitals
+from superadmin_routes import superadmin_bp
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -96,6 +97,7 @@ def health_db():
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(patient_bp, url_prefix="/api/patients")
 app.register_blueprint(hospital_bp, url_prefix="/api/hospital")
+app.register_blueprint(superadmin_bp, url_prefix="/api/superadmin")
 
 
 @socketio.on("connect")

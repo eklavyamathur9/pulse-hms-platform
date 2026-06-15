@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required
 from models import Hospital, RefreshToken, User, db
 from rate_limit import limiter
+from superadmin_routes import PLAN_FEATURES
 from validation import int_field, json_body, require_fields, validate_password_strength
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -73,7 +74,12 @@ def register_hospital():
     if existing_hospital:
         return jsonify({"error": "Subdomain already taken"}), 409
 
-    new_hospital = Hospital(name=hospital_name, subdomain=subdomain, plan="trial")
+    new_hospital = Hospital(
+        name=hospital_name,
+        subdomain=subdomain,
+        plan="trial",
+        feature_flags=PLAN_FEATURES.get("trial", {}),
+    )
     db.session.add(new_hospital)
     db.session.commit()
 
