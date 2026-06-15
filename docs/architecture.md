@@ -1,6 +1,6 @@
 # Pulse HMS Architecture
 
-Last reviewed: 2026-06-13
+Last reviewed: 2026-06-15
 
 This document describes the architecture that exists in the current implementation. It does not describe a target architecture unless explicitly marked as an improvement.
 
@@ -20,10 +20,10 @@ flowchart LR
 
 Current runtime components:
 
-- `frontend/`: React + Vite single-page app.
-- `backend/`: Flask API, Flask-SocketIO server, SQLAlchemy models.
+- `frontend/`: React + Vite single-page app with lazy-loaded role dashboards.
+- `backend/`: Flask API, Flask-SocketIO server, SQLAlchemy models, domain service modules.
 - `backend/pulse_hms.db`: SQLite database used by the local app.
-- `docker-compose.yml`: development-oriented backend and frontend services.
+- `docker-compose.yml`: development-oriented backend and frontend services with optional PostgreSQL.
 - `(removed) old_vanilla_version/`: legacy implementation, archived and removed.
 
 ## Folder Structure
@@ -31,32 +31,90 @@ Current runtime components:
 ```text
 pulse-hms-platform/
   backend/
-    app.py                 # Flask app, Socket.IO handlers, blueprint registration
+    app.py                 # Flask app, Socket.IO handler registration, middleware
     auth_routes.py         # Auth, doctor listing, admin user routes
     auth_utils.py          # JWT, role, tenant helper functions
+    audit.py               # Audit log helper (log_action)
+    config.py              # Configuration class loading env vars
     hospital_routes.py     # Hospital operations, queues, billing, summaries
     patient_routes.py      # Patient appointment/prescription/profile endpoints
-    models.py              # SQLAlchemy models
+    models.py              # SQLAlchemy models (10 tables)
     seed.py                # Local seed/reset script
-    requirements.txt       # Python dependencies
-    Dockerfile             # Backend image
-    .env.example           # Backend env sample
+    validation.py          # Request payload validation helpers
+    services/              # Domain service layer (socket event handlers)
+      __init__.py          # Shared socket helpers and session management
+      appointment.py       # Appointment booking, arrival, cancellation
+      vitals.py            # Vitals submission
+      lab.py               # Lab test prescribing, payment, reporting
+      pharmacy.py          # Prescription and dispensing
+    migrations/            # Alembic migration repository
+    tests/                 # Pytest test suite (29 tests)
+    pulse_hms.db           # Local SQLite database file
+    requirements.txt
+    Dockerfile
+    .env.example
   frontend/
     src/
-      App.jsx              # Router and providers
-      components/          # Role dashboards and public pages
-      context/             # Auth, notification, socket providers
-      lib/api.js           # API and socket URL config + authenticated fetch
+      App.jsx              # Router, providers, lazy-loaded dashboards
+      main.jsx             # Entry point
+      components/
+        LandingPage.jsx
+        HospitalRegistration.jsx
+        Login.jsx
+        Layout.jsx
+        ErrorBoundary.jsx
+        PatientDashboard.jsx       # Orchestrator (~220 lines)
+        DoctorDashboard.jsx
+        StaffDashboard.jsx
+        AdminDashboard.jsx
+        SuperAdminDashboard.jsx
+        patient/                   # 7 extracted sub-components
+          ActiveAppointments.jsx
+          ActiveLabTests.jsx
+          MedicalHistory.jsx
+          PatientBilling.jsx
+          PatientProfile.jsx
+          PatientBookingPanel.jsx
+          RescheduleModal.jsx
+      context/
+        AuthContext.jsx
+        NotificationContext.jsx
+        SocketContext.jsx
+      lib/
+        api.js
+        pdf.js                     # PDF generation utilities
+    public/
     package.json
+    vite.config.js
     Dockerfile
     .env.example
   docs/
-    SAAS_DEVELOPMENT_GUIDE.md
     architecture.md
     backend.md
     frontend.md
+    api.md
+    database.md
+    deployment.md
+    current-status.md
+    coding-standards.md
+    enterprise-roadmap.md
+    ai-bootstrap.md
+    architectural-weaknesses.md
+    decisions/                     # 5+ ADRs
+    phases/                        # Phase analyses and handoffs
+    templates/                     # Reusable documentation templates
+  .github/
+    workflows/
+      lint-format.yml
+      test.yml
+      security-scan.yml
+      docker-build.yml
+  Makefile
   docker-compose.yml
+  .pre-commit-config.yaml
+  .trivy.yaml
   SETUP_GUIDE.md
+  AGENTS.md
 ```
 
 ## Service Boundaries
@@ -68,9 +126,9 @@ The frontend owns:
 - Route selection and client-side role guarding.
 - Local authentication state in `localStorage`.
 - Dashboard UI for patient, doctor, staff, admin, and superadmin roles.
-- REST calls through `frontend/src/lib/api.js`.
+- REST calls through `frontend/src/lib/api.js` (`apiFetch`).
 - Socket connection setup through `SocketContext`.
-- PDF generation using `jspdf`.
+- PDF generation using `jspdf` (prescriptions, discharge summaries, invoices).
 
 The frontend does not own authoritative authorization. It hides or redirects UI, but backend routes and socket handlers enforce access.
 
@@ -79,16 +137,18 @@ The frontend does not own authoritative authorization. It hides or redirects UI,
 The backend owns:
 
 - JWT issuance and verification.
-- Role and tenant checks.
+- Role and tenant checks via `auth_utils.py`.
 - Database writes and reads.
 - Appointment workflow state transitions.
-- Real-time queue events.
-- Billing and invoice status.
+- Real-time queue events via domain service modules.
+- Billing and invoice status with Payment record creation.
+- Audit logging for clinical and billing actions.
+- Structured JSON logging with request ID tracking.
 - Doctor, staff, patient, and admin API responses.
 
 ### Database Boundary
 
-The current database is a single SQLite database with shared tables. Tenant ownership is represented by `hospital_id` on tenant-owned models.
+The current database is a single SQLite database with shared tables. Tenant ownership is represented by `hospital_id` on tenant-owned models. PostgreSQL is available via `DATABASE_URL` for production.
 
 ## Data Flow
 
@@ -137,26 +197,43 @@ sequenceDiagram
   S-->>P: queue_updated to hospital room
 ```
 
+### Invoice Payment Flow
+
+```mermaid
+sequenceDiagram
+  participant P as Patient Dashboard
+  participant API as Flask REST API
+  participant DB as SQLite
+  participant Admin as Admin Dashboard
+
+  P->>API: PUT /api/hospital/invoice/<id>/pay
+  API->>DB: Check invoice exists and not already paid
+  API->>DB: Create Payment record
+  API->>DB: Update Invoice status to Paid
+  API->>DB: Write AuditLog entry
+  API-->>P: { payment_id, transaction_id }
+  API->>Admin: emit payment_processed to hospital room
+```
+
 ## API Layers
 
 The backend exposes REST API groups:
 
 - `/api/auth/*`: hospital registration, patient registration, login, doctors, admin users.
 - `/api/patients/*`: patient appointments, prescriptions, profile update.
-- `/api/hospital/*`: queues, analytics, tests, pharmacy, ratings, availability, slots, notes, invoices, summaries, search.
-- `/api/ping`: simple health check.
+- `/api/hospital/*`: queues, analytics, tests, pharmacy, ratings, availability, slots, notes, invoices, summaries, search, payment.
+- `/api/ping`, `/api/health`: health checks.
 
-Socket.IO events exist for workflow mutations:
+Socket.IO events for workflow mutations are handled by domain service modules in `backend/services/`:
 
-- `action_book_appointment`
-- `action_arrive`
-- `action_cancel_appointment`
-- `action_submit_vitals`
-- `action_prescribe_test`
-- `action_pay_test`
-- `action_upload_test_report`
-- `action_prescribe_meds`
-- `action_dispense_meds`
+| Module | Events |
+| --- | --- |
+| `services/appointment.py` | `action_book_appointment`, `action_arrive`, `action_cancel_appointment` |
+| `services/vitals.py` | `action_submit_vitals` |
+| `services/lab.py` | `action_prescribe_test`, `action_pay_test`, `action_upload_test_report` |
+| `services/pharmacy.py` | `action_prescribe_meds`, `action_dispense_meds` |
+
+Server emits `appointment_booked`, `queue_updated`, `payment_processed`, and error events to tenant rooms.
 
 ## Caching, Workers, And Integrations
 
@@ -216,6 +293,8 @@ erDiagram
   Hospital ||--o{ Prescription : owns
   Hospital ||--o{ Rating : owns
   Hospital ||--o{ Invoice : owns
+  Hospital ||--o{ Payment : owns
+  Hospital ||--o{ AuditLog : owns
 
   User ||--o{ Appointment : patient
   User ||--o{ Appointment : doctor
@@ -224,6 +303,9 @@ erDiagram
   Appointment ||--o{ Prescription : has
   Appointment ||--o{ Rating : has
   Appointment ||--o{ Invoice : has
+  Invoice ||--o{ Payment : has
+  User ||--o{ Payment : payer
+  User ||--o{ AuditLog : actor
 ```
 
 SQLAlchemy models currently define foreign keys but not full relationship properties. Most route code fetches related rows manually with `User.query.get(...)`, `Appointment.query.get(...)`, or filtered queries.
@@ -234,10 +316,12 @@ SQLAlchemy models currently define foreign keys but not full relationship proper
 - Role authorization is implemented with `@require_roles(...)`.
 - Public auth routes are intentionally unauthenticated.
 - REST calls are centralized through `apiFetch`.
-- Socket events are authorized using a per-socket session map in `backend/app.py`.
+- Socket events are authorized using a per-socket session map in `services/__init__.py`.
 - Real-time events are emitted to tenant rooms named `hospital:<hospital_id>`.
-- The app uses `db.create_all()` only when `AUTO_CREATE_TABLES=true`.
+- The app uses `db.create_all()` only when `AUTO_CREATE_TABLES=true` (dev fallback; Alembic is the primary schema management method).
 - Seed data is upserted by `backend/seed.py`; destructive local resets require `python seed.py --reset`.
+- Audit records are created via `log_action()` — never fails the primary operation.
+- Request IDs are auto-generated and propagated in response headers and logs.
 
 ## Environment Variables
 
@@ -250,6 +334,7 @@ Backend:
 | `DATABASE_URL` | SQLAlchemy database URI, default local SQLite |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins, default `http://localhost:5173` |
 | `FLASK_ENV` | Set in Docker Compose, not deeply used by the app |
+| `AUTO_CREATE_TABLES` | Dev fallback toggle for schema bootstrap (default `true`) |
 
 Frontend:
 
@@ -266,9 +351,11 @@ The current deployment setup is development-oriented.
 flowchart TD
   Compose[docker-compose.yml] --> BackendBuild[Build backend/Dockerfile]
   Compose --> FrontendBuild[Build frontend/Dockerfile]
+  Compose --> DB[(PostgreSQL 16 - optional)]
   BackendBuild --> BackendRun[python app.py on port 5000]
   FrontendBuild --> FrontendRun[npm run dev on port 5173]
-  BackendRun --> SQLite[(Mounted backend volume + SQLite file)]
+  BackendRun -->|"DATABASE_URL set?"| DB
+  BackendRun -->|"else"| SQLite[(Mounted backend volume + SQLite file)]
 ```
 
 Current Docker Compose:
@@ -278,17 +365,22 @@ Current Docker Compose:
 - Runs `python app.py`.
 - Builds frontend from `frontend/`.
 - Runs Vite dev server with `--host 0.0.0.0`.
+- Optional PostgreSQL 16 service (`db`) with health check.
 
 This is useful for local development, not production deployment.
 
-## Testing And CI/CD
+## CI/CD
 
 Current implementation:
 
-- Backend test suite: none found.
-- Frontend test suite: none found.
-- CI/CD workflow: none found.
-- Available validation: backend Python compile, frontend build, frontend lint.
+- 4 GitHub Actions workflows on push/PR to `main`:
+  - `lint-format.yml`: ruff check + ESLint
+  - `test.yml`: `pytest -q` (29 tests) + `npm run build`
+  - `security-scan.yml`: ruff security rules + pip-audit + Trivy
+  - `docker-build.yml`: multi-stage Docker image build validation
+- Backend test suite: 29 tests (auth, tenant isolation, validation, socket mutations, workflow integration).
+- Frontend validation: `npm run build` + `npm run lint` (0 errors, 0 warnings).
+- Migration check: `flask --app backend/app.py db -d backend/migrations check`.
 
 ## Architectural Weaknesses
 
@@ -296,27 +388,30 @@ Canonical detailed list: `docs/architectural-weaknesses.md`.
 
 Highest-impact current weaknesses:
 
-- No automated tests.
-- No migrations.
-- SQLite active database.
-- Socket workflow logic coupled to `app.py`.
-- Large frontend dashboard components.
-- No audit logs.
-- Development-only Docker/runtime.
+- No frontend tests.
+- No payment gateway integration.
+- No refresh token rotation or rate limiting.
+- No request validation library (inline helpers only).
+- No standardized error response shape.
+- Team still uses SQLite in CI (no PostgreSQL).
+- Socket sessions are in-memory (not horizontally scalable).
 - Superadmin dashboard uses mock data.
+- No monitoring, alerting, or backup flows.
 
 ## Suggested Improvements
 
 These are recommendations only; they are not implemented in this documentation pass.
 
-- Add Flask-Migrate/Alembic and remove `db.create_all()` from startup.
-- Move production database to PostgreSQL.
-- Split Socket.IO handlers into a dedicated module.
-- Add service-layer functions for appointment, billing, lab, and prescription workflows.
-- Add SQLAlchemy relationships and indexes.
-- Add tests for tenant isolation, role authorization, and workflow transitions.
+- Add refresh token rotation (short-lived access + long-lived refresh).
+- Add rate limiting on auth/public endpoints.
+- Add password policy enforcement.
+- Wire Stripe/Razorpay payment gateway.
+- Add frontend tests (component + workflow).
 - Replace mock superadmin data with real platform tenant APIs.
-- Add audit logging for patient, clinical, billing, and admin actions.
-- Consider httpOnly secure cookies or stronger XSS protections for JWT handling.
-- Use a production WSGI/Socket.IO deployment strategy instead of Vite/Werkzeug dev servers.
-- Add API versioning, request validation, and consistent error responses.
+- Use production WSGI/Socket.IO deployment (gunicorn + eventlet).
+- Serve frontend production build via Nginx/Caddy.
+- Add Redis for Socket.IO session store and horizontal scaling.
+- Add API versioning, request validation (Pydantic/marshmallow), and consistent error responses.
+- Add PostgreSQL to CI.
+- Add database backup/restore flow.
+- Add Sentry or similar error monitoring.

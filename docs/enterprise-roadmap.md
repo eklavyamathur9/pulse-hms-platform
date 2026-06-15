@@ -1,6 +1,6 @@
 # Enterprise Development Roadmap
 
-Last reviewed: 2026-06-13
+Last reviewed: 2026-06-15
 
 This roadmap transforms Pulse HMS from a functional prototype into a production-grade, enterprise-ready hospital management SaaS platform. Each phase builds on the previous, prioritizing safety, correctness, and maintainability before features.
 
@@ -8,23 +8,20 @@ This roadmap transforms Pulse HMS from a functional prototype into a production-
 
 **Goal:** Make the codebase safe to refactor by establishing testing, CI, and code quality gates.
 
-### Tasks
-- Expand backend test coverage (auth, tenant isolation, workflow state transitions, error paths)
-- Set up GitHub Actions CI:
-  - Backend: `py_compile` + `pytest`
-  - Frontend: `npm run build` + `npm run lint`
-  - PR status checks
-- Add pre-commit hooks (lint, format, security scan)
-- Set up branch protection rules
-- Add `ruff` or `black` for Python formatting
-- Configure ESLint with stricter React/JSX rules
-- Add `dotenv` validation to warn on missing env vars at startup
+### Tasks (Completed)
+- ~~Expand backend test coverage (auth, tenant isolation, workflow state transitions, error paths)~~ — 29 tests (7 API + 6 socket + 16 workflow)
+- ~~Set up GitHub Actions CI with PR status checks~~ — initial ci.yml → later split into 4 workflows
+- ~~Add pre-commit hooks (ruff, trailing-whitespace, end-of-file-fixer, check-yaml)~~
+- ~~Set up branch protection rules~~ — no direct pushes to main
+- ~~Add `ruff` for Python linting~~ — ruff config in pyproject.toml
+- ~~Configure ESLint~~ — 0 errors, 0 warnings
+- `dotenv` validation on startup — **not yet done**
 
 ### Validation
 ```bash
 # Backend
 python -m pytest -q backend/tests/
-python -m py_compile backend/*.py
+python -m py_compile backend/*.py backend/services/*.py
 
 # Frontend
 cd frontend && npm run build && npm run lint
@@ -32,7 +29,7 @@ cd frontend && npm run build && npm run lint
 
 ### Deliverables
 - CI passing on every PR
-- Test coverage baseline established
+- Test coverage baseline established (29 tests)
 - Linting/formatting enforced
 - Developer setup documented in README
 
@@ -42,21 +39,21 @@ cd frontend && npm run build && npm run lint
 
 **Goal:** Move from SQLite + `create_all()` to a production migration workflow with PostgreSQL.
 
-### Tasks
-- Complete Flask-Migrate/Alembic setup with a real baseline migration
-- Add PostgreSQL driver configuration (already in requirements.txt as `psycopg[binary]`)
-- Create a production `DATABASE_URL` parsing strategy (fallback to SQLite for dev)
-- Add database indexes for common query patterns (tenant_id + status, date ranges)
-- Add proper foreign key constraints with ON DELETE behavior
-- Create a seed command that works with both SQLite and PostgreSQL
-- Add a `db/health` endpoint for liveness checks
-- Document backup/restore procedures
+### Tasks (Completed)
+- ~~Flask-Migrate/Alembic setup with baseline migration~~ — `58e5f1bc23af` creates all tables with indexes
+- ~~PostgreSQL driver configuration~~ — `psycopg[binary]` in requirements, DATABASE_URL config
+- ~~DATABASE_URL parsing strategy~~ — fallback to SQLite in dev, PostgreSQL in production
+- ~~Database indexes for common query patterns~~ — included in baseline migration
+- ~~Health check endpoints~~ — `/api/ping` and `/api/health` with DB connectivity
+- Proper foreign key constraints with ON DELETE — **partial, needs review**
+- Seed command compatible with both databases — **partial, SQLite-tested only**
+- Document backup/restore procedures — **not yet done**
 
 ### Validation
 ```bash
-flask --app app.py db upgrade
-flask --app app.py db check
-pytest -q tests/
+flask --app backend/app.py db -d backend/migrations upgrade
+flask --app backend/app.py db -d backend/migrations check
+python -m pytest -q backend/tests/
 ```
 
 ### Deliverables
@@ -71,30 +68,30 @@ pytest -q tests/
 
 **Goal:** Separate business logic from HTTP/Socket transport for testability and reusability.
 
-### Tasks
-- Create `backend/services/` package with modules:
-  - `appointment_service.py` - booking, reschedule, cancel, state transitions
-  - `lab_service.py` - order, pay, upload, complete
-  - `pharmacy_service.py` - prescribe, dispense
-  - `billing_service.py` - invoice generation, payment
-  - `patient_service.py` - profile, history, summaries
-- Extract Socket.IO event handlers from `app.py` into `backend/socket_handlers.py`
-- Standardize error responses using a common `ApiError` class
-- Add request validation using a library (marshmallow or pydantic)
-- Add structured logging (JSON format) for production observability
-- Refactor route handlers to thin wrappers calling service methods
+### Tasks (Completed)
+- ~~Create `backend/services/` package with modules:~~
+  - ~~`services/appointment.py` — booking, arrival, cancellation~~
+  - ~~`services/lab.py` — prescribe test, pay test, upload report~~
+  - ~~`services/pharmacy.py` — prescribe meds, dispense meds~~
+  - ~~`services/vitals.py` — submit vitals~~
+- ~~Extract Socket.IO event handlers from `app.py` into `services/` modules~~ — register(socketio) pattern
+- ~~Add shared socket helpers in `services/__init__.py`~~ — require_socket_roles, socket_payload, tenant_appointment, socket_sessions
+- Structured logging (JSON format) with request ID — **done** (Phase 4)
+- Standardize error responses — **not yet done**
+- Add request validation library — **not yet done**
+- Refactor REST route handlers to use service layer — **not yet done**
 
 ### Validation
 ```bash
-pytest -q tests/
+python -m pytest -q backend/tests/
 # Manual: all role workflows still functional
 ```
 
 ### Deliverables
-- `backend/services/` directory with 5+ service modules
-- Socket handlers in separate file
-- Error standardization across all endpoints
+- `backend/services/` directory with 4 domain modules
+- Socket handlers extracted from app.py
 - Structured logging
+- Shared socket helper utilities
 
 ---
 
@@ -102,33 +99,26 @@ pytest -q tests/
 
 **Goal:** Deploy-ready infrastructure with reverse proxy, process management, and container orchestration.
 
-### Tasks
-- Create production Dockerfiles (multi-stage builds, non-root users)
-- Add nginx reverse proxy config (`nginx/default.conf`):
-  - Static file serving for frontend
-  - API proxy with rate limiting
-  - WebSocket support
-  - SSL/TLS termination
-- Replace `python app.py` with `gunicorn` + eventlet workers (backend Dockerfile already has gunicorn)
-- Add docker-compose.prod.yml with:
-  - PostgreSQL service
-  - Redis for socket session state (needed for multi-worker Socket.IO)
-  - Backend with gunicorn workers
-  - Frontend served via nginx
-- Add health check endpoints for container orchestration
-- Add environment validation on startup
+### Tasks (Partially Completed in Phase 3.5)
+- ~~Multi-stage Dockerfiles with non-root users~~ — backend + frontend Dockerfiles updated
+- ~~Health check endpoints~~ — `/api/ping` and `/api/health`
+- nginx reverse proxy config — **not yet done**
+- Replace `python app.py` with gunicorn — **not yet done** (gunicorn in requirements but not wired)
+- docker-compose.prod.yml — **not yet done**
+- Redis for socket session state — **not yet done**
+- Environment validation on startup — **not yet done**
 
 ### Validation
 ```bash
-docker compose -f docker-compose.prod.yml up --build
+make compose
 # Verify all endpoints, real-time events, and database connectivity
 ```
 
 ### Deliverables
-- Production Docker Compose stack
-- nginx configuration
-- Gunicorn configuration for workers
-- Health check endpoints
+- Multi-stage Dockerfiles (done)
+- Health check endpoints (done)
+- Production Docker Compose stack (pending)
+- nginx configuration (pending)
 
 ---
 
@@ -136,64 +126,56 @@ docker compose -f docker-compose.prod.yml up --build
 
 **Goal:** Meet healthcare compliance baseline (HIPAA-like) with audit trails, access controls, and data protection.
 
-### Tasks
-- Add comprehensive audit logging:
-  - `AuditLog` model: user_id, action, resource_type, resource_id, old_values, new_values, ip_address, timestamp
-  - Decorator-based logging for all mutation operations
-- Implement refresh token rotation (short-lived access + long-lived refresh tokens)
-- Add password policy enforcement (complexity, expiry, history)
-- Add rate limiting on auth endpoints (Flask-Limiter or nginx)
-- Add session management (concurrent session limits, force logout)
-- Add data encryption at rest for PII fields (`Fernet` or db-level encryption)
-- Add CORS hardening (specific origins per environment)
-- Add security headers (Helmet-like via nginx)
-- Create SOC2/HIPAA compliance documentation
-- Add data retention and purge policies
+### Tasks (Partially Completed)
+- ~~AuditLog model + log_action() helper~~ — Phase 4, covers pay_invoice only
+- Audit logging decorator for all mutation operations — **partial** (pay_invoice only)
+- ~~Security scanning in CI~~ — ruff security rules, pip-audit, Trivy (Phase 3.5)
+- ~~CORS configuration~~ — Flask-CORS with configurable origins
+- Refresh token rotation — **not yet done**
+- Password policy enforcement — **not yet done**
+- Rate limiting on auth endpoints — **not yet done**
+- Data encryption for PII — **not yet done**
+- Security headers — **not yet done**
+- Compliance documentation — **not yet done**
 
 ### Validation
 ```bash
-pytest -q tests/
-# Security scan: check for exposed secrets, missing headers, etc.
+python -m pytest -q backend/tests/
+make security-scan
 ```
 
 ### Deliverables
-- Audit log for all state mutations
-- Token rotation implemented
-- Rate limiting active on auth routes
-- Compliance documentation
+- Audit log for pay_invoice (done)
+- Token rotation (pending)
+- Rate limiting (pending)
+- Security scanning in CI (done)
 
 ---
 
-## Phase 6: Superadmin & Multi-Tenant Operations
+## Phase 6: Superadmin & Multi-Tenant Operations (Partially Done — Billing Foundation)
 
 **Goal:** Replace mock superadmin dashboard with real tenant management and billing.
 
-### Tasks
-- Create `backend/superadmin_routes.py` with real endpoints:
-  - `GET /api/superadmin/tenants` - list all hospitals with metrics
-  - `PUT /api/superadmin/tenants/<id>` - activate/suspend/change plan
-  - `GET /api/superadmin/tenants/<id>/usage` - API calls, storage, users
-  - `DELETE /api/superadmin/tenants/<id>` - tenant deletion (soft)
-- Add plan-based feature flags:
-  - `basic` (single doctor, 100 patients)
-  - `pro` (5 doctors, 1000 patients, lab integration)
-  - `enterprise` (unlimited, priority support, API access)
-- Add tenant usage metrics (daily active users, appointments, storage)
-- Add subscription/billing model scaffolding (for future payment integration)
-- Build real SuperAdminDashboard frontend with charts and management controls
-- Add tenant onboarding flow improvements (email verification, setup wizard)
+### Tasks (Completed)
+- ~~Payment model and migration~~ — `e7f242c6b558`, fields for method, transaction_id, status, paid_at
+- ~~pay_invoice route creates Payment record + audit log + socket event~~
+- ~~Admin analytics uses real paid invoice revenue~~ — replaces mock `completed_labs * 50`
+
+### Tasks (Pending for actual Phase 6)
+- Superadmin REST API endpoints — **not yet done**
+- Plan-based feature flags — **not yet done**
+- Real SuperAdminDashboard frontend — **not yet done**
+- Tenant onboarding improvements — **not yet done**
 
 ### Validation
 ```bash
-pytest -q tests/
-# Manual: superadmin can list/suspend/activate tenants
+python -m pytest -q backend/tests/
+# Manual: invoice pay creates payment record and updates analytics
 ```
 
 ### Deliverables
-- Superadmin REST API endpoints
-- Plan-based feature gating
-- Usage metrics collection
-- Real SuperAdminDashboard frontend
+- Payment model with migration (done)
+- Real revenue in admin analytics (done)
 
 ---
 
@@ -201,36 +183,33 @@ pytest -q tests/
 
 **Goal:** Improve frontend maintainability, performance, and developer experience.
 
-### Tasks
-- Split large dashboards into smaller components:
-  - `PatientDashboard` (915 lines) -> hooks + view components
-  - `DoctorDashboard` (300 lines) -> modular panels
-  - `StaffDashboard` (274 lines) -> pipeline components
-- Create custom hooks for shared logic:
-  - `useAppointments()`, `usePatients()`, `useQueue()`, etc.
-  - `useSocketEvent()` for typed socket listeners
-- Add server-state management (React Query or Zustand) for API caching
-- Add TypeScript migration (incremental, file-by-file)
-- Add component tests with Vitest + React Testing Library
-- Add lazy loading for route-based code splitting
-- Fix ESLint hook dependency warnings (4 known)
-- Add error boundaries for each dashboard
-- Create a shared UI component library (`Button`, `Card`, `Modal`, `Table`, `Form`)
-- Add loading skeletons for async data
+### Tasks (Completed)
+- ~~PatientDashboard split into 7 sub-components~~ — from 915 to ~220 lines (Phase 5)
+- ~~PDF generation extracted to lib/pdf.js~~ (Phase 5)
+- ~~Lazy loading for route-based code splitting~~ — React.lazy + Suspense for all dashboards (Phase 5)
+- ~~Error boundaries for each dashboard~~ — ErrorBoundary component (Phase 5)
+- ~~ESLint hook dependency warnings fixed~~ — 0 errors, 0 warnings (Phase 5)
+
+### Tasks (Pending)
+- Split DoctorDashboard, StaffDashboard, AdminDashboard — **not yet done**
+- Custom hooks for shared data fetching logic — **not yet done**
+- Server-state management (React Query / Zustand) — **not yet done**
+- TypeScript migration — **not yet done**
+- Component tests — **not yet done**
+- Shared UI component library — **not yet done**
+- Loading skeletons — **not yet done**
 
 ### Validation
 ```bash
 npm run build
 npm run lint
-npm run test       # Once tests exist
 ```
 
 ### Deliverables
-- Modular component architecture
-- Custom hooks for data fetching
-- TypeScript migration started
-- Component tests for critical views
-- Code splitting in place
+- Modular patient component architecture (done)
+- Code splitting for all dashboards (done)
+- Component tests (pending)
+- TypeScript migration (pending)
 
 ---
 
@@ -238,37 +217,28 @@ npm run test       # Once tests exist
 
 **Goal:** Production-grade monitoring, alerting, and debugging capabilities.
 
-### Tasks
-- Add structured JSON logging to backend
-- Add request ID tracking across the stack
-- Integrate OpenTelemetry for distributed tracing
-- Add metrics endpoints:
-  - Request count, latency, error rate (per endpoint)
-  - Active users, appointments in progress
-  - Database query performance
-- Add health check endpoints:
-  - `/health` - overall status
-  - `/health/db` - database connectivity
-  - `/health/socket` - WebSocket server status
-- Set up Prometheus metrics endpoint
-- Add Sentry or similar error tracking
-- Create Grafana dashboard templates
-- Add alerting rules (PagerDuty/Opsgenie integration scaffold)
-- Add application performance monitoring (APM)
+### Tasks (Completed)
+- ~~Structured JSON logging with request ID tracking~~ — middleware in app.py (Phase 4)
+- ~~Health check endpoints~~ — `/api/ping` and `/api/health` (Phase 2)
+
+### Tasks (Pending)
+- OpenTelemetry / distributed tracing — **not yet done**
+- Metrics endpoints (Prometheus) — **not yet done**
+- Sentry error tracking — **not yet done**
+- Grafana dashboards — **not yet done**
+- Alerting rules — **not yet done**
 
 ### Validation
 ```bash
-curl http://localhost:5000/health
-curl http://localhost:5000/metrics
-pytest -q tests/
+curl http://localhost:5000/api/health
+python -m pytest -q backend/tests/
 ```
 
 ### Deliverables
-- Structured logging throughout
-- Health check endpoints
-- Prometheus metrics endpoint
-- Error tracking integration
-- Monitoring dashboard templates
+- Structured logging (done)
+- Health check endpoints (done)
+- Prometheus metrics (pending)
+- Error tracking (pending)
 
 ---
 
@@ -359,8 +329,21 @@ pytest -q tests/
 4. **Incremental migration** - No big-bang rewrites. Each phase is independently deployable.
 5. **Document as you go** - Update docs, ADRs, and handoff files within each phase.
 
-## Current Phase
+## Current Phase Status
 
-**Phase 0 Complete** - Initial cleanup, documentation, and AI memory setup.
+| Phase | Status |
+| --- | --- |
+| Phase 0 — Initial Cleanup | **Complete** |
+| Phase 1 — Safety Rails & CI | **Complete** |
+| Phase 2 — Database Migrations | **Complete** |
+| Phase 3 — Service Layer Extraction | **Complete** |
+| Phase 3.5 — Tooling & Infrastructure | **Complete** |
+| Phase 4 — Observability & Audit | **Complete** |
+| Phase 5 — Frontend Code Splitting | **Complete** |
+| Phase 6 — Billing Foundation | **Partially Complete** (Payment model, real revenue, audit trail; no gateway yet) |
+| Phase 7 — Security Hardening | **Next: Phase 7** — refresh tokens, rate limiting, password policy |
+| Phase 8 — Frontend Modernization | **Blocked on Phase 7** |
+| Phase 9 — Performance & Scalability | Not started |
+| Phase 10 — External Integrations | Not started |
 
-**Next:** Phase 1 - Safety Rails & CI Foundation
+**Next focus: Phase 7 — Security Hardening.**

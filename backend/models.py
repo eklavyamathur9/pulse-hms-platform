@@ -161,6 +161,23 @@ class Invoice(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class Payment(db.Model):
+    __table_args__ = (
+        db.Index("ix_payment_invoice", "hospital_id", "invoice_id"),
+        db.Index("ix_payment_patient", "hospital_id", "patient_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey("hospital.id"), nullable=False)
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoice.id"), nullable=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    method = db.Column(db.String(30), default="cash")  # cash, card, online, insurance
+    transaction_id = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(20), default="completed")  # pending, completed, failed, refunded
+    paid_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class AuditLog(db.Model):
     __table_args__ = (
         db.Index("ix_audit_log_hospital", "hospital_id"),

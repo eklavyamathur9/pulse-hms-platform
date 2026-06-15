@@ -2,7 +2,7 @@
 
 Persistent project memory for AI-assisted development in Pulse HMS.
 
-Last reviewed: 2026-06-13
+Last reviewed: 2026-06-15
 
 ## Project Snapshot
 
@@ -11,12 +11,14 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 - Frontend: React + Vite SPA in `frontend/`
 - Backend: Flask + Flask-SocketIO API in `backend/`
 - Database: SQLite (dev) / PostgreSQL (production) via `DATABASE_URL`
-- Schema management: Alembic migrations (baseline: `58e5f1bc23af`)
-- Realtime: Socket.IO events handled in `backend/app.py`
+- Schema management: Alembic migrations (baseline: `58e5f1bc23af`, latest: `e7f242c6b558`)
+- Realtime: Socket.IO events handled in `backend/services/` domain modules
 - CI: GitHub Actions (backend compile + pytest, frontend build + lint)
 - Deployment scaffold: development Docker Compose with optional PostgreSQL service
 
 Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, local migrations, 29 backend tests, CI, no production server config, and no real payment/compliance integrations.
+
+PatientDashboard was split into 7 focused components. PDF generation extracted to `lib/pdf.js`. All dashboards are lazy-loaded with Suspense + ErrorBoundary. ESLint passes with 0 errors, 0 warnings.
 
 ## Tech Stack
 
@@ -32,13 +34,13 @@ Backend:
 
 Frontend:
 
-- React
-- Vite
-- React Router
+- React 19 (with `React.lazy` for code splitting)
+- Vite 8
+- React Router 7
 - Socket.IO client
 - Recharts
 - Lucide React
-- jsPDF
+- jsPDF (PDF utilities in `lib/pdf.js`)
 
 ## Architecture Rules
 
@@ -81,7 +83,7 @@ Frontend:
 Run from repository root unless noted:
 
 ```bash
-python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
 ```
 
 ```bash
@@ -95,7 +97,7 @@ npm run build
 npm run lint
 ```
 
-Known current lint behavior: lint exits successfully but reports four React hook dependency warnings.
+Current lint status: 0 errors, 0 warnings.
 
 ## Testing Requirements
 
@@ -103,8 +105,8 @@ Current repository state:
 
 - Backend tests exist in `backend/tests/` (pytest suite with 29 tests: 7 API + 6 socket + 16 workflow).
 - No frontend tests exist.
-- CI exists in `.github/workflows/ci.yml` (backend compile + pytest, frontend build + lint).
-- Baseline Alembic migration `58e5f1bc23af` creating all 8 tables with indexes/constraints.
+- CI split into 4 focused workflows (lint-format, test, security-scan, docker-build).
+- Alembic migrations (baseline `58e5f1bc23af`, latest `e7f242c6b558`) covering 10 tables.
 
 When expanding tests, prioritize:
 

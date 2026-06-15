@@ -1,13 +1,13 @@
 # Frontend Architecture
 
-Last reviewed: 2026-05-16
+Last reviewed: 2026-06-15
 
 The frontend is a React + Vite single-page app with role-specific dashboards, React Context providers, a small API helper, and Socket.IO client integration.
 
 ## Frontend Stack
 
 - React 19
-- Vite 8
+- Vite 8 (with automatic code splitting via `React.lazy`)
 - React Router 7
 - Socket.IO client
 - Lucide React icons
@@ -35,17 +35,27 @@ frontend/
       HospitalRegistration.css
       Login.jsx
       Layout.jsx
-      PatientDashboard.jsx
+      ErrorBoundary.jsx
+      PatientDashboard.jsx          # Orchestrator (~220 lines)
       DoctorDashboard.jsx
       StaffDashboard.jsx
       AdminDashboard.jsx
       SuperAdminDashboard.jsx
+      patient/
+        ActiveAppointments.jsx      # Active visits with stepper progress
+        ActiveLabTests.jsx          # Pending/payable lab tests
+        MedicalHistory.jsx          # Past visits, ratings, prescriptions, labs
+        PatientBilling.jsx          # Invoice table, pay, PDF download
+        PatientProfile.jsx          # Profile form
+        PatientBookingPanel.jsx     # Doctor listing + booking form
+        RescheduleModal.jsx         # Date/slot reschedule modal
     context/
       AuthContext.jsx
       NotificationContext.jsx
       SocketContext.jsx
     lib/
       api.js
+      pdf.js                        # PDF generation utilities
   public/
   package.json
   vite.config.js
@@ -64,6 +74,8 @@ frontend/
 - Browser router.
 - Role-specific route guard.
 - Light/dark theme state stored in `localStorage`.
+- React.lazy + Suspense for all role dashboards (code splitting per dashboard).
+- ErrorBoundary wrapper per dashboard route.
 
 ```mermaid
 flowchart TD
@@ -163,6 +175,7 @@ Dashboards listen for:
 
 - `queue_updated`
 - `appointment_booked`
+- `payment_processed` (AdminDashboard — refreshes analytics on payment)
 
 Dashboards emit actions such as:
 
@@ -307,7 +320,7 @@ Current frontend state:
 - No frontend tests exist.
 - No test runner is configured.
 - Current validation is `npm run build` and `npm run lint`.
-- Lint exits successfully but currently reports four React hook dependency warnings.
+- Lint exits with 0 errors, 0 warnings.
 
 ## Important Patterns
 
@@ -315,32 +328,28 @@ Current frontend state:
 - Authenticated route UI checks happen in `ProtectedRoute`.
 - Backend authorization is still the source of truth.
 - Socket listeners are installed in dashboard `useEffect` hooks and removed on cleanup.
-- PDF generation is done directly in `PatientDashboard.jsx`.
+- PDF generation utilities live in `src/lib/pdf.js`.
 - Many component styles are inline, with shared CSS in `App.css`, `index.css`, and page-specific CSS.
 
 ## Frontend Weaknesses
 
 Canonical detailed list: `docs/architectural-weaknesses.md`.
 
-- `PatientDashboard.jsx` is large and owns many responsibilities.
-- `AdminDashboard.jsx`, `DoctorDashboard.jsx`, and `StaffDashboard.jsx` also mix data fetching, UI, and workflow logic.
+- `AdminDashboard.jsx`, `DoctorDashboard.jsx`, and `StaffDashboard.jsx` still mix data fetching, UI, and workflow logic.
 - No server-state library or caching layer exists.
 - No form validation library exists.
 - Auth token is stored in `localStorage`.
 - Superadmin dashboard uses mock data.
 - Role route guard has no loading/expired-token validation state.
-- Hook dependency warnings remain in lint output.
 - Production Docker flow still uses Vite dev server.
 - No frontend tests exist.
 
 ## Suggested Frontend Improvements
 
-- Split large dashboards into smaller feature components.
+- Extract remaining large dashboards (Admin/Doctor/Staff) into feature components.
 - Add route-level loaders or a server-state library such as TanStack Query.
 - Add form validation with schemas.
 - Add an authenticated session revalidation flow on app boot.
-- Add an API error boundary and consistent toast/error handling.
-- Move PDF generation into dedicated utilities.
 - Add component and workflow tests.
 - Replace mock superadmin UI with real APIs.
 - Serve production builds with Nginx/Caddy or a static hosting platform.

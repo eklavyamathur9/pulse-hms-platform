@@ -58,12 +58,13 @@ export default function DoctorDashboard() {
     if (socket) {
       socket.on('queue_updated', () => {
         fetchQueue();
+        fetchStats();
       });
     }
     return () => {
       if (socket) socket.off('queue_updated');
     };
-  }, [fetchQueue, socket]);
+  }, [fetchQueue, fetchStats, socket]);
 
   const prescribeTest = (e) => {
     e.preventDefault();

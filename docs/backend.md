@@ -1,6 +1,6 @@
 # Backend Architecture
 
-Last reviewed: 2026-06-13
+Last reviewed: 2026-06-15
 
 The backend is a Flask application with REST endpoints, Flask-SocketIO real-time events, SQLAlchemy models, and JWT-based role/tenant authorization.
 
@@ -28,10 +28,13 @@ backend/
   app.py             # Flask app and socket handler registration
   auth_routes.py     # Auth, doctors, admin users
   auth_utils.py      # JWT/RBAC/tenant helper functions
+  audit.py           # Audit log helper (log_action)
+  config.py          # Configuration class loading env vars
   hospital_routes.py # Hospital operations and billing APIs
   patient_routes.py  # Patient-specific APIs
-  models.py          # SQLAlchemy models
+  models.py          # SQLAlchemy models (10 tables)
   seed.py            # Local idempotent seed script, with guarded --reset mode
+  validation.py      # Request payload validation helpers
   services/          # Domain service layer (socket event handlers)
     __init__.py      # Shared socket helpers and session management
     appointment.py   # Appointment booking, arrival, cancellation
@@ -39,6 +42,7 @@ backend/
     lab.py           # Lab test prescribing, payment, reporting
     pharmacy.py      # Prescription and dispensing
   migrations/        # Flask-Migrate/Alembic migration repository
+  tests/             # Pytest test suite
   pulse_hms.db       # Local SQLite database file
   requirements.txt
   Dockerfile
@@ -298,6 +302,39 @@ Patient visit rating.
 
 Simplified billing record with consultation, lab, pharmacy, total, and status fields.
 
+### Payment
+
+Payment tracking record created when an invoice is paid.
+
+Fields include:
+
+- `hospital_id`
+- `invoice_id`
+- `patient_id`
+- `amount`
+- `method` (default: `cash`)
+- `transaction_id` (auto-generated as `TXN{timestamp}{invoice_id}`)
+- `status` (default: `completed`)
+- `paid_at` (default: UTC now)
+
+Indexed on `(hospital_id, invoice_id)` and `(hospital_id, patient_id)`.
+
+### AuditLog
+
+Clinical and billing action audit record.
+
+Fields include:
+
+- `hospital_id`
+- `user_id`
+- `action`
+- `resource_type`
+- `resource_id`
+- `details` (JSON blob)
+- `created_at`
+
+Indexed on `(hospital_id, created_at)`, `(user_id)`, and `(resource_type, resource_id)`.
+
 ## Workflow State
 
 Appointment status values are string fields, not database enums.
@@ -328,6 +365,28 @@ Invoice statuses include:
 - `Unpaid`
 - `Paid`
 
+Payment statuses include:
+
+- `completed`
+- `pending`
+- `failed`
+- `refunded`
+
+## Audit Logging
+
+The `backend/audit.py` module provides `log_action()` for recording clinical and billing actions.
+
+Audit records are created non-blocking — the primary operation always completes regardless of audit write outcome. Each audit record includes hospital_id, user_id, action name, resource type/id, and a JSON details blob.
+
+Audited actions:
+
+- Invoice payment (amount, method, transaction_id, payment_id)
+- (Expandable to all clinical/billing mutations)
+
+## Request ID And Logging
+
+The app middleware auto-generates a `X-Request-ID` header if not present in the incoming request. This ID is propagated through response headers and included in structured log messages via the app's logging configuration.
+
 ## Deployment
 
 Backend Dockerfile:
@@ -351,10 +410,19 @@ This is currently a development deployment flow, not a production server setup.
 Current backend state:
 
 - Pytest is configured in `pytest.ini`.
-- Initial backend tests live in `backend/tests`.
-- Current coverage focuses on auth, tenant isolation, validation, rating, and invoice access boundaries.
-- No CI job exists.
-- Current validation is Python compilation, backend pytest, migration checks, frontend lint, and frontend build.
+- Backend tests live in `backend/tests/` — 29 tests across 3 modules:
+  - 7 API tests (auth, tenant, validation, invoice, rating)
+  - 6 socket event tests (workflow mutations)
+  - 16 workflow integration tests (end-to-end appointment/lab/pharmacy)
+- GitHub Actions CI runs on push/PR to `main`:
+  - `.github/workflows/ci.yml` initial single workflow.
+  - Split into 4 focused workflows:
+    - `lint-format.yml` — ruff check + ESLint
+    - `test.yml` — pytest (29 tests) + frontend build
+    - `security-scan.yml` — ruff security rules + pip-audit + Trivy
+    - `docker-build.yml` — multi-stage Docker image build validation
+- Migration checks run with `flask --app backend/app.py db -d backend/migrations check`.
+- Pre-commit config exists in `.pre-commit-config.yaml` (ruff, trailing-whitespace, end-of-file-fixer, check-yaml).
 
 ## Backend Weaknesses
 
@@ -362,25 +430,26 @@ Canonical detailed list: `docs/architectural-weaknesses.md`.
 
 Backend-specific highlights:
 
-- Socket.IO handlers extracted from `app.py` into `backend/services/` (appointment, vitals, lab, pharmacy).
-- Flask-Migrate/Alembic is initialized in `backend/migrations`.
-- Startup schema creation is controlled by `AUTO_CREATE_TABLES`.
+- ~~Socket.IO handlers extracted from `backend/app.py` into `backend/services/`~~ — **Done**
+- ~~Flask-Migrate/Alembic is initialized in `backend/migrations`~~ — **Done**
+- ~~Startup schema creation is controlled by `AUTO_CREATE_TABLES`~~ — **Done, retained as dev fallback**
 - SQLite is used as the active database.
-- Backend tests exist but are still narrow.
+- Backend tests exist (29) but are still narrow.
 - Request validation is currently a small local helper module, not a full schema library.
 - No standardized error response shape across all endpoints.
 - Models use foreign keys but no SQLAlchemy relationship properties.
 - Socket sessions are in memory, so multi-process scaling would need redesign.
-- Audit logging is absent for clinical and billing actions.
+- ~~Audit logging is absent for clinical and billing actions~~ — **Done**
 
 ## Suggested Backend Improvements
 
-- Use Flask-Migrate/Alembic for all further schema changes.
 - Add unit tests for service module functions.
 - Add tests for each role and tenant boundary.
 - Add request schemas with Marshmallow, Pydantic, or similar.
-- Add structured logging and audit logs.
+- ~~Add structured logging and audit logs~~ — **Done**
 - Replace SQLite with PostgreSQL for production.
 - Add relationship properties and continue refining constraints/indexes as workflows mature.
 - Replace string statuses with enums/constants.
 - Add Redis/message queue support before scaling Socket.IO horizontally.
+- Add standardized error response helper.
+- Add PostgreSQL service to CI for database-backend tests.

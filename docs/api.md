@@ -1,23 +1,25 @@
 # API Documentation
 
-Last reviewed: 2026-05-16
+Last reviewed: 2026-06-15
 
-This document inventories the current REST and Socket.IO API surfaces. Payload examples are minimal and inferred from current frontend/backend usage.
+This document inventories the current REST and Socket.IO API surfaces.
 
 ## API Conventions
 
 - Base REST URL: `/api`
-- Frontend REST helper: `frontend/src/lib/api.js`
+- Frontend REST helper: `frontend/src/lib/api.js` (`apiFetch`)
 - Auth header: `Authorization: Bearer <JWT>`
 - Response format: JSON objects/lists
-- Error format: usually `{ "error": "..." }`, but not fully standardized
+- Error format: usually `{ "error": "..." }`, not fully standardized
 - API versioning: none
+- Request ID: auto-generated if missing, propagated in `X-Request-ID` response header
 
 ## Public REST Endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/ping` | Health check |
+| GET | `/api/health` | Health status with database connectivity check |
 | POST | `/api/auth/register-hospital` | Create hospital tenant and admin user |
 | POST | `/api/auth/register` | Create patient account |
 | POST | `/api/auth/login` | Login and issue JWT |
@@ -47,7 +49,7 @@ Patient role is restricted to its own `patient_id`.
 
 | Method | Path | Roles | Purpose |
 | --- | --- | --- | --- |
-| GET | `/api/hospital/admin/analytics` | admin, superadmin | Tenant analytics |
+| GET | `/api/hospital/admin/analytics` | admin, superadmin | Tenant analytics (real revenue from paid invoices) |
 | GET | `/api/hospital/queue` | staff, admin, superadmin | Staff queue |
 | GET | `/api/hospital/doctor/<doc_id>/queue` | doctor, admin, superadmin | Doctor queue |
 | GET | `/api/hospital/doctor/<doc_id>/stats` | doctor, admin, superadmin | Doctor stats |
@@ -62,17 +64,47 @@ Patient role is restricted to its own `patient_id`.
 | PUT | `/api/hospital/appointment/<appt_id>/reschedule` | patient, staff, admin, superadmin | Reschedule appointment |
 | POST | `/api/hospital/appointment/<appt_id>/invoice` | admin, staff, doctor, superadmin | Generate invoice |
 | GET | `/api/hospital/patient/<patient_id>/invoices` | patient, staff, admin, superadmin | Patient invoices |
-| PUT | `/api/hospital/invoice/<inv_id>/pay` | patient, staff, admin, superadmin | Mark invoice paid |
+| PUT | `/api/hospital/invoice/<inv_id>/pay` | patient, staff, admin, superadmin | Mark invoice paid (creates Payment record, emits payment_processed) |
 | GET | `/api/hospital/appointment/<appt_id>/summary` | patient, doctor, admin, staff, superadmin | Visit summary |
 | GET | `/api/hospital/admin/search` | admin, superadmin | Search users/appointments |
+
+### Payment Endpoint Details
+
+**PUT `/api/hospital/invoice/<inv_id>/pay`**
+
+Request body:
+```json
+{
+  "method": "cash"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "Invoice paid successfully",
+  "payment_id": 1,
+  "transaction_id": "TXN1718479200150001"
+}
+```
+
+Errors:
+- `404`: Invoice not found
+- `409`: Invoice already paid
+
+Side effects:
+- Creates `Payment` record with auto-generated `transaction_id`
+- Updates `Invoice.status` to `Paid`
+- Audit logs via `log_action()` with amount, payment_id, transaction_id, method
+- Emits `payment_processed` socket event to tenant room
 
 ## Socket.IO Events
 
 Socket connection:
-
 - URL: `VITE_SOCKET_URL`
-- Client sends `auth: { token }`
-- Server decodes JWT, stores socket context, joins `hospital:<hospital_id>` room
+- Client sends `auth: { token }` in the connection handshake
+- Server decodes JWT, stores socket context in `services.socket_sessions`, joins `hospital:<hospital_id>` room
 
 ### Client Emits
 
@@ -94,8 +126,27 @@ Socket connection:
 | --- | --- |
 | `appointment_booked` | Notifies tenant dashboards that a new appointment exists |
 | `queue_updated` | Notifies tenant dashboards to refresh queue/workflow data |
+| `payment_processed` | Notifies tenant dashboards that an invoice was paid (AdminDashboard refreshes analytics) |
 | `auth_error` | Socket action authorization failure |
 | `action_error` | Socket action domain failure |
+
+### Socket.IO Handler Modules
+
+Events are handled in `backend/services/`:
+
+| Module | Handlers |
+| --- | --- |
+| `services/appointment.py` | `action_book_appointment`, `action_arrive`, `action_cancel_appointment` |
+| `services/vitals.py` | `action_submit_vitals` |
+| `services/lab.py` | `action_prescribe_test`, `action_pay_test`, `action_upload_test_report` |
+| `services/pharmacy.py` | `action_prescribe_meds`, `action_dispense_meds` |
+
+### Socket Session Management
+
+- `services/__init__.py` maintains `socket_sessions` dict mapping `request.sid` to user context.
+- `require_socket_roles()` decorator validates role before handler execution.
+- `socket_payload()` extracts and validates required fields from event payloads.
+- `tenant_appointment()` loads appointment scoped to the user's tenant.
 
 ## Request Lifecycle
 
@@ -117,6 +168,30 @@ sequenceDiagram
   Flask-->>FE: JSON
 ```
 
+## Audit Logging
+
+Audit records are created via `backend/audit.py` `log_action()`.
+
+Standard audit payload:
+```json
+{
+  "hospital_id": 1,
+  "user_id": 1,
+  "action": "pay_invoice",
+  "resource_type": "invoice",
+  "resource_id": 1,
+  "details": {
+    "amount": 500.0,
+    "payment_id": 1,
+    "transaction_id": "TXN1718479200150001",
+    "method": "cash"
+  }
+}
+```
+
+Audited actions:
+- `pay_invoice` — includes amount, payment_id, transaction_id, method in details
+
 ## API Weaknesses
 
 | Issue | Severity | Affected Modules | Probable Impact | Incremental Improvement | Difficulty |
@@ -124,6 +199,5 @@ sequenceDiagram
 | No versioning | Medium | all clients/routes | Breaking changes are hard to manage | Add `/api/v1` when API stabilizes | Medium |
 | No schema validation | High | all POST/PUT/socket payloads | Bad payloads can produce runtime errors | Add request schema validation | Medium |
 | Inconsistent error handling | Medium | all routes | Frontend has to guess error shape | Standardize error response helper | Low |
-| Socket events carry mutable domain actions | High | `app.py` | Hard to test and audit | Move to service functions + tests | Medium |
+| ~~Socket events carry mutable domain actions~~ | ~~High~~ | ~~services/ modules~~ | ~~Hard to test and audit~~ | ~~Moved to service functions + tests~~ | ~~Medium~~ |
 | No rate limiting | Medium | auth and public endpoints | Abuse/bruteforce risk | Add rate limiting | Low |
-

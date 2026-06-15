@@ -102,10 +102,14 @@ npm run build
 
 Current state:
 
-- GitHub Actions CI in `.github/workflows/ci.yml` runs on push/PR to main.
+- GitHub Actions CI with 4 focused workflows on push/PR to main:
+  - `lint-format.yml` — ruff check + ESLint
+  - `test.yml` — pytest (29 tests) + frontend build
+  - `security-scan.yml` — ruff security rules + pip-audit + Trivy
+  - `docker-build.yml` — multi-stage Docker image build validation
 - Backend: `py_compile` all Python files, `pytest` test suite (29 tests).
-- Frontend: `npm run build` and `npm run lint`.
-- Migration check: not yet in CI.
+- Frontend: `npm run build` and `npm run lint` (0 errors, 0 warnings).
+- Migration check: `flask --app backend/app.py db -d backend/migrations check` (manual, not in CI).
 
 ## Production Readiness Gaps
 

@@ -1,6 +1,7 @@
+from audit import log_action
 from auth_utils import current_user, forbidden, require_hospital_context, require_roles, tenant_get
-from flask import Blueprint, jsonify, request
-from models import Appointment, Invoice, LabTest, Prescription, Rating, User, Vitals, db
+from flask import Blueprint, g, jsonify, request
+from models import Appointment, Invoice, LabTest, Payment, Prescription, Rating, User, Vitals, db
 from validation import int_field, json_body, require_fields
 
 hospital_bp = Blueprint("hospital", __name__)
@@ -60,7 +61,12 @@ def get_admin_analytics():
     dispensed = Prescription.query.filter_by(hospital_id=hospital_id, status="Dispensed").count()
     pending_dispense = Prescription.query.filter_by(hospital_id=hospital_id, status="Pending Dispense").count()
 
-    lab_revenue = completed_labs * 50  # ₹50 per test
+    actual_revenue = (
+        db.session.query(db.func.sum(Invoice.total))
+        .filter(Invoice.hospital_id == hospital_id, Invoice.status == "Paid")
+        .scalar()
+        or 0
+    )
 
     # Status breakdown for pie chart
     status_counts = {}
@@ -88,7 +94,7 @@ def get_admin_analytics():
                 "dispensed": dispensed,
                 "pending_dispense": pending_dispense,
             },
-            "revenue": lab_revenue,
+            "revenue": actual_revenue,
             "status_breakdown": status_breakdown,
             "avg_rating": round(
                 db.session.query(db.func.avg(Rating.stars)).filter(Rating.hospital_id == hospital_id).scalar() or 0, 1
@@ -549,15 +555,52 @@ def get_patient_invoices(patient_id):
 @hospital_bp.route("/invoice/<int:inv_id>/pay", methods=["PUT"])
 @require_roles("patient", "staff", "admin", "superadmin")
 def pay_invoice(inv_id):
+    from datetime import datetime
+
     inv = tenant_get(Invoice, inv_id)
     if not inv:
         return jsonify({"error": "Invoice not found"}), 404
+    if inv.status == "Paid":
+        return jsonify({"error": "Invoice already paid"}), 409
     user = current_user()
     if user.role == "patient" and user.id != inv.patient_id:
         return forbidden("Patients can only pay their own invoices")
+
+    payment = Payment(
+        hospital_id=inv.hospital_id,
+        invoice_id=inv.id,
+        patient_id=inv.patient_id,
+        amount=inv.total,
+        method="cash",
+        transaction_id=f"TXN{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{inv.id}",
+        status="completed",
+        paid_at=datetime.utcnow(),
+    )
+    db.session.add(payment)
     inv.status = "Paid"
     db.session.commit()
-    return jsonify({"message": "Invoice paid"})
+
+    log_action(
+        hospital_id=inv.hospital_id,
+        user_id=user.id,
+        action="pay_invoice",
+        resource_type="invoice",
+        resource_id=inv.id,
+        details={
+            "amount": inv.total,
+            "payment_id": payment.id,
+            "transaction_id": payment.transaction_id,
+            "method": payment.method,
+        },
+        ip_address=getattr(g, "ip_address", None),
+    )
+
+    from flask_socketio import emit
+    from services import tenant_room
+
+    emit("payment_processed", {"invoice_id": inv.id, "amount": inv.total}, room=tenant_room(inv.hospital_id))
+
+    return jsonify({"message": "Invoice paid", "payment_id": payment.id, "transaction_id": payment.transaction_id})
 
 
 # ===== CLINICAL SUMMARIES =====
