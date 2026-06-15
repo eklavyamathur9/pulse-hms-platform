@@ -20,9 +20,9 @@ This document inventories the current REST and Socket.IO API surfaces.
 | --- | --- | --- |
 | GET | `/api/ping` | Health check |
 | GET | `/api/health` | Health status with database connectivity check |
-| POST | `/api/auth/register-hospital` | Create hospital tenant and admin user |
-| POST | `/api/auth/register` | Create patient account |
-| POST | `/api/auth/login` | Login and issue JWT |
+| POST | `/api/auth/register-hospital` | Create hospital tenant and admin user (rate: 3/hr, password policy enforced) |
+| POST | `/api/auth/register` | Create patient account (rate: 5/hr, password policy enforced) |
+| POST | `/api/auth/login` | Login and issue JWT + refresh token (rate: 20/min) |
 
 ## Protected Auth/User Endpoints
 
@@ -34,6 +34,10 @@ This document inventories the current REST and Socket.IO API surfaces.
 | POST | `/api/auth/admin/users` | admin, superadmin | Create staff/doctor/admin user |
 | PUT | `/api/auth/admin/users/<user_id>` | admin, superadmin | Update user |
 | PUT | `/api/auth/admin/users/<user_id>/deactivate` | admin, superadmin | Toggle active status |
+| POST | `/api/auth/refresh` | authenticated (refresh) | Refresh access + refresh token pair (rotation) |
+| POST | `/api/auth/logout` | authenticated (refresh) | Revoke current refresh token |
+| GET | `/api/auth/me` | authenticated | Get current user profile |
+| PUT | `/api/auth/change-password` | authenticated | Change password (revokes all refresh tokens) |
 
 ## Protected Patient Endpoints
 
@@ -191,6 +195,43 @@ Standard audit payload:
 
 Audited actions:
 - `pay_invoice` — includes amount, payment_id, transaction_id, method in details
+
+## Rate Limiting
+
+Rate limits are enforced on public auth endpoints to prevent abuse:
+
+| Endpoint | Limit | Scope |
+| --- | --- | --- |
+| `POST /api/auth/login` | 20 per minute | IP address |
+| `POST /api/auth/register` | 5 per hour | IP address |
+| `POST /api/auth/register-hospital` | 3 per hour | IP address |
+| All other routes | 200 per day, 50 per hour | IP address (default) |
+
+Rate limiting is configurable via `RATELIMIT_ENABLED`, `RATELIMIT_DEFAULT` env vars. Disabled in test environment. Uses in-memory storage by default (Redis recommended for production).
+
+## Security Headers
+
+All API responses include:
+
+| Header | Value | Purpose |
+| --- | --- | --- |
+| `X-Content-Type-Options` | `nosniff` | Prevent MIME type sniffing |
+| `X-Frame-Options` | `DENY` | Prevent clickjacking |
+| `X-XSS-Protection` | `0` | Disable legacy XSS auditor |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | HSTS |
+| `Cache-Control` | `no-store` | Prevent caching of sensitive responses |
+
+## Password Policy
+
+All user-facing password fields are validated against:
+
+- Minimum 8 characters
+- At least one uppercase letter (A-Z)
+- At least one lowercase letter (a-z)
+- At least one digit (0-9)
+- At least one special character (`!@#$%^&*(),.?":{}|<>_-`)
+
+Enforced on: register, register-hospital, change-password. Admin user creation with default password `changeme` bypasses validation.
 
 ## API Weaknesses
 

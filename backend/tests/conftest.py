@@ -6,6 +6,7 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-with-enough-length")
 os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-key-with-enough-length")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:5173")
 os.environ.setdefault("SOCKET_ASYNC_MODE", "threading")
+os.environ.setdefault("RATELIMIT_ENABLED", "false")
 
 import pytest
 from app import app, socketio

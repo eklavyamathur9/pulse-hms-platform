@@ -15,6 +15,8 @@ class Config:
     ENV = _env("FLASK_ENV", "development")
     SECRET_KEY = _env("SECRET_KEY", DEV_SECRET)
     JWT_SECRET_KEY = _env("JWT_SECRET_KEY", DEV_JWT_SECRET)
+    JWT_ACCESS_TOKEN_EXPIRES = 30 * 60  # 30 minutes
+    JWT_REFRESH_TOKEN_EXPIRES = 30 * 24 * 60 * 60  # 30 days
     SQLALCHEMY_DATABASE_URI = _env("DATABASE_URL", DEFAULT_DATABASE_URL)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     AUTO_CREATE_TABLES = _env("AUTO_CREATE_TABLES", "true").lower() == "true"
@@ -22,6 +24,8 @@ class Config:
     CORS_ORIGINS = [
         origin.strip() for origin in _env("CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()
     ]
+    RATELIMIT_ENABLED = _env("RATELIMIT_ENABLED", "true").lower() == "true"
+    RATELIMIT_DEFAULT = _env("RATELIMIT_DEFAULT", "200 per day;50 per hour")
 
     @classmethod
     def validate(cls):

@@ -14,7 +14,7 @@ This document describes the current SQLAlchemy model layer in `backend/models.py
 - Seed: `backend/seed.py` upserts local demo data
 - Reset: `backend/seed.py --reset` drops and recreates local SQLite tables after safety checks
 - Migrations: Flask-Migrate/Alembic — baseline migration in `backend/migrations/versions/`
-- Current migration head: `e7f242c6b558` (adds Payment table)
+- Current migration head: `58ad529942f8` (adds RefreshToken table + password_changed_at on User)
 
 ## Model Overview
 
@@ -80,6 +80,7 @@ Shared table for patients, doctors, staff, admins, and superadmins.
 | `bio` | Text | Doctor profile |
 | `is_available` | Boolean | Doctor availability |
 | `is_active` | Boolean | Soft-delete/status flag |
+| `password_changed_at` | DateTime | Nullable; tracks last password change |
 
 Constraints and indexes:
 
@@ -238,6 +239,8 @@ Tenant-owned tables include `hospital_id`:
 - `Rating`
 - `Invoice`
 - `Payment`
+- `AuditLog`
+- `RefreshToken`
 
 Routes and socket handlers should always filter tenant-owned records by `hospital_id`.
 
@@ -268,6 +271,24 @@ Indexes:
 
 - `(hospital_id, invoice_id)`
 - `(hospital_id, patient_id)`
+
+### `refresh_token`
+
+Tracks active refresh tokens for token rotation.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | Integer PK | |
+| `user_id` | FK user.id | Required |
+| `token_hash` | String(200) | Hashed refresh token value |
+| `expires_at` | DateTime | Token expiration |
+| `is_revoked` | Boolean | Revoked on rotation/logout |
+| `created_at` | DateTime | Default UTC now |
+
+Indexes:
+
+- `(user_id)`
+- `(expires_at)`
 
 ## Current Database Weaknesses
 

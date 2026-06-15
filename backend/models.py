@@ -46,6 +46,21 @@ class User(db.Model):
     bio = db.Column(db.Text, nullable=True)  # short doctor bio
     is_available = db.Column(db.Boolean, default=True)
     is_active = db.Column(db.Boolean, default=True)  # soft-delete
+    password_changed_at = db.Column(db.DateTime, nullable=True)
+
+
+class RefreshToken(db.Model):
+    __table_args__ = (
+        db.Index("ix_refresh_token_user", "user_id"),
+        db.Index("ix_refresh_token_expires", "expires_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    token_hash = db.Column(db.String(200), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_revoked = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Appointment(db.Model):

@@ -126,16 +126,16 @@ make compose
 
 **Goal:** Meet healthcare compliance baseline (HIPAA-like) with audit trails, access controls, and data protection.
 
-### Tasks (Partially Completed)
-- ~~AuditLog model + log_action() helper~~ — Phase 4, covers pay_invoice only
-- Audit logging decorator for all mutation operations — **partial** (pay_invoice only)
+### Tasks (Completed in Phase 7)
+- ~~AuditLog model + log_action() helper~~ — Phase 4, expanded in Phase 7
+- ~~Audit logging on create_user, update_user, deactivate_user~~ — Phase 7
 - ~~Security scanning in CI~~ — ruff security rules, pip-audit, Trivy (Phase 3.5)
-- ~~CORS configuration~~ — Flask-CORS with configurable origins
-- Refresh token rotation — **not yet done**
-- Password policy enforcement — **not yet done**
-- Rate limiting on auth endpoints — **not yet done**
+- ~~CORS configuration~~ — Flask-CORS with per-environment configurable origins
+- ~~Refresh token rotation~~ — RefreshToken model, /auth/refresh, /auth/logout, frontend auto-refresh
+- ~~Password policy enforcement~~ — validate_password_strength(), /auth/change-password, applied on register/create
+- ~~Rate limiting on auth endpoints~~ — Flask-Limiter: login (20/min), register (5/hr), register-hospital (3/hr)
+- ~~Security headers~~ — X-Content-Type-Options, X-Frame-Options, HSTS, Cache-Control via middleware
 - Data encryption for PII — **not yet done**
-- Security headers — **not yet done**
 - Compliance documentation — **not yet done**
 
 ### Validation
@@ -145,10 +145,12 @@ make security-scan
 ```
 
 ### Deliverables
-- Audit log for pay_invoice (done)
-- Token rotation (pending)
-- Rate limiting (pending)
+- Audit log for pay_invoice + user management (done)
+- Token rotation (done)
+- Rate limiting (done)
 - Security scanning in CI (done)
+- Security headers (done)
+- Password policy (done)
 
 ---
 
@@ -341,9 +343,9 @@ pytest -q tests/
 | Phase 4 — Observability & Audit | **Complete** |
 | Phase 5 — Frontend Code Splitting | **Complete** |
 | Phase 6 — Billing Foundation | **Partially Complete** (Payment model, real revenue, audit trail; no gateway yet) |
-| Phase 7 — Security Hardening | **Next: Phase 7** — refresh tokens, rate limiting, password policy |
+| Phase 7 — Security Hardening | **Complete** |
 | Phase 8 — Frontend Modernization | **Blocked on Phase 7** |
 | Phase 9 — Performance & Scalability | Not started |
 | Phase 10 — External Integrations | Not started |
 
-**Next focus: Phase 7 — Security Hardening.**
+**Next focus: Phase 6 continued — Superadmin & Multi-Tenant Operations.**

@@ -37,7 +37,7 @@ export default function Login() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Login failed');
       
-      login(data.user, data.token);
+      login(data.user, data.token, data.refresh_token);
       if (data.user.role === 'patient') navigate('/patient');
       else if (data.user.role === 'doctor') navigate('/doctor');
       else if (data.user.role === 'admin') navigate('/admin');

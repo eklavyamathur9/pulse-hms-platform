@@ -259,7 +259,7 @@ def test_admin_user_management(client, seeded):
             "name": "New Staff",
             "role": "staff",
             "email": "new@one.test",
-            "password": "pass123",
+            "password": "Pass123!@",
             "contact": "+1 555-9999",
         },
         headers=auth_header(admin_token),

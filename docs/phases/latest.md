@@ -4,7 +4,7 @@ Date: 2026-06-15
 
 ## Current Repository State
 
-Payment tracking foundation with Payment model, migration, audit-logged payment route, and real revenue in admin analytics.
+Security hardening complete — rate limiting, password policy, refresh token rotation, security headers, CORS hardening, and audit logging expansion.
 
 Current implementation:
 
@@ -19,76 +19,90 @@ Current implementation:
 - Multi-stage Dockerfiles with non-root user
 - Focused CI workflows (lint, test, security, docker-build)
 - Development Docker Compose with optional PostgreSQL service
-- Alembic migrations (baseline + audit_log + payment)
+- Alembic migrations (baseline + audit_log + payment + refresh_token/password_policy)
 - Backend tests: 29 tests in `backend/tests/`
 - CI: GitHub Actions (4 workflows)
 - Linting: ruff (Python), ESLint (JS/JSX) — 0 errors, 0 warnings
 - Security: ruff security rules, pip-audit in CI, Trivy config
 - Makefile for common dev tasks
 
-## What Was Done (Phase 6 — Billing Foundation)
+## What Was Done (Phase 7 — Security Hardening)
 
-### Payment Model
+### Rate Limiting
+- Added `Flask-Limiter` to backend dependencies.
+- Created `rate_limit.py` module for shared `Limiter` instance.
+- `login`: 20 requests per minute (prevents brute force).
+- `register`: 5 requests per hour (prevents account creation spam).
+- `register-hospital`: 3 requests per hour.
+- Default limits: 200/day, 50/hour for all other routes.
+- Rate limiting disabled in test environment via `RATELIMIT_ENABLED=false`.
 
-- `backend/models.py`: Added `Payment` table with:
-  - `hospital_id`, `invoice_id`, `patient_id`, `amount`, `method`, `transaction_id`, `status`, `paid_at`
-  - Indexes on `(hospital_id, invoice_id)` and `(hospital_id, patient_id)`
-- Migration `e7f242c6b558` creates the payment table
-- ER diagram in `docs/database.md` updated with Payment relationship
+### Security Headers
+- `X-Content-Type-Options: nosniff` — prevents MIME type sniffing.
+- `X-Frame-Options: DENY` — prevents clickjacking.
+- `X-XSS-Protection: 0` — disables legacy XSS auditor.
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` — HSTS.
+- `Cache-Control: no-store` — prevents sensitive data caching.
 
-### Payment Route
+### Password Policy
+- `validate_password_strength()` in `validation.py`:
+  - Minimum 8 characters
+  - At least one uppercase letter
+  - At least one lowercase letter
+  - At least one digit
+  - At least one special character
+- Applied to: `register`, `register-hospital`, `admin create user`, `change-password`.
+- Admin-created users with default "changeme" password bypass validation.
+- `password_changed_at` column on User model for future expiry enforcement.
+- `PUT /api/auth/change-password` endpoint — requires current password + new password; revokes all refresh tokens on change.
+- `GET /api/auth/me` endpoint — returns current user info.
 
-- `PUT /api/hospital/invoice/<id>/pay` now:
-  - Rejects already-paid invoices (409)
-  - Creates a `Payment` record with auto-generated `transaction_id`
-  - Sets payment method default to `cash`
-  - Records audit log via `log_action()` with amount, payment_id, transaction_id, method
-  - Emits `payment_processed` socket event to tenant room for live dashboard updates
-  - Returns `payment_id` and `transaction_id` in response
+### Refresh Token Rotation
+- `POST /api/auth/refresh` — accepts refresh token in `Authorization` header; validates, revokes old token, issues new access + refresh pair.
+- `POST /api/auth/logout` — revokes current refresh token.
+- `RefreshToken` model with `token_hash`, `expires_at`, `is_revoked`.
+- Migration `58ad529942f8` creates the `refresh_token` table.
+- Frontend `api.js` auto-refreshes on 401: stores `pulse_refresh_token`, calls `/api/auth/refresh`, retries original request.
+- `AuthContext.jsx` passes `refresh_token` from login/register to storage.
 
-### Real Revenue in Admin Analytics
+### Audit Logging Expansion
+- `create_user` — logs role and name.
+- `update_user` — logs changed fields.
+- `deactivate_user` — logs new `is_active` state.
+- Existing `pay_invoice` audit unchanged.
 
-- `GET /api/hospital/admin/analytics` now computes revenue from actual paid invoices:
-  - `SUM(Invoice.total) WHERE hospital_id = X AND status = 'Paid'`
-  - Replaces old mock `completed_labs * 50` hardcoded value
-
-### Frontend
-
-- AdminDashboard: added `payment_processed` socket listener to refresh analytics
+### CORS Hardening
+- CORS origins configurable via `CORS_ORIGINS` env var (default: `http://localhost:5173`).
+- Separate per-environment origin lists supported.
 
 ## Important Findings
 
-- Flask-SQLAlchemy with autogenerate detected the new table and indexes correctly.
-- The `stamp` command was needed before generating the migration because audit_log table already existed in the DB.
-- Payment amounts stored as Float on the `Invoice.total` field — no separate line-item tracking yet.
+- Flask-Limiter 4.x uses in-memory storage by default (not production-safe without Redis).
+- The `auth/refresh` endpoint expects the refresh token in the `Authorization` header, not in the request body (consistent with JWT patterns).
+- Rate limiting works at the IP level via `get_remote_address` — behind a reverse proxy, the `X-Forwarded-For` header must be configured.
+- Migration autogenerate couldn't detect changes because `AUTO_CREATE_TABLES=true` had already applied the schema — migration was written manually.
+- Seed data passwords bypass policy (direct DB insertion) — only affects local demo data.
 
 ## Architectural Weaknesses (Updated)
 
 Highest priority remaining:
-
-1. Real payment gateway integration (Stripe/Razorpay) not wired.
-2. Admin/Doctor/Staff dashboards still mix data fetching, UI, and workflow logic.
-3. No pre-commit hooks installed locally.
-4. PostgreSQL not tested in CI.
-5. No service-layer unit tests beyond socket integration tests.
-6. No production server config (gunicorn).
+1. In-memory rate limiting storage (needs Redis for production).
+2. No gunicorn/waitress production server configured.
+3. No frontend tests.
+4. No payment gateway integration.
+5. Socket.IO sessions are in-memory.
+6. Superadmin dashboard uses mock data.
 
 ## Suggested Next Phase
 
-**Phase 7: Security Hardening**
+**Phase 6 continued: Superadmin & Multi-Tenant Operations**
 
-Focus:
-- Refresh token rotation (short-lived access + long-lived refresh).
-- Password policy enforcement (complexity, expiry).
-- Rate limiting on auth endpoints.
-- CORS hardening per environment.
+Or, if preferred: **Phase 8: Frontend Architecture Modernization** (extract remaining dashboards, add tests, server-state library).
 
 ## Likely Impacted Modules For Next Phase
 
-- `backend/auth_routes.py` (token rotation, rate limiting)
-- `backend/config.py` (rate limit settings)
-- `backend/models.py` (refresh token model)
-- `frontend/src/context/AuthContext.jsx` (token refresh flow)
+- `backend/superadmin_routes.py` (new)
+- `backend/models.py` (plan features, usage metrics)
 
 ## Implementation Cautions
 

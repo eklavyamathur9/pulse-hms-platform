@@ -1,18 +1,58 @@
+from datetime import datetime, timedelta
+
+from audit import log_action
 from auth_utils import current_hospital_id, current_user, require_hospital_context, require_roles, user_claims
-from flask import Blueprint, jsonify
-from flask_jwt_extended import create_access_token, jwt_required
-from models import Hospital, User, db
-from validation import int_field, json_body, require_fields
+from flask import Blueprint, jsonify, request
+from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required
+from models import Hospital, RefreshToken, User, db
+from rate_limit import limiter
+from validation import int_field, json_body, require_fields, validate_password_strength
 from werkzeug.security import check_password_hash, generate_password_hash
 
 auth_bp = Blueprint("auth", __name__)
 
 
-def make_token(user):
-    return create_access_token(identity=str(user.id), additional_claims=user_claims(user))
+def make_tokens(user):
+    access = create_access_token(identity=str(user.id), additional_claims=user_claims(user))
+    refresh = create_refresh_token(identity=str(user.id), additional_claims=user_claims(user))
+    store_refresh_token(user.id, refresh)
+    return access, refresh
+
+
+def store_refresh_token(user_id, raw_token):
+    expires_at = datetime.utcnow() + timedelta(seconds=30 * 24 * 60 * 60)
+    token = RefreshToken(
+        user_id=user_id,
+        token_hash=generate_password_hash(raw_token),
+        expires_at=expires_at,
+    )
+    db.session.add(token)
+    db.session.commit()
+
+
+def revoke_refresh_token(raw_token):
+    tokens = RefreshToken.query.filter_by(is_revoked=False).all()
+    for token in tokens:
+        if check_password_hash(token.token_hash, raw_token):
+            token.is_revoked = True
+            db.session.commit()
+            return token
+    return None
+
+
+def user_json(user):
+    return {
+        "id": user.id,
+        "role": user.role,
+        "hospital_id": user.hospital_id,
+        "name": user.name,
+        "email": user.email,
+        "contact": user.contact,
+    }
 
 
 @auth_bp.route("/register-hospital", methods=["POST"])
+@limiter.limit("3 per hour")
 def register_hospital():
     data, error, status = json_body()
     if error:
@@ -20,11 +60,14 @@ def register_hospital():
     error, status = require_fields(data, "hospital_name", "subdomain", "admin_name", "email", "password")
     if error:
         return error, status
+    password = data.get("password")
+    pw_errors = validate_password_strength(password)
+    if pw_errors:
+        return jsonify({"error": "; ".join(pw_errors)}), 400
     hospital_name = data.get("hospital_name")
     subdomain = data.get("subdomain")
     admin_name = data.get("admin_name")
     email = data.get("email")
-    password = data.get("password")
 
     existing_hospital = Hospital.query.filter_by(subdomain=subdomain).first()
     if existing_hospital:
@@ -48,6 +91,7 @@ def register_hospital():
 
 
 @auth_bp.route("/register", methods=["POST"])
+@limiter.limit("5 per hour")
 def register():
     data, error, status = json_body()
     if error:
@@ -55,18 +99,20 @@ def register():
     error, status = require_fields(data, "name", "password", "hospital_id")
     if error:
         return error, status
+    password = data.get("password")
+    pw_errors = validate_password_strength(password)
+    if pw_errors:
+        return jsonify({"error": "; ".join(pw_errors)}), 400
     hospital_id, error, status = int_field(data, "hospital_id", minimum=1, required=True)
     if error:
         return error, status
     name = data.get("name")
     contact = data.get("contact")
     email = data.get("email")
-    password = data.get("password")
 
     if not contact and not email:
         return jsonify({"error": "Contact number or email is required"}), 400
 
-    # Check if user already exists
     user_filters = []
     if contact:
         user_filters.append(User.contact == contact)
@@ -91,25 +137,20 @@ def register():
     db.session.add(new_user)
     db.session.commit()
 
-    token = make_token(new_user)
+    access, refresh = make_tokens(new_user)
 
     return jsonify(
         {
             "message": "Registration successful",
-            "token": token,
-            "user": {
-                "id": new_user.id,
-                "role": new_user.role,
-                "hospital_id": new_user.hospital_id,
-                "name": new_user.name,
-                "email": new_user.email,
-                "contact": new_user.contact,
-            },
+            "token": access,
+            "refresh_token": refresh,
+            "user": user_json(new_user),
         }
     ), 201
 
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("20 per minute")
 def login():
     data, error, status = json_body()
     if error:
@@ -119,11 +160,9 @@ def login():
         return error, status
     email_or_contact = data.get("identifier")
     password = data.get("password")
-    role_type = data.get("type")  # 'patient' or 'staff'
-    hospital_id = data.get("hospital_id")  # Needed to distinguish tenants
+    role_type = data.get("type")
+    hospital_id = data.get("hospital_id")
 
-    # If superadmin logging in, they might not pass hospital_id or pass 0.
-    # For now, require hospital_id unless it's a superadmin email?
     if email_or_contact == "superadmin@pulsehms.com":
         user = User.query.filter_by(email=email_or_contact, role="superadmin").first()
     else:
@@ -151,22 +190,80 @@ def login():
         if role_type == "staff" and user.role == "patient":
             return jsonify({"error": "Invalid role type selected"}), 401
 
-    token = make_token(user)
+    access, refresh = make_tokens(user)
 
     return jsonify(
         {
             "message": "Login successful",
-            "token": token,
-            "user": {
-                "id": user.id,
-                "role": user.role,
-                "hospital_id": user.hospital_id,
-                "name": user.name,
-                "email": user.email,
-                "contact": user.contact,
-            },
+            "token": access,
+            "refresh_token": refresh,
+            "user": user_json(user),
         }
     )
+
+
+@auth_bp.route("/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    user_id = int(get_jwt_identity())
+    raw_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if not raw_token:
+        return jsonify({"error": "Refresh token required"}), 401
+
+    stored = revoke_refresh_token(raw_token)
+    if not stored:
+        return jsonify({"error": "Invalid or revoked refresh token"}), 401
+
+    user = db.session.get(User, user_id)
+    if not user or not user.is_active:
+        return jsonify({"error": "User not found or inactive"}), 401
+
+    access, refresh = make_tokens(user)
+
+    return jsonify({"token": access, "refresh_token": refresh})
+
+
+@auth_bp.route("/logout", methods=["POST"])
+@jwt_required(refresh=True)
+def logout():
+    raw_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if raw_token:
+        revoke_refresh_token(raw_token)
+    return jsonify({"message": "Logged out successfully"})
+
+
+@auth_bp.route("/me", methods=["GET"])
+@jwt_required()
+def me():
+    user = current_user()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({"user": user_json(user)})
+
+
+@auth_bp.route("/change-password", methods=["PUT"])
+@jwt_required()
+def change_password():
+    data, error, status = json_body()
+    if error:
+        return error, status
+    error, status = require_fields(data, "current_password", "new_password")
+    if error:
+        return error, status
+    user = current_user()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    if not user.password or not check_password_hash(user.password, data["current_password"]):
+        return jsonify({"error": "Current password is incorrect"}), 401
+    pw_errors = validate_password_strength(data["new_password"])
+    if pw_errors:
+        return jsonify({"error": "; ".join(pw_errors)}), 400
+    user.password = generate_password_hash(data["new_password"])
+    user.password_changed_at = datetime.utcnow()
+    db.session.commit()
+    RefreshToken.query.filter_by(user_id=user.id, is_revoked=False).update({"is_revoked": True})
+    db.session.commit()
+    return jsonify({"message": "Password changed successfully. Please log in again."})
 
 
 @auth_bp.route("/doctors", methods=["GET"])
@@ -201,7 +298,6 @@ def get_doctors():
 @auth_bp.route("/doctors/all", methods=["GET"])
 @jwt_required()
 def get_all_doctors():
-    """Returns ALL active doctors (including unavailable) - used for displaying info on existing appointments."""
     from models import Rating
 
     hospital_id, error, status = require_hospital_context()
@@ -227,9 +323,6 @@ def get_all_doctors():
             }
         )
     return jsonify(result)
-
-
-# ===== ADMIN USER MANAGEMENT =====
 
 
 @auth_bp.route("/admin/users", methods=["GET"])
@@ -267,6 +360,11 @@ def create_user():
     error, status = require_fields(data, "name")
     if error:
         return error, status
+    password = data.get("password", "changeme")
+    if password != "changeme":  # noqa: S105
+        pw_errors = validate_password_strength(password)
+        if pw_errors:
+            return jsonify({"error": "; ".join(pw_errors)}), 400
     hospital_id = current_hospital_id()
     if current_user().role == "superadmin" and data.get("hospital_id"):
         hospital_id, error, status = int_field(data, "hospital_id", minimum=1, required=True)
@@ -290,11 +388,19 @@ def create_user():
         name=data["name"],
         email=data.get("email"),
         contact=data.get("contact"),
-        password=generate_password_hash(data.get("password", "changeme")),
+        password=generate_password_hash(password),
         specialization=data.get("specialization"),
     )
     db.session.add(new_user)
     db.session.commit()
+    log_action(
+        hospital_id=hospital_id,
+        user_id=current_user().id,
+        action="create_user",
+        resource_type="user",
+        resource_id=new_user.id,
+        details={"role": new_user.role, "name": new_user.name},
+    )
     return jsonify({"message": "User created", "id": new_user.id}), 201
 
 
@@ -321,6 +427,14 @@ def update_user(user_id):
     user.is_available = data.get("is_available", user.is_available)
     user.is_active = data.get("is_active", user.is_active)
     db.session.commit()
+    log_action(
+        hospital_id=user.hospital_id,
+        user_id=current_user().id,
+        action="update_user",
+        resource_type="user",
+        resource_id=user.id,
+        details={k: data.get(k) for k in ("name", "email", "role", "is_active") if k in data},
+    )
     return jsonify({"message": "User updated"})
 
 
@@ -338,4 +452,14 @@ def deactivate_user(user_id):
         return jsonify({"error": "Superadmin accounts cannot be deactivated from tenant user screens"}), 403
     user.is_active = not user.is_active
     db.session.commit()
+    RefreshToken.query.filter_by(user_id=user.id, is_revoked=False).update({"is_revoked": True})
+    db.session.commit()
+    log_action(
+        hospital_id=user.hospital_id,
+        user_id=current_user().id,
+        action="deactivate_user",
+        resource_type="user",
+        resource_id=user.id,
+        details={"is_active": user.is_active},
+    )
     return jsonify({"message": f"User {'activated' if user.is_active else 'deactivated'}"})
