@@ -45,9 +45,10 @@ export default function AdminDashboard() {
     if (socket) {
       socket.on('queue_updated', () => fetchAnalytics());
       socket.on('appointment_booked', () => fetchAnalytics());
+      socket.on('payment_processed', () => fetchAnalytics());
     }
 
-    return () => { if (socket) { socket.off('queue_updated'); socket.off('appointment_booked'); } };
+    return () => { if (socket) { socket.off('queue_updated'); socket.off('appointment_booked'); socket.off('payment_processed'); } };
   }, [socket]);
 
   const createUser = async (e) => {
