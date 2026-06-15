@@ -18,7 +18,13 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 
 Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, local migrations, 29 backend tests, CI, no production server config, and no real payment/compliance integrations.
 
-PatientDashboard was split into 7 focused components. PDF generation extracted to `lib/pdf.js`. All dashboards are lazy-loaded with Suspense + ErrorBoundary. ESLint passes with 0 errors, 0 warnings.
+All dashboards are split into focused sub-components and lazy-loaded with Suspense + ErrorBoundary. PDF generation extracted to `lib/pdf.js`. ESLint passes with 0 errors, 0 warnings.
+
+- `AdminDashboard` → `admin/` (AdminStatsCards, AdminAnalyticsCharts, AdminUserManagement, AdminSearchPanel)
+- `DoctorDashboard` → `doctor/` (DoctorStatsCards, DoctorQueuePanel, DoctorActivePatientPanel)
+- `StaffDashboard` → `staff/` (VitalsPanel, LabPanel, PharmacyPanel)
+- `SuperAdminDashboard` → imports shared `common/StatCard`
+- `PatientDashboard` → `patient/` (7 components)
 
 Superadmin API (`backend/superadmin_routes.py`) enables hospital CRUD, plan changes, platform-wide stats. Plan-based feature flags (`PLAN_FEATURES`) gate capabilities per tier (trial/basic/pro/enterprise). The `feature_flags` JSON column on Hospital auto-syncs on plan changes.
 
