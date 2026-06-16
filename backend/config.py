@@ -1,6 +1,7 @@
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 DEFAULT_DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'pulse_hms.db')}"
 DEV_SECRET = "pulse-dev-secret"
 DEV_JWT_SECRET = "pulse-dev-jwt-secret"
@@ -32,6 +33,20 @@ class Config:
     GUNICORN_WORKERS = int(_env("GUNICORN_WORKERS", "4"))
     SERVER_NAME = _env("SERVER_NAME", None)
     SOCKET_MESSAGE_QUEUE = _env("SOCKET_MESSAGE_QUEUE", REDIS_URL)
+    QUERY_TIMEOUT_SECONDS = int(_env("QUERY_TIMEOUT_SECONDS", "10"))
+    UPLOAD_FOLDER = _env("UPLOAD_FOLDER", UPLOAD_DIR)
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
+    ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
+
+    @classmethod
+    def engine_options(cls):
+        opts = {}
+        uri = cls.SQLALCHEMY_DATABASE_URI or ""
+        if uri.startswith("postgresql"):
+            opts["connect_args"] = {"options": f"-c statement_timeout={cls.QUERY_TIMEOUT_SECONDS * 1000}"}
+        elif uri.startswith("sqlite"):
+            opts["connect_args"] = {"timeout": cls.QUERY_TIMEOUT_SECONDS}
+        return opts
 
     @classmethod
     def validate(cls):

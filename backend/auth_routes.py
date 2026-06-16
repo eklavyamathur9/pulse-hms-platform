@@ -5,6 +5,7 @@ from auth_utils import current_hospital_id, current_user, require_hospital_conte
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required
 from models import Hospital, RefreshToken, User, db
+from pagination import get_pagination_params, paginate, paginated_response
 from rate_limit import limiter
 from superadmin_routes import PLAN_FEATURES
 from validation import int_field, json_body, require_fields, validate_password_strength
@@ -280,7 +281,9 @@ def get_doctors():
     hospital_id, error, status = require_hospital_context()
     if error:
         return error, status
-    doctors = User.query.filter_by(hospital_id=hospital_id, role="doctor", is_active=True, is_available=True).all()
+    page, per_page = get_pagination_params()
+    query = User.query.filter_by(hospital_id=hospital_id, role="doctor", is_active=True, is_available=True)
+    doctors, total, p, pp, pages = paginate(query, page, per_page)
     result = []
     for doc in doctors:
         avg = db.session.query(db.func.avg(Rating.stars)).filter(Rating.doctor_id == doc.id).scalar()
@@ -298,7 +301,7 @@ def get_doctors():
                 "rating_count": count,
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @auth_bp.route("/doctors/all", methods=["GET"])
@@ -309,7 +312,9 @@ def get_all_doctors():
     hospital_id, error, status = require_hospital_context()
     if error:
         return error, status
-    doctors = User.query.filter_by(hospital_id=hospital_id, role="doctor", is_active=True).all()
+    page, per_page = get_pagination_params()
+    query = User.query.filter_by(hospital_id=hospital_id, role="doctor", is_active=True)
+    doctors, total, p, pp, pages = paginate(query, page, per_page)
     result = []
     for doc in doctors:
         avg = db.session.query(db.func.avg(Rating.stars)).filter(Rating.doctor_id == doc.id).scalar()
@@ -328,19 +333,21 @@ def get_all_doctors():
                 "rating_count": count,
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @auth_bp.route("/admin/users", methods=["GET"])
 @require_roles("admin", "doctor", "superadmin")
 def get_all_users():
     user = current_user()
+    page, per_page = get_pagination_params()
     if user.role == "superadmin":
-        users = User.query.all()
+        query = User.query
     elif user.role == "doctor":
-        users = User.query.filter_by(id=user.id, hospital_id=user.hospital_id).all()
+        query = User.query.filter_by(id=user.id, hospital_id=user.hospital_id)
     else:
-        users = User.query.filter_by(hospital_id=user.hospital_id).all()
+        query = User.query.filter_by(hospital_id=user.hospital_id)
+    users, total, p, pp, pages = paginate(query, page, per_page)
     result = [
         {
             "id": u.id,
@@ -354,7 +361,7 @@ def get_all_users():
         }
         for u in users
     ]
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @auth_bp.route("/admin/users", methods=["POST"])

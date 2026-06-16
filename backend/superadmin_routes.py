@@ -1,7 +1,10 @@
 from audit import log_action
 from auth_utils import current_user, require_roles
+from cache import cache
 from flask import Blueprint, jsonify
+from middleware import query_timeout
 from models import Appointment, Hospital, Invoice, Payment, User, db
+from pagination import get_pagination_params, paginate, paginated_response
 from validation import json_body, require_fields, validate_password_strength
 from werkzeug.security import generate_password_hash
 
@@ -72,6 +75,8 @@ def hospital_stats(hospital):
 
 @superadmin_bp.route("/stats", methods=["GET"])
 @require_roles("superadmin")
+@query_timeout(15)
+@cache.cached(timeout=60, query_string=True)
 def platform_stats():
     hospitals = Hospital.query.all()
     total_hospitals = len(hospitals)
@@ -114,7 +119,9 @@ def platform_stats():
 @superadmin_bp.route("/hospitals", methods=["GET"])
 @require_roles("superadmin")
 def list_hospitals():
-    hospitals = Hospital.query.order_by(Hospital.created_at.desc()).all()
+    page, per_page = get_pagination_params()
+    query = Hospital.query.order_by(Hospital.created_at.desc())
+    hospitals, total, p, pp, pages = paginate(query, page, per_page)
     result = []
     for h in hospitals:
         stats = hospital_stats(h)
@@ -130,7 +137,7 @@ def list_hospitals():
                 "stats": stats,
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @superadmin_bp.route("/hospitals/<int:hospital_id>", methods=["GET"])
@@ -268,19 +275,20 @@ def get_hospital_users(hospital_id):
     hospital = db.session.get(Hospital, hospital_id)
     if not hospital:
         return jsonify({"error": "Hospital not found"}), 404
-    users = User.query.filter_by(hospital_id=hospital_id).order_by(User.role, User.name).all()
-    return jsonify(
-        [
-            {
-                "id": u.id,
-                "role": u.role,
-                "name": u.name,
-                "email": u.email,
-                "contact": u.contact,
-                "specialization": u.specialization,
-                "is_available": u.is_available,
-                "is_active": u.is_active,
-            }
-            for u in users
-        ]
-    )
+    page, per_page = get_pagination_params()
+    query = User.query.filter_by(hospital_id=hospital_id).order_by(User.role, User.name)
+    users, total, p, pp, pages = paginate(query, page, per_page)
+    result = [
+        {
+            "id": u.id,
+            "role": u.role,
+            "name": u.name,
+            "email": u.email,
+            "contact": u.contact,
+            "specialization": u.specialization,
+            "is_available": u.is_available,
+            "is_active": u.is_active,
+        }
+        for u in users
+    ]
+    return paginated_response(result, total, p, pp, pages)
