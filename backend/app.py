@@ -13,7 +13,7 @@ from logging_config import log_request_response, request_id_middleware, setup_lo
 from models import db
 from patient_routes import patient_bp
 from prometheus_flask_exporter import PrometheusMetrics
-from rate_limit import limiter
+from rate_limit import limiter, tenant_key
 from services import handle_connect, handle_disconnect
 from services.appointment import register as register_appointment
 from services.lab import register as register_lab
@@ -160,7 +160,6 @@ app.register_blueprint(hospital_bp, url_prefix="/api/hospital")
 app.register_blueprint(superadmin_bp, url_prefix="/api/superadmin")
 
 # Per-tenant rate limits for data endpoints (blueprint-level safety net)
-from rate_limit import tenant_key
 limiter.limit("100 per minute", key_func=tenant_key)(patient_bp)
 limiter.limit("100 per minute", key_func=tenant_key)(hospital_bp)
 limiter.limit("60 per minute", key_func=tenant_key)(superadmin_bp)

@@ -1,11 +1,9 @@
 import os
 import uuid
 
-from flask import current_app
-from werkzeug.utils import secure_filename
-
 from config import Config
 from models import Document, db
+from werkzeug.utils import secure_filename
 
 
 def allowed_file(filename):

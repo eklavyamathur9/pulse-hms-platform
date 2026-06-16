@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 def _get_flask_app():
     """Create a minimal Flask app for task execution context."""
     from flask import Flask
-
     from models import db
 
     app = Flask(__name__)
@@ -111,6 +110,8 @@ def _render_invoice_pdf(invoice, patient_name):
 def send_notification(notification_type, recipient_id, payload=None):
     logger.info(
         "Notification queued: type=%s recipient=%s payload=%s",
-        notification_type, recipient_id, payload,
+        notification_type,
+        recipient_id,
+        payload,
     )
     return {"sent": True, "type": notification_type, "recipient": recipient_id}

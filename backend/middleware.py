@@ -1,6 +1,5 @@
 import functools
 import logging
-import os
 import signal
 import time
 
@@ -18,6 +17,7 @@ def query_timeout(seconds=5):
     where SIGALRM is unavailable (Windows, threading mode), falls back
     to a no-op with a warning log.
     """
+
     def decorator(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
@@ -39,9 +39,17 @@ def query_timeout(seconds=5):
                 result = f(*args, **kwargs)
                 elapsed = time.time() - start
                 if elapsed > seconds:
-                    logger.warning("Slow request (%.2fs > %ds threshold) on %s.%s", elapsed, seconds, f.__module__, f.__name__)
+                    logger.warning(
+                        "Slow request (%.2fs > %ds threshold) on %s.%s",
+                        elapsed,
+                        seconds,
+                        f.__module__,
+                        f.__name__,
+                    )
                 return result
+
         return wrapper
+
     return decorator
 
 

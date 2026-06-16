@@ -1,15 +1,23 @@
 import os
 
 from audit import log_action
-from auth_utils import current_hospital_id, current_user, forbidden, is_superadmin, require_hospital_context, require_roles, tenant_get
+from auth_utils import (
+    current_hospital_id,
+    current_user,
+    forbidden,
+    is_superadmin,
+    require_hospital_context,
+    require_roles,
+    tenant_get,
+)
 from cache import cache
+from config import Config
 from flask import Blueprint, g, jsonify, request, send_file
 from middleware import query_timeout
 from models import Appointment, Document, Invoice, LabTest, Payment, Prescription, Rating, User, Vitals, db
-from config import Config
 from pagination import get_pagination_params, paginate, paginated_response
 from rate_limit import limiter, tenant_key
-from upload_service import allowed_file, save_upload
+from upload_service import save_upload
 from validation import int_field, json_body, require_fields
 
 hospital_bp = Blueprint("hospital", __name__)
@@ -123,9 +131,8 @@ def get_hospital_queue():
     # Admin/Staff can see everyone Arrived but not Consult_Done
     # For now, let's just fetch Scheduled, Arrived, Vitals_Taken
     page, per_page = get_pagination_params()
-    query = (
-        Appointment.query.filter_by(hospital_id=hospital_id)
-        .filter(Appointment.status.in_(["Scheduled", "Arrived", "Vitals_Taken"]))
+    query = Appointment.query.filter_by(hospital_id=hospital_id).filter(
+        Appointment.status.in_(["Scheduled", "Arrived", "Vitals_Taken"])
     )
     appts, total, p, pp, pages = paginate(query, page, per_page)
 
@@ -162,9 +169,8 @@ def get_doctor_queue(doc_id):
         return jsonify({"error": "Doctor not found"}), 404
     # Doctor sees patients ready, arrived, or returning from lab
     page, per_page = get_pagination_params()
-    query = (
-        Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id)
-        .filter(Appointment.status.in_(["Arrived", "Vitals_Taken", "Lab_Pending", "Consult_Pending_Review"]))
+    query = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).filter(
+        Appointment.status.in_(["Arrived", "Vitals_Taken", "Lab_Pending", "Consult_Pending_Review"])
     )
     appts, total, p, pp, pages = paginate(query, page, per_page)
 
@@ -620,6 +626,7 @@ def pay_invoice(inv_id):
     emit("payment_processed", {"invoice_id": inv.id, "amount": inv.total}, room=tenant_room(inv.hospital_id))
 
     from tasks import generate_invoice_pdf
+
     generate_invoice_pdf.delay(inv.id, inv.hospital_id)
 
     return jsonify({"message": "Invoice paid", "payment_id": payment.id, "transaction_id": payment.transaction_id})
@@ -792,18 +799,26 @@ def upload_lab_report():
     lab_test.status = "Completed"
     db.session.commit()
 
-    log_action(hospital_id, user.id, "upload_lab_report", "lab_test", lab_test_id,
-               f"Uploaded {doc.original_name} ({doc.file_size} bytes)")
+    log_action(
+        hospital_id,
+        user.id,
+        "upload_lab_report",
+        "lab_test",
+        lab_test_id,
+        f"Uploaded {doc.original_name} ({doc.file_size} bytes)",
+    )
 
-    return jsonify({
-        "document": {
-            "id": doc.id,
-            "original_name": doc.original_name,
-            "file_size": doc.file_size,
-            "content_type": doc.content_type,
-            "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+    return jsonify(
+        {
+            "document": {
+                "id": doc.id,
+                "original_name": doc.original_name,
+                "file_size": doc.file_size,
+                "content_type": doc.content_type,
+                "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+            }
         }
-    }), 201
+    ), 201
 
 
 @hospital_bp.route("/lab/documents/<int:doc_id>", methods=["GET"])
@@ -828,8 +843,7 @@ def download_lab_report(doc_id):
     if not os.path.exists(filepath):
         return jsonify({"error": "File not found on disk"}), 404
 
-    return send_file(filepath, mimetype=doc.content_type, as_attachment=True,
-                     download_name=doc.original_name)
+    return send_file(filepath, mimetype=doc.content_type, as_attachment=True, download_name=doc.original_name)
 
 
 @hospital_bp.route("/lab/test/<int:test_id>/documents", methods=["GET"])
@@ -848,15 +862,17 @@ def list_lab_documents(test_id):
         return forbidden()
 
     docs = Document.query.filter_by(lab_test_id=test_id, hospital_id=hospital_id).all()
-    return jsonify({
-        "documents": [
-            {
-                "id": d.id,
-                "original_name": d.original_name,
-                "file_size": d.file_size,
-                "content_type": d.content_type,
-                "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
-            }
-            for d in docs
-        ]
-    })
+    return jsonify(
+        {
+            "documents": [
+                {
+                    "id": d.id,
+                    "original_name": d.original_name,
+                    "file_size": d.file_size,
+                    "content_type": d.content_type,
+                    "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
+                }
+                for d in docs
+            ]
+        }
+    )
