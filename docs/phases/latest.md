@@ -1,48 +1,60 @@
-# Phase 10 — TypeScript Migration
+# Phase 11+ — Loose Ends & Follow-up Tasks
 
 Completed: 2026-06-16
 
 ## Summary
 
-Migrated the entire frontend codebase from JavaScript (`.js`/`.jsx`) to TypeScript (`.ts`/`.tsx`) — 37+ source files across all layers. Every library, context, component, store, hook, and utility file now has typed interfaces and strict TypeScript checking.
+Tied up loose ends across Phases 3, 8, and 9: standardized error responses, PII encryption utility, shared UI component library, expanded zod schemas, and TanStack Query DevTools.
 
 ## What Was Done
 
-### Core Infrastructure
-- `tsconfig.json` with strict mode, ES2022 target, JSX react-jsx transform
-- `vite-env.d.ts` with typed `ImportMetaEnv` for `VITE_` env vars
-- ESLint config updated with `typescript-eslint` parser and recommended rules
-- `@typescript-eslint/no-explicit-any` set to `warn` (acceptable for initial migration)
+### Phase 3 Follow-up: Backend Helpers
+- `validation.py` — added `error_response()` and `success_response()` helper functions
+- `encryption.py` — Fernet-backed PII encryption with `EncryptedField` SQLAlchemy type decorator, `encrypt_value()`/`decrypt_value()` helpers
+- `config.py` — added `ENCRYPTION_KEY` env var
+- `requirements.txt` — added `cryptography==49.0.0`
 
-### Files Converted (37+ source files)
+### Phase 8 Follow-up: Shared UI Component Library
+- `frontend/src/components/ui/` — barrel-exported module with:
+  - **Button** — `primary`/`secondary`/`danger`/`ghost` variants, `sm`/`md`/`lg` sizes, loading spinner, dark mode support
+  - **Input** — label, error state, helper text, dark mode
+  - **Card** / **CardHeader** — consistent card container with optional title/subtitle/action slot
+  - **Modal** — accessible modal with overlay click-to-close, Escape key handler, scroll lock, dark mode
 
-| Layer | Files |
-|-------|-------|
-| Entry | `main.tsx`, `App.tsx` |
-| Libraries | `lib/api.ts`, `lib/pdf.ts`, `lib/schemas.ts` |
-| Context | `AuthContext.tsx`, `SocketContext.tsx` |
-| Hooks | `useDataFetch.ts`, `useSocketRefresh.ts`, `useApi.ts` |
-| Stores | `useNotificationStore.ts`, `useThemeStore.ts` |
-| Common | `StatCard.tsx`, `Skeleton.tsx`, `ErrorBoundary.tsx` |
-| Layout | `Layout.tsx`, `Login.tsx`, `NotificationRenderer.tsx`, `LandingPage.tsx` |
-| Registration | `HospitalRegistration.tsx` (zod + react-hook-form typed) |
-| Dashboards (5) | `PatientDashboard.tsx`, `DoctorDashboard.tsx`, `StaffDashboard.tsx`, `AdminDashboard.tsx`, `SuperAdminDashboard.tsx` |
-| Sub-components (19) | All `patient/` (7), `doctor/` (3), `staff/` (3), `admin/` (4) |
+### Phase 9 Follow-up: Zod + DevTools
+- `lib/schemas.ts` — expanded with `bookingSchema`, `vitalsSchema`, `profileSchema`
+- `App.tsx` — added `<ReactQueryDevtools>` (toggleable floating button, bottom-left)
+- Installed `@tanstack/react-query-devtools`
 
-### Key Decisions
-- Used `any` for complex API data shapes — typed interfaces for the API layer will be a separate effort
-- jsPDF `text()` API updated from deprecated `null, null, "center"` to `{ align: "center" }` syntax
-- `setFont(undefined, ...)` calls replaced with explicit `setFont("helvetica", ...)`
-- All old `.jsx` source files deleted
+### CI / Compile
+- `test.yml` compile step updated to include all `.py` files (audit.py, rate_limit.py, superadmin_routes.py, wsgi.py, services/ submodules, encryption.py)
 
 ## Validation
-- `tsc --noEmit`: 0 errors ✅
-- `npm run build`: builds in 1.29s ✅
-- `npm run test`: 11/11 tests passing ✅
-- `npm run lint`: 0 errors (127 `any` warnings — acceptable) ✅
+- Backend lint: 0 errors ✅
+- Backend format: all formatted ✅
+- Backend tests: 29/29 ✅
+- Frontend build: ✅
+- Frontend lint: 0 errors (127 pre-existing warnings) ✅
+- Frontend tests: 11/11 ✅
+
+## New/Modified Files
+| File | Change |
+|------|--------|
+| `backend/validation.py` | Added `error_response()`, `success_response()` |
+| `backend/encryption.py` | New — Fernet encryption + EncryptedField |
+| `backend/config.py` | Added `ENCRYPTION_KEY` |
+| `backend/requirements.txt` | Added `cryptography` |
+| `frontend/src/components/ui/Button.tsx` | New — reusable button |
+| `frontend/src/components/ui/Input.tsx` | New — reusable input |
+| `frontend/src/components/ui/Card.tsx` | New — reusable card |
+| `frontend/src/components/ui/Modal.tsx` | New — accessible modal |
+| `frontend/src/components/ui/index.ts` | New — barrel export |
+| `frontend/src/lib/schemas.ts` | Expanded — booking, vitals, profile schemas |
+| `frontend/src/App.tsx` | Added ReactQueryDevtools |
+| `.github/workflows/test.yml` | Updated compile step |
 
 ## Suggested Next Steps
-- **Phase 11**: Production Hardening — gunicorn, nginx, docker-compose.prod.yml, env validation, Redis
-- Expand zod form validation to more forms (booking, vitals, profile, user creation)
-- Add TanStack Query DevTools for debugging
-- Write mutation tests for `useApiMutation`
+- **Phase 12**: Observability — Sentry, Prometheus, Grafana
+- Write mutation tests for useApiMutation
+- Apply `EncryptedField` to PII columns in `models.py` + create migration
+- Migrate dashboards to use shared UI components (Button, Input, Card, Modal)

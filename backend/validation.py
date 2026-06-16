@@ -3,6 +3,22 @@ import re
 from flask import jsonify, request
 
 
+def error_response(message, status_code=400, code=None):
+    body = {"error": message}
+    if code:
+        body["code"] = code
+    return jsonify(body), status_code
+
+
+def success_response(data=None, message=None, status_code=200):
+    body = {}
+    if data is not None:
+        body["data"] = data
+    if message:
+        body["message"] = message
+    return jsonify(body), status_code
+
+
 def json_body():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
