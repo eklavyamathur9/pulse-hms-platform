@@ -1,5 +1,7 @@
 import React from 'react';
 import { downloadInvoicePDF } from '../../lib/pdf';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
 
 interface PatientBillingProps {
   invoices: any[];
@@ -18,9 +20,9 @@ export default function PatientBilling({ invoices, fetchInvoices, user, notify, 
       </p>
 
       {invoices.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>No invoices yet.</div>
+        <Card className="text-center">No invoices yet.</Card>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <Card padding={false}>
           <table>
             <thead style={{ background: 'var(--bg-main)' }}>
               <tr>
@@ -48,8 +50,7 @@ export default function PatientBilling({ invoices, fetchInvoices, user, notify, 
                   </td>
                   <td>
                     {inv.status === 'Unpaid' && (
-                      <button className="btn btn-primary"
-                        style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
+                      <Button variant="primary" size="sm"
                         onClick={async () => {
                           try {
                             const res = await apiFetch(`/hospital/invoice/${inv.id}/pay`, { method: 'PUT' });
@@ -57,21 +58,20 @@ export default function PatientBilling({ invoices, fetchInvoices, user, notify, 
                           } catch (e) { notify.error('Payment failed.'); }
                         }}>
                         Pay Now
-                      </button>
+                      </Button>
                     )}
                     {inv.status === 'Paid' && (
-                      <button className="btn btn-secondary"
-                        style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
+                      <Button variant="secondary" size="sm"
                         onClick={() => downloadInvoicePDF(inv, user.name)}>
                         Download PDF
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </>
   );

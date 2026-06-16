@@ -1,5 +1,7 @@
 import React from 'react';
 import { CalendarPlus, MapPin } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
 
 interface ActiveAppointmentsProps {
   activeAppointments: any[];
@@ -23,17 +25,18 @@ export default function ActiveAppointments({
 }: ActiveAppointmentsProps): React.ReactElement {
   if (activeAppointments.length === 0) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-        <CalendarPlus size={64} color="var(--primary)" style={{ margin: '0 auto var(--spacing-md) auto' }} />
-        <h2 style={{ fontSize: '1.8rem' }}>You have no active visits</h2>
-        <p style={{ marginBottom: 'var(--spacing-xl)', fontSize: '1.1rem', color: 'var(--text-muted)' }}>
-          Ready to see a doctor? Book an appointment to get your allocated time slot.
-        </p>
-        <button className="btn btn-primary" style={{ fontSize: '1.1rem', padding: '1rem 2rem' }}
-          onClick={onBrowseDoctors}>
-          Browse Doctors & Book
-        </button>
-      </div>
+      <Card className="text-center" padding={false}>
+        <div style={{ padding: '4rem 2rem' }}>
+          <CalendarPlus size={64} color="var(--primary)" style={{ margin: '0 auto var(--spacing-md) auto' }} />
+          <h2 style={{ fontSize: '1.8rem' }}>You have no active visits</h2>
+          <p style={{ marginBottom: 'var(--spacing-xl)', fontSize: '1.1rem', color: 'var(--text-muted)' }}>
+            Ready to see a doctor? Book an appointment to get your allocated time slot.
+          </p>
+          <Button variant="primary" size="lg" onClick={onBrowseDoctors}>
+            Browse Doctors & Book
+          </Button>
+        </div>
+      </Card>
     );
   }
 
@@ -43,8 +46,7 @@ export default function ActiveAppointments({
       {activeAppointments.map(appt => {
         const doctor = allDoctors.find(d => d.id === appt.doctor_id);
         return (
-          <div key={appt.id} className="card glass-panel"
-            style={{ padding: 0, overflow: 'hidden', marginBottom: 'var(--spacing-xl)' }}>
+          <Card key={appt.id} className="glass-panel overflow-hidden mb-6" padding={false}>
             <div style={{
               background: 'var(--primary)', color: 'white',
               padding: 'var(--spacing-lg)',
@@ -60,23 +62,19 @@ export default function ActiveAppointments({
               </div>
               {appt.status === 'Scheduled' && (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button className="btn" style={{
-                    background: 'rgba(255,255,255,0.2)', color: 'white',
-                    border: '1px solid white', fontSize: '0.85rem'
-                  }} onClick={() => {
-                    setRescheduleAppt(appt);
-                    setRescheduleDate('');
-                    setRescheduleSlots([]);
-                    setRescheduleSlot('');
-                  }}>
+                  <Button variant="ghost" size="sm" style={{ color: 'white' }}
+                    onClick={() => {
+                      setRescheduleAppt(appt);
+                      setRescheduleDate('');
+                      setRescheduleSlots([]);
+                      setRescheduleSlot('');
+                    }}>
                     Reschedule
-                  </button>
-                  <button className="btn" style={{
-                    background: 'rgba(239,68,68,0.3)', color: 'white',
-                    border: '1px solid #fca5a5', fontSize: '0.85rem'
-                  }} onClick={() => cancelAppointment(appt.id)}>
+                  </Button>
+                  <Button variant="danger" size="sm"
+                    onClick={() => cancelAppointment(appt.id)}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -134,11 +132,11 @@ export default function ActiveAppointments({
                 </div>
 
                 {appt.status === 'Scheduled' && (
-                  <button className="btn btn-primary animate-fade-in"
-                    style={{ width: '100%', fontSize: '1.1rem', padding: '1rem', maxWidth: '400px' }}
+                  <Button variant="primary" size="lg" className="animate-fade-in"
+                    style={{ maxWidth: '400px' }}
                     onClick={() => socket?.emit('action_arrive', { appointmentId: appt.id })}>
-                    <MapPin style={{ marginRight: '0.5rem' }} /> I have arrived at the Hospital
-                  </button>
+                    <MapPin /> I have arrived at the Hospital
+                  </Button>
                 )}
               </div>
 
@@ -167,7 +165,7 @@ export default function ActiveAppointments({
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
         );
       })}
 
@@ -177,21 +175,23 @@ export default function ActiveAppointments({
           {historyAppointments.filter((a: any) => a.status === 'Completed').map(a => {
             const doctor = allDoctors.find(d => d.id === a.doctor_id);
             return (
-              <div key={`summary-${a.id}`} className="card glass-panel"
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div>
-                  <strong style={{ fontSize: '1.05rem', color: 'var(--text-dark)' }}>
-                    Visit #{a.id} with Dr. {doctor ? doctor.name : 'Unknown'}
-                  </strong>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {a.date} | Consultation Completed
-                  </p>
+              <Card key={`summary-${a.id}`} className="glass-panel"
+                padding={false}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem' }}>
+                  <div>
+                    <strong style={{ fontSize: '1.05rem', color: 'var(--text-dark)' }}>
+                      Visit #{a.id} with Dr. {doctor ? doctor.name : 'Unknown'}
+                    </strong>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      {a.date} | Consultation Completed
+                    </p>
+                  </div>
+                  <Button variant="secondary"
+                    onClick={() => downloadDischargeSummary(a.id)}>
+                    Download Summary
+                  </Button>
                 </div>
-                <button className="btn btn-secondary"
-                  onClick={() => downloadDischargeSummary(a.id)}>
-                  Download Summary
-                </button>
-              </div>
+              </Card>
             );
           })}
         </div>

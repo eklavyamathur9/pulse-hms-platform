@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-
-const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)' };
+import { useState } from 'react';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Card } from '../ui/Card';
 
 interface AdminSearchPanelProps {
   onSearch: (params: URLSearchParams) => void;
@@ -25,30 +26,29 @@ export default function AdminSearchPanel({ onSearch, results }: AdminSearchPanel
   return (
     <>
       <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Search & Filters</h2>
-      <div className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: '2', minWidth: '200px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Search</label>
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Name, email, contact..." style={inputStyle} />
+      <Card className="glass-panel" padding={false}>
+        <div style={{ padding: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: '2', minWidth: '200px' }}>
+            <Input label="Search" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Name, email, contact..." />
+          </div>
+          <div style={{ flex: '1', minWidth: '120px' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role</label>
+            <select value={searchRole} onChange={e => setSearchRole(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
+              <option value="">All</option>
+              <option value="patient">Patient</option>
+              <option value="doctor">Doctor</option>
+              <option value="staff">Staff</option>
+            </select>
+          </div>
+          <div style={{ flex: '1', minWidth: '120px' }}>
+            <Input label="From" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          </div>
+          <div style={{ flex: '1', minWidth: '120px' }}>
+            <Input label="To" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          </div>
+          <Button variant="primary" onClick={handleSearch}>Search</Button>
         </div>
-        <div style={{ flex: '1', minWidth: '120px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role</label>
-          <select value={searchRole} onChange={e => setSearchRole(e.target.value)} style={{...inputStyle, background: 'white'}}>
-            <option value="">All</option>
-            <option value="patient">Patient</option>
-            <option value="doctor">Doctor</option>
-            <option value="staff">Staff</option>
-          </select>
-        </div>
-        <div style={{ flex: '1', minWidth: '120px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>From</label>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
-        </div>
-        <div style={{ flex: '1', minWidth: '120px' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>To</label>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
-        </div>
-        <button className="btn btn-primary" onClick={handleSearch} style={{ padding: '0.6rem 1.5rem' }}>Search</button>
-      </div>
+      </Card>
 
       {results && (
         <>

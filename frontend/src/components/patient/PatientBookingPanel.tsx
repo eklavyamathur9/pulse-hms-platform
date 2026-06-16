@@ -1,4 +1,7 @@
 import React from 'react';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Card } from '../ui/Card';
 
 interface DoctorBookingListProps {
   allDoctors: any[];
@@ -11,26 +14,26 @@ export function DoctorBookingList({ allDoctors, onSelectDoctor, onBack }: Doctor
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <button className="btn btn-secondary" style={{ marginBottom: 'var(--spacing-xl)' }} onClick={onBack}>
+      <Button variant="secondary" className="mb-6" onClick={onBack}>
         &larr; Back to Dashboard
-      </button>
+      </Button>
       <h1 style={{ marginBottom: 'var(--spacing-sm)' }}>Available Specialists</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--spacing-xl)' }}>
         Select a specialist to begin your consultation request.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--spacing-lg)' }}>
         {available.length === 0 && (
-          <div className="card" style={{ textAlign: 'center', padding: '3rem', gridColumn: '1 / -1' }}>
-            <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
-              No doctors are currently available. Please try again later.
-            </p>
-          </div>
+          <Card className="text-center col-span-full" padding={false}>
+            <div style={{ padding: '3rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
+                No doctors are currently available. Please try again later.
+              </p>
+            </div>
+          </Card>
         )}
         {available.map((d: any) => (
-          <div key={d.id} className="card glass-panel" style={{
-            display: 'flex', flexDirection: 'column', padding: '1.5rem',
-            opacity: d.is_available ? 1 : 0.6
-          }}>
+          <Card key={d.id} className="glass-panel flex flex-col" padding={false}
+            style={{ opacity: d.is_available ? 1 : 0.6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: '0.75rem' }}>
               <div style={{
                 width: '55px', height: '55px', borderRadius: 'var(--radius-full)',
@@ -81,12 +84,12 @@ export function DoctorBookingList({ allDoctors, onSelectDoctor, onBack }: Doctor
               ) : (
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Free consultation</span>
               )}
-              <button className="btn btn-primary" style={{ padding: '0.5rem 1.5rem' }}
+              <Button variant="primary"
                 onClick={() => onSelectDoctor(d)}>
                 Book Now
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>
@@ -118,11 +121,12 @@ export function BookingForm({
 }: BookingFormProps): React.ReactElement {
   return (
     <div className="animate-fade-in" style={{ maxWidth: '650px', margin: '0 auto' }}>
-      <button className="btn btn-secondary" style={{ marginBottom: 'var(--spacing-xl)' }}
+      <Button variant="secondary" className="mb-6"
         onClick={() => { onBack(); setBookingDate(''); setSelectedSlot(''); }}>
         &larr; Cancel Request
-      </button>
-      <div className="card glass-panel" style={{ padding: '2rem' }}>
+      </Button>
+      <Card className="glass-panel" padding={false}>
+        <div style={{ padding: '2rem' }}>
         <div style={{
           display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem',
           paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-color)'
@@ -151,17 +155,13 @@ export function BookingForm({
         </div>
 
         <form onSubmit={onBook} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Preferred Date</label>
-            <input type="date" required value={bookingDate}
-              min={new Date().toISOString().split('T')[0]}
-              onChange={e => {
-                setBookingDate(e.target.value);
-                setSelectedSlot('');
-                fetchSlots(doctor.id, e.target.value);
-              }}
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} />
-          </div>
+          <Input label="Preferred Date" type="date" required value={bookingDate}
+            min={new Date().toISOString().split('T')[0]}
+            onChange={e => {
+              setBookingDate(e.target.value);
+              setSelectedSlot('');
+              fetchSlots(doctor.id, e.target.value);
+            }} />
 
           {bookingDate && (
             <div>
@@ -217,16 +217,12 @@ export function BookingForm({
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary"
-            disabled={!selectedSlot}
-            style={{
-              padding: '1rem', fontSize: '1.05rem', marginTop: '0.5rem',
-              opacity: selectedSlot ? 1 : 0.5
-            }}>
+          <Button type="submit" variant="primary" size="lg" disabled={!selectedSlot}>
             Confirm Booking — {selectedSlot || 'Select a slot'}
-          </button>
+          </Button>
         </form>
-      </div>
+        </div>
+      </Card>
     </div>
   );
 }

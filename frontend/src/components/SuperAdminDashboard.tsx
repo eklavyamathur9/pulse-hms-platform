@@ -9,6 +9,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { notify } from '../stores/useNotificationStore';
 import { apiFetch } from '../lib/api';
 import { useApiQuery, useApiMutation } from '../hooks/useApi';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Card } from './ui/Card';
 import StatCard from './common/StatCard';
 import { DashboardSkeleton } from './common/Skeleton';
 
@@ -22,7 +25,6 @@ const ROLE_BGS: Record<string, string> = {
   doctor: '#ecfdf5', staff: '#fffbeb', admin: '#fef2f2', patient: '#eef2ff', superadmin: '#f3e8ff',
 };
 
-const inputStyle: React.CSSProperties = { width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)' };
 
 interface OverviewTabProps {
   stats: Record<string, any>;
@@ -42,7 +44,8 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xl)' }}>
-        <div className="card glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
+        <Card className="glass-panel" padding={false}>
+          <div style={{ padding: 'var(--spacing-xl)' }}>
           <h3 style={{ marginBottom: '1rem' }}><Users size={18} color="#7c3aed" /> Users by Role</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {Object.entries(stats.users).filter(([k]) => k !== 'total').map(([role, count]) => (
@@ -58,8 +61,10 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
             ))}
           </div>
         </div>
+      </Card>
 
-        <div className="card glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
+        <Card className="glass-panel" padding={false}>
+          <div style={{ padding: 'var(--spacing-xl)' }}>
           <h3 style={{ marginBottom: '1rem' }}><Building size={18} color="#7c3aed" /> Hospitals by Plan</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {PLANS.map(plan => {
@@ -79,9 +84,11 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
             })}
           </div>
         </div>
+      </Card>
       </div>
 
-      <div className="card glass-panel" style={{ padding: 'var(--spacing-xl)', marginTop: 'var(--spacing-xl)' }}>
+      <Card className="glass-panel" padding={false}>
+        <div style={{ padding: 'var(--spacing-xl)', marginTop: 'var(--spacing-xl)' }}>
         <h3 style={{ marginBottom: '1rem' }}><Activity size={18} color="#7c3aed" /> Platform Activity</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
           <div>
@@ -98,6 +105,7 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
           </div>
         </div>
       </div>
+      </Card>
     </>
   );
 }
@@ -132,7 +140,7 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 'var(--spacing-lg)' }}>
-        <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem' }} onClick={onBack}><ArrowLeft size={16} /></button>
+        <Button variant="secondary" size="sm" onClick={onBack}><ArrowLeft size={16} /></Button>
         <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Building size={20} color="#7c3aed" /> {hospital.name}
           <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', background: `${PLAN_COLORS[hospital.plan]}20`, color: PLAN_COLORS[hospital.plan] }}>{hospital.plan}</span>
@@ -140,38 +148,38 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: 'var(--spacing-xl)' }}>
-        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Doctors</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#059669' }}>{hospital.stats?.doctors || 0}</div></div>
-        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Patients</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1' }}>{hospital.stats?.patients || 0}</div></div>
-        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Appointments</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b' }}>{hospital.stats?.appointments || 0}</div></div>
-        <div className="card" style={{ padding: '1rem', textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Revenue</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a' }}>${(hospital.stats?.revenue || 0).toFixed(0)}</div></div>
+        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Doctors</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#059669' }}>{hospital.stats?.doctors || 0}</div></div></Card>
+        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Patients</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1' }}>{hospital.stats?.patients || 0}</div></div></Card>
+        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Appointments</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b' }}>{hospital.stats?.appointments || 0}</div></div></Card>
+        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Revenue</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a' }}>${(hospital.stats?.revenue || 0).toFixed(0)}</div></div></Card>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
         <h3><Users size={18} color="#7c3aed" /> Users ({users.length})</h3>
-        <button className="btn btn-primary" onClick={() => setShowCreate(!showCreate)}>
+        <Button variant="primary" onClick={() => setShowCreate(!showCreate)}>
           <UserPlus size={16} /> {showCreate ? 'Cancel' : 'Create User'}
-        </button>
+        </Button>
       </div>
 
       {showCreate && (
         <form onSubmit={createUser} className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          <input required placeholder="Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} style={inputStyle} />
-          <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{...inputStyle, background: 'white'}}>
+          <Input placeholder="Name" required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
+          <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
             {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-          <input type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} style={inputStyle} />
-          <input placeholder="Contact" value={newUser.contact} onChange={e => setNewUser({...newUser, contact: e.target.value})} style={inputStyle} />
+          <Input type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
+          <Input placeholder="Contact" value={newUser.contact} onChange={e => setNewUser({...newUser, contact: e.target.value})} />
           {newUser.role === 'doctor' && (
-            <input placeholder="Specialization" value={newUser.specialization} onChange={e => setNewUser({...newUser, specialization: e.target.value})} style={{...inputStyle, gridColumn: '1 / -1'}} />
+            <div style={{ gridColumn: '1 / -1' }}><Input placeholder="Specialization" value={newUser.specialization} onChange={e => setNewUser({...newUser, specialization: e.target.value})} /></div>
           )}
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem' }}>
-            <button type="submit" className="btn btn-primary">Create</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
+            <Button type="submit" variant="primary">Create</Button>
+            <Button type="button" variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
           </div>
         </form>
       )}
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <Card padding={false}>
         <table>
           <thead style={{ background: 'var(--bg-main)' }}>
             <tr><th>ID</th><th>Name</th><th>Role</th><th>Email / Contact</th><th>Status</th></tr>
@@ -190,7 +198,7 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
             ))}
           </tbody>
         </table>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -331,54 +339,49 @@ export default function SuperAdminDashboard() {
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1 }}>
               <div style={{ position: 'relative', flex: 1, maxWidth: '300px' }}>
                 <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' } as React.CSSProperties} />
-                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search hospitals..." style={{ ...inputStyle, paddingLeft: '2rem' }} />
+                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search hospitals..." style={{ width: '100%', padding: '0.6rem', paddingLeft: '2rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} />
               </div>
-              <select value={planFilter} onChange={e => setPlanFilter(e.target.value)} style={{ ...inputStyle, width: '140px', background: 'white' }}>
+              <select value={planFilter} onChange={e => setPlanFilter(e.target.value)} style={{ width: '140px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
                 <option value="">All Plans</option>
                 {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            <button className="btn btn-primary" onClick={() => setShowCreateHospital(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <Button variant="primary" onClick={() => setShowCreateHospital(true)}>
               <Plus size={16} /> New Hospital
-            </button>
+            </Button>
           </div>
 
           {showCreateHospital && (
             <form onSubmit={createHospital} className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Hospital Name *</label>
-                <input required value={newHospital.name} onChange={e => setNewHospital({...newHospital, name: e.target.value})} style={inputStyle} />
+                <Input label="Hospital Name *" required value={newHospital.name} onChange={e => setNewHospital({...newHospital, name: e.target.value})} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Subdomain *</label>
-                <input required value={newHospital.subdomain} onChange={e => setNewHospital({...newHospital, subdomain: e.target.value})} style={inputStyle} placeholder="myhospital" />
+                <Input label="Subdomain *" required value={newHospital.subdomain} onChange={e => setNewHospital({...newHospital, subdomain: e.target.value})} placeholder="myhospital" />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Plan</label>
-                <select value={newHospital.plan} onChange={e => setNewHospital({...newHospital, plan: e.target.value})} style={{...inputStyle, background: 'white'}}>
+                <select value={newHospital.plan} onChange={e => setNewHospital({...newHospital, plan: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
                   {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Admin Name *</label>
-                <input required value={newHospital.admin_name} onChange={e => setNewHospital({...newHospital, admin_name: e.target.value})} style={inputStyle} />
+                <Input label="Admin Name *" required value={newHospital.admin_name} onChange={e => setNewHospital({...newHospital, admin_name: e.target.value})} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Admin Email *</label>
-                <input required type="email" value={newHospital.admin_email} onChange={e => setNewHospital({...newHospital, admin_email: e.target.value})} style={inputStyle} />
+                <Input label="Admin Email *" type="email" required value={newHospital.admin_email} onChange={e => setNewHospital({...newHospital, admin_email: e.target.value})} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Admin Password *</label>
-                <input required type="password" value={newHospital.admin_password} onChange={e => setNewHospital({...newHospital, admin_password: e.target.value})} style={inputStyle} />
+                <Input label="Admin Password *" type="password" required value={newHospital.admin_password} onChange={e => setNewHospital({...newHospital, admin_password: e.target.value})} />
               </div>
               <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem' }}>
-                <button type="submit" className="btn btn-primary"><Plus size={16} /> Create Hospital</button>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateHospital(false)}>Cancel</button>
+                <Button type="submit" variant="primary"><Plus size={16} /> Create Hospital</Button>
+                <Button type="button" variant="secondary" onClick={() => setShowCreateHospital(false)}>Cancel</Button>
               </div>
             </form>
           )}
 
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <Card padding={false}>
             <table>
               <thead style={{ background: 'var(--bg-main)' }}>
                 <tr>
@@ -395,7 +398,7 @@ export default function SuperAdminDashboard() {
                       <td>
                         {editingPlan === h.id ? (
                           <select value={h.plan} onChange={e => changePlan(h.id, e.target.value)}
-                            onBlur={() => setEditingPlan(null)} style={{ ...inputStyle, width: '120px', background: 'white' }} autoFocus>
+                            onBlur={() => setEditingPlan(null)} style={{ width: '120px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }} autoFocus>
                             {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
                         ) : (
@@ -416,19 +419,19 @@ export default function SuperAdminDashboard() {
                       <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>${(h.stats?.revenue || 0).toFixed(0)}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.3rem' }}>
-                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
-                            onClick={() => viewHospitalUsers(h)}><Eye size={14} /> View</button>
-                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
+                          <Button variant="secondary" size="sm"
+                            onClick={() => viewHospitalUsers(h)}><Eye size={14} /> View</Button>
+                          <Button variant="secondary" size="sm"
                             onClick={() => toggleHospitalStatus(h.id, h.is_active)}>
                             {h.is_active ? <XCircle size={14} /> : <CheckCircle size={14} />}
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         </div>
       )}
 
@@ -439,7 +442,7 @@ export default function SuperAdminDashboard() {
               <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--spacing-lg)' }}>Select a hospital to view and manage its users.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                 {hospitals.filter((h: any) => h.is_active).map((h: any) => (
-                  <div key={h.id} className="card" style={{ padding: '1.25rem', cursor: 'pointer' }}
+                  <Card key={h.id} style={{ cursor: 'pointer' }}
                     onClick={() => viewHospitalUsers(h)}>
                     <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>{h.name}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{h.subdomain}.pulsehms.com</div>
@@ -447,7 +450,7 @@ export default function SuperAdminDashboard() {
                       <span><Users size={14} /> {h.stats?.total_users || 0} users</span>
                       <span><Stethoscope size={14} /> {h.stats?.doctors || 0} doctors</span>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
             </div>
@@ -455,51 +458,47 @@ export default function SuperAdminDashboard() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem' }} onClick={() => { setSelectedHospital(null); setHospitalUsers([]); }}>
+                  <Button variant="secondary" size="sm" onClick={() => { setSelectedHospital(null); setHospitalUsers([]); }}>
                     <ArrowLeft size={16} />
-                  </button>
+                  </Button>
                   <h2 style={{ margin: 0 }}><Building size={20} color="#7c3aed" /> {selectedHospital.name}</h2>
                   <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', background: `${PLAN_COLORS[selectedHospital.plan]}20`, color: PLAN_COLORS[selectedHospital.plan] }}>{selectedHospital.plan}</span>
                 </div>
-                <button className="btn btn-primary" onClick={() => setShowCreateUser(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <Button variant="primary" onClick={() => setShowCreateUser(true)}>
                   <UserPlus size={16} /> Create User
-                </button>
+                </Button>
               </div>
 
               {showCreateUser && (
                 <form onSubmit={createUserInHospital} className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Name *</label>
-                    <input required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} style={inputStyle} />
+                    <Input label="Name *" required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
-                    <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{...inputStyle, background: 'white'}}>
+                    <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
                       {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Email</label>
-                    <input type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} style={inputStyle} />
+                    <Input label="Email" type="email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Contact</label>
-                    <input value={newUser.contact} onChange={e => setNewUser({...newUser, contact: e.target.value})} style={inputStyle} />
+                    <Input label="Contact" value={newUser.contact} onChange={e => setNewUser({...newUser, contact: e.target.value})} />
                   </div>
                   {newUser.role === 'doctor' && (
                     <div style={{ gridColumn: '1 / -1' }}>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Specialization</label>
-                      <input value={newUser.specialization} onChange={e => setNewUser({...newUser, specialization: e.target.value})} style={inputStyle} />
+                      <Input label="Specialization" value={newUser.specialization} onChange={e => setNewUser({...newUser, specialization: e.target.value})} />
                     </div>
                   )}
                   <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem' }}>
-                    <button type="submit" className="btn btn-primary"><UserPlus size={16} /> Create User</button>
-                    <button type="button" className="btn btn-secondary" onClick={() => setShowCreateUser(false)}>Cancel</button>
+                    <Button type="submit" variant="primary"><UserPlus size={16} /> Create User</Button>
+                    <Button type="button" variant="secondary" onClick={() => setShowCreateUser(false)}>Cancel</Button>
                   </div>
                 </form>
               )}
 
-              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <Card padding={false}>
                 <table>
                   <thead style={{ background: 'var(--bg-main)' }}>
                     <tr><th>ID</th><th>Name</th><th>Role</th><th>Email / Contact</th><th>Status</th></tr>
@@ -520,7 +519,7 @@ export default function SuperAdminDashboard() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </Card>
             </div>
           )}
         </div>

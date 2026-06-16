@@ -1,5 +1,8 @@
 import React from 'react';
 import { Activity, Clipboard, CheckCircle } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Card } from '../ui/Card';
 
 interface VitalsPanelProps {
   queue: any[];
@@ -18,34 +21,22 @@ export default function VitalsPanel({ queue, vitalsForm, vitalsData, onVitalsFor
       <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--spacing-xl)' }}>Monitor arrived patients and input their preliminary vitals.</p>
 
       {vitalsForm ? (
-        <div className="card glass-panel" style={{ borderLeft: '4px solid var(--primary)', marginBottom: 'var(--spacing-xl)' }}>
+        <Card className="glass-panel mb-6" style={{ borderLeft: '4px solid var(--primary)' }}>
           <h3>Input Vitals for Visit #{vitalsForm}</h3>
           <form onSubmit={onSubmitVitals} style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>Weight (kg)</label>
-              <input required type="text" value={vitalsData.weight} onChange={e => onVitalsDataChange({ ...vitalsData, weight: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} placeholder="e.g. 70" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>Heart Rate (bpm)</label>
-              <input required type="text" value={vitalsData.hr} onChange={e => onVitalsDataChange({ ...vitalsData, hr: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} placeholder="e.g. 75" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>Blood Pressure (mmHg)</label>
-              <input required type="text" value={vitalsData.bp} onChange={e => onVitalsDataChange({ ...vitalsData, bp: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} placeholder="e.g. 120/80" />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.2rem' }}>Temperature (°F)</label>
-              <input required type="text" value={vitalsData.temp} onChange={e => onVitalsDataChange({ ...vitalsData, temp: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} placeholder="e.g. 98.6" />
-            </div>
+            <Input label="Weight (kg)" required placeholder="e.g. 70" value={vitalsData.weight} onChange={e => onVitalsDataChange({ ...vitalsData, weight: e.target.value })} />
+            <Input label="Heart Rate (bpm)" required placeholder="e.g. 75" value={vitalsData.hr} onChange={e => onVitalsDataChange({ ...vitalsData, hr: e.target.value })} />
+            <Input label="Blood Pressure (mmHg)" required placeholder="e.g. 120/80" value={vitalsData.bp} onChange={e => onVitalsDataChange({ ...vitalsData, bp: e.target.value })} />
+            <Input label="Temperature (°F)" required placeholder="e.g. 98.6" value={vitalsData.temp} onChange={e => onVitalsDataChange({ ...vitalsData, temp: e.target.value })} />
             <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <button type="submit" className="btn btn-primary"><CheckCircle size={18} /> Submit Vitals</button>
-              <button type="button" className="btn btn-secondary" onClick={onCancelVitals}>Cancel</button>
+              <Button type="submit" variant="primary"><CheckCircle size={18} /> Submit Vitals</Button>
+              <Button type="button" variant="secondary" onClick={onCancelVitals}>Cancel</Button>
             </div>
           </form>
-        </div>
+        </Card>
       ) : null}
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <Card padding={false}>
         <table>
           <thead style={{ background: 'var(--bg-main)' }}>
             <tr>
@@ -72,9 +63,9 @@ export default function VitalsPanel({ queue, vitalsForm, vitalsData, onVitalsFor
                 </td>
                 <td>
                   {q.status === 'Arrived' && !vitalsForm && (
-                    <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }} onClick={() => onVitalsFormChange(q.id)}>
+                    <Button variant="primary" size="sm" onClick={() => onVitalsFormChange(q.id)}>
                       <Clipboard size={16} /> Take Vitals
-                    </button>
+                    </Button>
                   )}
                   {q.status === 'Vitals_Taken' && (
                     <span style={{ fontSize: '0.85rem', color: 'var(--success)' }}><CheckCircle size={16}/> Ready for Doctor</span>
@@ -92,7 +83,7 @@ export default function VitalsPanel({ queue, vitalsForm, vitalsData, onVitalsFor
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
     </>
   );
 }
