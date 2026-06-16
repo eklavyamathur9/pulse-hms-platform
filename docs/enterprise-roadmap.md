@@ -197,14 +197,17 @@ python -m pytest -q backend/tests/
 - ~~Error boundaries for each dashboard~~ — ErrorBoundary component (Phase 5)
 - ~~ESLint hook dependency warnings fixed~~ — 0 errors, 0 warnings (Phase 5)
 
+### Tasks (Completed)
+- ~~Split DoctorDashboard, StaffDashboard, AdminDashboard~~ — all 5 dashboards split into sub-components and lazy-loaded (Phase 5, Phase 8)
+- ~~Custom hooks for shared data fetching logic~~ — useDataFetch, useSocketRefresh (Phase 8)
+- ~~Server-state management~~ — Zustand for client state (Phase 8), React Query for server state (Phase 9)
+- ~~TypeScript migration~~ — stores/, hooks/ converted, tsconfig.json, typescript-eslint (Phase 8)
+- ~~Component tests~~ — 11 tests for notification store, StatCard (Phase 8)
+- ~~Loading skeletons~~ — Skeleton, StatCardSkeleton, DashboardSkeleton (Phase 9)
+- ~~Form validation~~ — react-hook-form + zod for HospitalRegistration (Phase 9)
+
 ### Tasks (Pending)
-- Split DoctorDashboard, StaffDashboard, AdminDashboard — **not yet done**
-- Custom hooks for shared data fetching logic — **not yet done**
-- Server-state management (React Query / Zustand) — **not yet done**
-- TypeScript migration — **not yet done**
-- Component tests — **not yet done**
 - Shared UI component library — **not yet done**
-- Loading skeletons — **not yet done**
 
 ### Validation
 ```bash
@@ -349,8 +352,8 @@ pytest -q tests/
 | Phase 5 — Frontend Code Splitting | **Complete** |
 | Phase 6 — Superadmin & Multi-Tenant | **Complete** (REST API, feature flags, real dashboard, tenant CRUD) |
 | Phase 7 — Security Hardening | **Complete** |
-| Phase 8 — Frontend Modernization | Not started |
+| Phase 8 — Frontend Modernization | **Complete** |
 | Phase 9 — Performance & Scalability | Not started |
 | Phase 10 — External Integrations | Not started |
 
-**Next focus: Phase 8 — Frontend Modernization.**
+**Next focus: Phase 9 — Performance & Scalability.**

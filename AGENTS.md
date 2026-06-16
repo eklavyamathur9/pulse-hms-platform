@@ -2,7 +2,7 @@
 
 Persistent project memory for AI-assisted development in Pulse HMS.
 
-Last reviewed: 2026-06-15
+Last reviewed: 2026-06-16
 
 ## Project Snapshot
 
@@ -18,7 +18,7 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 
 Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, local migrations, 29 backend tests, CI, no production server config, and no real payment/compliance integrations.
 
-All dashboards are split into focused sub-components and lazy-loaded with Suspense + ErrorBoundary. PDF generation extracted to `lib/pdf.js`. ESLint passes with 0 errors, 0 warnings.
+All dashboards are split into focused sub-components and lazy-loaded with Suspense + ErrorBoundary. PDF generation extracted to `lib/pdf.ts`. All frontend source is TypeScript (`.ts`/`.tsx`). ESLint passes with 0 errors, 127 warnings (all `@typescript-eslint/no-explicit-any` — acceptable for initial TS migration).
 
 - `AdminDashboard` → `admin/` (AdminStatsCards, AdminAnalyticsCharts, AdminUserManagement, AdminSearchPanel)
 - `DoctorDashboard` → `doctor/` (DoctorStatsCards, DoctorQueuePanel, DoctorActivePatientPanel)
@@ -45,10 +45,11 @@ Frontend:
 - React 19 (with `React.lazy` for code splitting)
 - Vite 8
 - React Router 7
+- TypeScript (all source files converted to `.ts`/`.tsx`)
 - Socket.IO client
 - Recharts
 - Lucide React
-- jsPDF (PDF utilities in `lib/pdf.js`)
+- jsPDF (PDF utilities in `lib/pdf.ts`)
 
 ## Architecture Rules
 
@@ -56,7 +57,7 @@ Frontend:
 - Keep tenant isolation explicit through `hospital_id`.
 - Backend authorization is authoritative; frontend route guards are convenience only.
 - Use `auth_utils.py` helpers for backend role/tenant checks.
-- Use `frontend/src/lib/api.js` for REST calls.
+- Use `frontend/src/lib/api.ts` for REST calls.
 - Use `SocketContext` for socket access.
 - Do not add new architecture layers unless they solve a current, documented problem.
 - Avoid mixing future target architecture into current-state docs.
@@ -74,8 +75,13 @@ Backend:
 Frontend:
 
 - Use `apiFetch(...)`, not direct `fetch(...)`, for backend API calls.
-- Keep authenticated route logic in `App.jsx` unless routing is deliberately redesigned.
-- Store shared auth/socket/notification state in context.
+- Keep authenticated route logic in `App.tsx` unless routing is deliberately redesigned.
+- Store shared auth/socket state in context. UI state (notifications, theme) uses Zustand stores.
+- Use `useDataFetch(url, { transform })` from `hooks/useDataFetch.ts` for GET fetches with loading/error state.
+- Use `useSocketRefresh(socket, events, callback)` for socket-driven data refresh.
+- Use `import { notify } from '../stores/useNotificationStore'` for toast notifications (works outside React components).
+- Use `useThemeStore` from `stores/useThemeStore.ts` for theme management (`theme`, `toggleTheme`, `setTheme`).
+- New components must be `.tsx` files with typed props interfaces.
 - Keep component-local state for dashboard UI until a server-state library is introduced.
 
 ## Naming Conventions
@@ -105,14 +111,15 @@ npm run build
 npm run lint
 ```
 
-Current lint status: 0 errors, 0 warnings.
+Current lint status: 0 errors, 127 warnings (any types remain in dashboards, acceptable).
+Current test status: 11 frontend tests, 29 backend tests.
 
 ## Testing Requirements
 
 Current repository state:
 
 - Backend tests exist in `backend/tests/` (pytest suite with 29 tests: 7 API + 6 socket + 16 workflow).
-- No frontend tests exist.
+- 11 frontend tests exist (2 test files: useNotificationStore + StatCard).
 - CI split into 4 focused workflows (lint-format, test, security-scan, docker-build).
 - Alembic migrations (baseline `58e5f1bc23af`, latest `58ad529942f8`) covering 11 tables (+ RefreshToken).
 
