@@ -186,25 +186,53 @@ python -m pytest -q backend/tests/
 
 ---
 
-## Phase 7: Frontend Architecture Modernization
+## Phase 7: Security Hardening & Compliance (Complete)
+
+**Goal:** Meet healthcare compliance baseline (HIPAA-like) with audit trails, access controls, and data protection.
+
+### Tasks (Completed)
+- ~~AuditLog model + log_action() helper~~ — tracking user management, invoice payments
+- ~~Audit logging on create_user, update_user, deactivate_user~~
+- ~~Security scanning in CI~~ — ruff security rules, pip-audit, Trivy
+- ~~CORS configuration~~ — Flask-CORS with per-environment configurable origins
+- ~~Refresh token rotation~~ — RefreshToken model, /auth/refresh, /auth/logout, frontend auto-refresh
+- ~~Password policy enforcement~~ — validate_password_strength(), /auth/change-password, applied on register/create
+- ~~Rate limiting on auth endpoints~~ — Flask-Limiter: login (20/min), register (5/hr), register-hospital (3/hr)
+- ~~Security headers~~ — X-Content-Type-Options, X-Frame-Options, HSTS, Cache-Control via middleware
+
+### Tasks (Pending)
+- Data encryption for PII — **not yet done**
+- Compliance documentation — **not yet done**
+
+### Validation
+```bash
+python -m pytest -q backend/tests/
+make security-scan
+```
+
+### Deliverables
+- Audit log for user management + pay_invoice (done)
+- Token rotation (done)
+- Rate limiting (done)
+- Security scanning in CI (done)
+- Security headers (done)
+- Password policy (done)
+
+---
+
+## Phase 8: Frontend Modernization (Complete)
 
 **Goal:** Improve frontend maintainability, performance, and developer experience.
 
-### Tasks (Completed)
-- ~~PatientDashboard split into 7 sub-components~~ — from 915 to ~220 lines (Phase 5)
-- ~~PDF generation extracted to lib/pdf.js~~ (Phase 5)
-- ~~Lazy loading for route-based code splitting~~ — React.lazy + Suspense for all dashboards (Phase 5)
-- ~~Error boundaries for each dashboard~~ — ErrorBoundary component (Phase 5)
-- ~~ESLint hook dependency warnings fixed~~ — 0 errors, 0 warnings (Phase 5)
-
-### Tasks (Completed)
-- ~~Split DoctorDashboard, StaffDashboard, AdminDashboard~~ — all 5 dashboards split into sub-components and lazy-loaded (Phase 5, Phase 8)
-- ~~Custom hooks for shared data fetching logic~~ — useDataFetch, useSocketRefresh (Phase 8)
-- ~~Server-state management~~ — Zustand for client state (Phase 8), React Query for server state (Phase 9)
-- ~~TypeScript migration~~ — stores/, hooks/ converted, tsconfig.json, typescript-eslint (Phase 8)
-- ~~Component tests~~ — 11 tests for notification store, StatCard (Phase 8)
-- ~~Loading skeletons~~ — Skeleton, StatCardSkeleton, DashboardSkeleton (Phase 9)
-- ~~Form validation~~ — react-hook-form + zod for HospitalRegistration (Phase 9)
+### Tasks
+- ~~PatientDashboard split into 7 sub-components~~ — 915 → ~220 lines
+- ~~DoctorDashboard, StaffDashboard, AdminDashboard split~~ — all 5 dashboards now modular
+- ~~PDF generation extracted to lib/pdf.ts~~
+- ~~Lazy loading for route-based code splitting~~ — React.lazy + Suspense for all dashboards
+- ~~Error boundaries for each dashboard~~ — ErrorBoundary component wrapping each lazy route
+- ~~Custom hooks for shared data fetching~~ — useDataFetch, useSocketRefresh
+- ~~Zustand stores for client state~~ — useNotificationStore, useThemeStore
+- ~~Loading skeletons~~ — Skeleton, StatCardSkeleton, DashboardSkeleton with shimmer animation
 
 ### Tasks (Pending)
 - Shared UI component library — **not yet done**
@@ -216,22 +244,96 @@ npm run lint
 ```
 
 ### Deliverables
-- Modular patient component architecture (done)
-- Code splitting for all dashboards (done)
-- Component tests (pending)
-- TypeScript migration (pending)
+- All 5 dashboards split into focused sub-components
+- Error boundaries + Suspense for every route
+- Zustand state management
+- Skeleton loading components
 
 ---
 
-## Phase 8: Observability & Monitoring
+## Phase 9: React Query & Form Validation (Complete)
+
+**Goal:** Replace ad-hoc data fetching with TanStack React Query for server-state caching, background refetch, and stale-while-revalidate. Add form validation.
+
+### Tasks (Completed)
+- ~~React Query integration~~ — useApiQuery + useApiMutation typed wrappers
+- ~~All 5 dashboards refactored to use React Query~~ — socket-driven invalidation for real-time
+- ~~Form validation~~ — zod + react-hook-form for HospitalRegistration
+- ~~lib/schemas.ts with hospitalRegistrationSchema~~
+- ~~Component tests~~ — 11 tests (useNotificationStore + StatCard)
+- ~~Frontend test infrastructure~~ — vitest, @testing-library/react, jsdom
+
+### Validation
+```bash
+cd frontend && npm run build && npm run lint && npm run test
+```
+
+### Deliverables
+- TanStack React Query data layer
+- Zod + react-hook-form validation
+- Skeleton loading components
+- Test infrastructure (vitest)
+
+---
+
+## Phase 10: TypeScript Migration (Complete)
+
+**Goal:** Migrate entire frontend codebase from JavaScript to TypeScript for type safety, better IDE support, and reduced runtime errors.
+
+### Tasks (Completed)
+- ~~All .js/.jsx source files converted to .ts/.tsx~~ — 37+ files across lib/, context/, hooks/, stores/, components/
+- ~~tsconfig.json with strict mode~~
+- ~~ESLint config updated for TypeScript parsing~~ — typescript-eslint plugin
+- ~~Typed props interfaces for all components~~
+- ~~lib/pdf.ts with typed jsPDF API~~
+- ~~Context providers type-safe~~ — AuthContext, SocketContext
+- ~~Typed React Query hooks~~ — useApiQuery<T>, useApiMutation
+
+### Validation
+```bash
+cd frontend && npx tsc --noEmit && npm run build && npm run lint
+```
+
+### Deliverables
+- 37+ files converted to TypeScript
+- 0 tsc errors, 0 lint errors
+- 11/11 tests passing
+
+---
+
+## Phase 11: Production Hardening (Current)
+
+**Goal:** Deploy-ready infrastructure with process management, reverse proxy, container orchestration, and environment validation.
+
+### Tasks
+- Replace `python app.py` with gunicorn — **in progress**
+- nginx reverse proxy config — **not yet done**
+- docker-compose.prod.yml — **not yet done**
+- Environment validation on startup — **not yet done**
+- Redis for socket session state — **not yet done**
+- Health check gating in Docker Compose — **not yet done**
+
+### Validation
+```bash
+docker compose -f docker-compose.prod.yml up -d
+curl http://localhost/api/health
+python -m pytest -q backend/tests/
+```
+
+### Deliverables
+- gunicorn production server
+- nginx reverse proxy
+- Production Docker Compose stack
+- Environment validation
+- Redis-backed socket sessions
+
+---
+
+## Phase 12: Observability & Monitoring
 
 **Goal:** Production-grade monitoring, alerting, and debugging capabilities.
 
-### Tasks (Completed)
-- ~~Structured JSON logging with request ID tracking~~ — middleware in app.py (Phase 4)
-- ~~Health check endpoints~~ — `/api/ping` and `/api/health` (Phase 2)
-
-### Tasks (Pending)
+### Tasks
 - OpenTelemetry / distributed tracing — **not yet done**
 - Metrics endpoints (Prometheus) — **not yet done**
 - Sentry error tracking — **not yet done**
@@ -252,7 +354,7 @@ python -m pytest -q backend/tests/
 
 ---
 
-## Phase 9: Performance & Scalability
+## Phase 13: Performance & Scalability
 
 **Goal:** Handle multi-tenant growth with horizontal scaling and performance optimization.
 
@@ -280,9 +382,7 @@ python -m pytest -q backend/tests/
 
 ### Validation
 ```bash
-# Performance test
 k6 run tests/load/spike-test.js
-# All existing tests pass
 pytest -q tests/
 ```
 
@@ -296,7 +396,7 @@ pytest -q tests/
 
 ---
 
-## Phase 10: External Integrations & Ecosystem
+## Phase 14: External Integrations & Ecosystem
 
 **Goal:** Enable third-party integrations and expand the platform ecosystem.
 
@@ -350,10 +450,14 @@ pytest -q tests/
 | Phase 3.5 — Tooling & Infrastructure | **Complete** |
 | Phase 4 — Observability & Audit | **Complete** |
 | Phase 5 — Frontend Code Splitting | **Complete** |
-| Phase 6 — Superadmin & Multi-Tenant | **Complete** (REST API, feature flags, real dashboard, tenant CRUD) |
-| Phase 7 — Security Hardening | **Complete** |
+| Phase 6 — Superadmin & Multi-Tenant | **Complete** |
+| Phase 7 — Security Hardening & Compliance | **Complete** |
 | Phase 8 — Frontend Modernization | **Complete** |
-| Phase 9 — Performance & Scalability | Not started |
-| Phase 10 — External Integrations | Not started |
+| Phase 9 — React Query & Form Validation | **Complete** |
+| Phase 10 — TypeScript Migration | **Complete** |
+| Phase 11 — Production Hardening | **In Progress** |
+| Phase 12 — Observability & Monitoring | Not started |
+| Phase 13 — Performance & Scalability | Not started |
+| Phase 14 — External Integrations | Not started |
 
-**Next focus: Phase 9 — Performance & Scalability.**
+**Next focus: Phase 11 — Production Hardening.**

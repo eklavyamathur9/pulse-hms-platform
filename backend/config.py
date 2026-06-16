@@ -26,11 +26,15 @@ class Config:
     ]
     RATELIMIT_ENABLED = _env("RATELIMIT_ENABLED", "true").lower() == "true"
     RATELIMIT_DEFAULT = _env("RATELIMIT_DEFAULT", "200 per day;50 per hour")
+    REDIS_URL = _env("REDIS_URL", None)
+    GUNICORN_WORKERS = int(_env("GUNICORN_WORKERS", "4"))
+    SERVER_NAME = _env("SERVER_NAME", None)
+    SOCKET_MESSAGE_QUEUE = _env("SOCKET_MESSAGE_QUEUE", REDIS_URL)
 
     @classmethod
     def validate(cls):
+        missing = []
         if cls.ENV == "production":
-            missing = []
             if cls.SECRET_KEY == DEV_SECRET:
                 missing.append("SECRET_KEY")
             if cls.JWT_SECRET_KEY == DEV_JWT_SECRET:
@@ -39,5 +43,11 @@ class Config:
                 missing.append("AUTO_CREATE_TABLES=false")
             if "sqlite" in cls.SQLALCHEMY_DATABASE_URI:
                 missing.append("DATABASE_URL (must use PostgreSQL in production)")
-            if missing:
-                raise RuntimeError("Production startup requires secure values/settings for: " + ", ".join(missing))
+        else:
+            if not cls.SQLALCHEMY_DATABASE_URI:
+                missing.append("DATABASE_URL")
+        if missing:
+            raise RuntimeError(
+                f"Server misconfiguration — set the following environment variables:\n  "
+                + "\n  ".join(missing)
+            )

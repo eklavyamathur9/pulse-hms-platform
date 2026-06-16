@@ -1,21 +1,23 @@
-.PHONY: help lint lint-fix test build clean compose-up compose-down security-scan dev seed setup freeze
+.PHONY: help lint lint-fix test build clean compose-up compose-down compose-prod-up compose-prod-down security-scan dev seed setup freeze
 
 help:
 	@echo "Pulse HMS - Development Makefile"
 	@echo ""
 	@echo "Targets:"
-	@echo "  lint           Run ruff (backend) and eslint (frontend)"
-	@echo "  lint-fix       Auto-fix lint issues"
-	@echo "  test           Run backend pytest suite"
-	@echo "  build          Build frontend for production + backend compile check"
-	@echo "  clean          Remove __pycache__, .pytest_cache, build artifacts"
-	@echo "  compose-up     Start Docker Compose (backend + frontend + db)"
-	@echo "  compose-down   Stop Docker Compose"
-	@echo "  security-scan  Run ruff security checks"
-	@echo "  setup          Full local dev setup (deps, DB, seed)"
-	@echo "  dev            Start backend + frontend for local development"
-	@echo "  seed           Seed the database with demo data"
-	@echo "  freeze         Generate requirements-lock.txt from current env"
+	@echo "  lint             Run ruff (backend) and eslint (frontend)"
+	@echo "  lint-fix         Auto-fix lint issues"
+	@echo "  test             Run backend pytest suite"
+	@echo "  build            Build frontend for production + backend compile check"
+	@echo "  clean            Remove __pycache__, .pytest_cache, build artifacts"
+	@echo "  compose-up       Start Docker Compose (backend + frontend + db)"
+	@echo "  compose-down     Stop Docker Compose"
+	@echo "  compose-prod-up  Start production stack (nginx + backend + db + redis)"
+	@echo "  compose-prod-down Stop production stack"
+	@echo "  security-scan    Run ruff security checks"
+	@echo "  setup            Full local dev setup (deps, DB, seed)"
+	@echo "  dev              Start backend + frontend for local development"
+	@echo "  seed             Seed the database with demo data"
+	@echo "  freeze           Generate requirements-lock.txt from current env"
 
 lint:
 	cd backend && python -m ruff check . && python -m ruff format --check .
@@ -44,6 +46,12 @@ compose-up:
 
 compose-down:
 	docker compose down
+
+compose-prod-up:
+	docker compose -f docker-compose.prod.yml up --build -d
+
+compose-prod-down:
+	docker compose -f docker-compose.prod.yml down
 
 security-scan:
 	cd backend && python -m ruff check --select S .

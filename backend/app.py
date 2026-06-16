@@ -32,7 +32,13 @@ limiter.init_app(app)
 db.init_app(app)
 jwt = JWTManager(app)
 migrate = Migrate(app, db)
-socketio = SocketIO(app, cors_allowed_origins=Config.CORS_ORIGINS, async_mode=Config.SOCKET_ASYNC_MODE)
+socketio_kwargs = {
+    "cors_allowed_origins": Config.CORS_ORIGINS,
+    "async_mode": Config.SOCKET_ASYNC_MODE,
+}
+if Config.SOCKET_MESSAGE_QUEUE:
+    socketio_kwargs["message_queue"] = Config.SOCKET_MESSAGE_QUEUE
+socketio = SocketIO(app, **socketio_kwargs)
 
 if Config.AUTO_CREATE_TABLES:
     with app.app_context():

@@ -113,6 +113,7 @@ npm run lint
 
 Current lint status: 0 errors, 127 warnings (any types remain in dashboards, acceptable).
 Current test status: 11 frontend tests, 29 backend tests.
+Phase 11 (Production Hardening) in progress: gunicorn, nginx, docker-compose.prod.yml, Redis socket support.
 
 ## Testing Requirements
 

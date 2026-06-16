@@ -1,0 +1,111 @@
+version: '3.8'
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - frontend-dist:/usr/share/nginx/html:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - pulse-net
+
+  backend:
+    build:
+      context: ./backend
+    expose:
+      - "5000"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost}
+      - AUTO_CREATE_TABLES=false
+      - SOCKET_ASYNC_MODE=gevent
+      - REDIS_URL=redis://redis:6379/0
+      - RATELIMIT_ENABLED=true
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-4}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - pulse-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend-builder:
+    image: node:20-alpine
+    working_dir: /build
+    volumes:
+      - ./frontend:/build
+      - frontend-dist:/build/dist
+    command: sh -c "npm ci && npm run build"
+    logging: *default-logging
+    networks:
+      - pulse-net
+
+  db:
+    image: postgres:16-alpine
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: pulse_hms
+      POSTGRES_USER: pulse_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - pulse-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse_user -d pulse_hms"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    expose:
+      - "6379"
+    volumes:
+      - redis-data:/data
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - pulse-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+networks:
+  pulse-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redis-data:
+  frontend-dist:
