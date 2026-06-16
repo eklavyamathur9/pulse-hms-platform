@@ -1,6 +1,8 @@
+import time
+
 from auth_routes import auth_bp
 from config import Config
-from flask import Flask, jsonify
+from flask import Flask, g, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
@@ -9,6 +11,7 @@ from hospital_routes import hospital_bp
 from logging_config import log_request_response, request_id_middleware, setup_logging
 from models import db
 from patient_routes import patient_bp
+from prometheus_flask_exporter import PrometheusMetrics
 from rate_limit import limiter
 from services import handle_connect, handle_disconnect
 from services.appointment import register as register_appointment
@@ -16,6 +19,7 @@ from services.lab import register as register_lab
 from services.pharmacy import register as register_pharmacy
 from services.vitals import register as register_vitals
 from superadmin_routes import superadmin_bp
+from werkzeug.exceptions import HTTPException
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -28,6 +32,18 @@ CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 app.config["RATELIMIT_DEFAULT"] = Config.RATELIMIT_DEFAULT
 app.config["RATELIMIT_ENABLED"] = Config.RATELIMIT_ENABLED
 limiter.init_app(app)
+
+if Config.SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=Config.SENTRY_DSN,
+        enable_tracing=True,
+        traces_sample_rate=0.2,
+    )
+
+metrics = PrometheusMetrics(app, group_by="endpoint")
+metrics.info("app_info", "Pulse HMS", version="1.0.0")
 
 db.init_app(app)
 jwt = JWTManager(app)
@@ -53,16 +69,40 @@ register_pharmacy(socketio)
 @app.before_request
 def before_request():
     request_id_middleware()
+    g.start_time = time.time()
 
 
 @app.after_request
 def after_request(response):
+    if hasattr(g, "start_time"):
+        elapsed = time.time() - g.start_time
+        response.headers["X-Response-Time"] = f"{elapsed:.3f}s"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "0"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Cache-Control"] = "no-store"
     return log_request_response(response)
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(e):
+    return jsonify({"error": e.description or e.name, "code": e.code}), e.code
+
+
+@app.errorhandler(500)
+def handle_500(e):
+    return jsonify({"error": "Internal server error", "code": 500}), 500
+
+
+@app.errorhandler(404)
+def handle_404(e):
+    return jsonify({"error": "Not found", "code": 404}), 404
+
+
+@app.errorhandler(405)
+def handle_405(e):
+    return jsonify({"error": "Method not allowed", "code": 405}), 405
 
 
 @app.route("/api/ping", methods=["GET"])

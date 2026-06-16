@@ -117,6 +117,7 @@ Phase 11 (Production Hardening) complete: gunicorn, nginx, docker-compose.prod.y
 Phase 3 follow-up complete: error_response()/success_response() helpers in validation.py, encryption.py with Fernet-backed EncryptedField.
 Phase 8 follow-up complete: shared UI library (Button, Input, Card, Modal) in frontend/src/components/ui/.
 Phase 9 follow-up complete: expanded zod schemas (booking, vitals, profile), TanStack Query DevTools added.
+Phase 12 (Observability & Monitoring) complete: Sentry error tracking (backend + frontend), Prometheus metrics at /metrics, Grafana dashboards, JSON error handlers, gunicorn JSON access logs.
 
 ## Testing Requirements
 

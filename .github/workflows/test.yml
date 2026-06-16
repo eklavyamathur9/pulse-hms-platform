@@ -31,7 +31,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Compile check
-        run: python -m py_compile app.py auth_routes.py hospital_routes.py models.py patient_routes.py seed.py auth_utils.py config.py validation.py audit.py rate_limit.py superadmin_routes.py wsgi.py services/__init__.py services/appointment.py services/vitals.py services/lab.py services/pharmacy.py
+        run: python -m py_compile app.py auth_routes.py hospital_routes.py models.py patient_routes.py seed.py auth_utils.py config.py validation.py audit.py rate_limit.py superadmin_routes.py encryption.py wsgi.py gunicorn.conf.py services/__init__.py services/appointment.py services/vitals.py services/lab.py services/pharmacy.py
 
       - name: Run tests
         run: python -m pytest -q tests/
