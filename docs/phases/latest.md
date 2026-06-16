@@ -1,111 +1,66 @@
-# Latest Phase Handoff
+# Phase 9 — Frontend Modernization
 
-Date: 2026-06-15
+Completed: 2026-06-16
 
-## Current Repository State
+## Summary
 
-Security hardening complete — rate limiting, password policy, refresh token rotation, security headers, CORS hardening, and audit logging expansion.
+Transformed the frontend data layer from ad-hoc `useDataFetch` hooks to TanStack React Query (server-state caching, background refetch, stale-while-revalidate). Added form validation with zod + react-hook-form. Replaced loading text with skeleton components.
 
-Current implementation:
+## What Was Done
 
-- React + Vite frontend (`frontend/`)
-- Flask + Flask-SocketIO backend (`backend/`)
-- SQLite database for dev, PostgreSQL config for production
-- JWT auth with role and tenant claims (with is_active check)
-- Tenant-scoped REST routes and Socket.IO room events
-- Domain service layer in `backend/services/` (appointment, vitals, lab, pharmacy)
-- Audit logging for clinical/billing actions
-- Structured JSON logging with request ID tracking
-- Multi-stage Dockerfiles with non-root user
-- Focused CI workflows (lint, test, security, docker-build)
-- Development Docker Compose with optional PostgreSQL service
-- Alembic migrations (baseline + audit_log + payment + refresh_token/password_policy)
-- Backend tests: 29 tests in `backend/tests/`
-- CI: GitHub Actions (4 workflows)
-- Linting: ruff (Python), ESLint (JS/JSX) — 0 errors, 0 warnings
-- Security: ruff security rules, pip-audit in CI, Trivy config
-- Makefile for common dev tasks
+### React Query Integration
+- Installed `@tanstack/react-query` v5
+- QueryClientProvider wraps the app in `App.jsx` with sensible defaults (30s stale time, 1 retry, no refetch-on-window-focus)
+- Created `hooks/useApi.ts` with:
+  - `useApiQuery<T>(key, url, options)` — typed wrapper around `useQuery` with configurable staleTime, refetchInterval, transform
+  - `useApiMutation<TData, TVariables>(urlOrFn, method, options)` — typed wrapper around `useMutation` with automatic toast notifications and query invalidation. Supports both static URL strings and function-based URLs for dynamic paths.
 
-## What Was Done (Phase 7 — Security Hardening)
+### Dashboards Refactored (5/5)
+All dashboards migrated from `useDataFetch` to `useApiQuery`. Socket-driven refresh now uses `queryClient.invalidateQueries()` for granular cache busting. Key patterns:
+- **AdminDashboard**: 2 queries + socket invalidation on payment/queue/appointment events
+- **DoctorDashboard**: 2 queries with 15s refetchInterval for queue, socket invalidation
+- **StaffDashboard**: 3 queries with 15s refetchInterval for queue, socket invalidation
+- **PatientDashboard**: 6 queries, conditional enable for invoices tab, socket-driven invalidation
+- **SuperAdminDashboard**: 2 queries + mutation for create hospital, raw apiFetch for update hospital (URL-param separation)
 
-### Rate Limiting
-- Added `Flask-Limiter` to backend dependencies.
-- Created `rate_limit.py` module for shared `Limiter` instance.
-- `login`: 20 requests per minute (prevents brute force).
-- `register`: 5 requests per hour (prevents account creation spam).
-- `register-hospital`: 3 requests per hour.
-- Default limits: 200/day, 50/hour for all other routes.
-- Rate limiting disabled in test environment via `RATELIMIT_ENABLED=false`.
+### Loading Skeletons
+- `components/common/Skeleton.jsx`: `Skeleton` base, `StatCardSkeleton`, `DashboardSkeleton` (title + 4 stat cards + rows)
+- Shimmer animation via `@keyframes shimmer` in `index.css`
+- All 5 dashboard Suspense fallbacks use `DashboardSkeleton` instead of text
+- All 5 dashboards use skeleton during data loading (not just suspense)
 
-### Security Headers
-- `X-Content-Type-Options: nosniff` — prevents MIME type sniffing.
-- `X-Frame-Options: DENY` — prevents clickjacking.
-- `X-XSS-Protection: 0` — disables legacy XSS auditor.
-- `Strict-Transport-Security: max-age=31536000; includeSubDomains` — HSTS.
-- `Cache-Control: no-store` — prevents sensitive data caching.
+### Form Validation
+- Created `lib/schemas.ts` with `hospitalRegistrationSchema` (zod)
+- HospitalRegistration refactored to use `useForm` + `zodResolver` with:
+  - Client-side validation with error messages below fields
+  - Auto-generated subdomain from hospital name (preserving manual edit flag)
+  - Proper field-level error display with `field-error` class
 
-### Password Policy
-- `validate_password_strength()` in `validation.py`:
-  - Minimum 8 characters
-  - At least one uppercase letter
-  - At least one lowercase letter
-  - At least one digit
-  - At least one special character
-- Applied to: `register`, `register-hospital`, `admin create user`, `change-password`.
-- Admin-created users with default "changeme" password bypass validation.
-- `password_changed_at` column on User model for future expiry enforcement.
-- `PUT /api/auth/change-password` endpoint — requires current password + new password; revokes all refresh tokens on change.
-- `GET /api/auth/me` endpoint — returns current user info.
+### Deprecations
+- `useDataFetch` — no longer imported anywhere; kept in codebase for reference
 
-### Refresh Token Rotation
-- `POST /api/auth/refresh` — accepts refresh token in `Authorization` header; validates, revokes old token, issues new access + refresh pair.
-- `POST /api/auth/logout` — revokes current refresh token.
-- `RefreshToken` model with `token_hash`, `expires_at`, `is_revoked`.
-- Migration `58ad529942f8` creates the `refresh_token` table.
-- Frontend `api.js` auto-refreshes on 401: stores `pulse_refresh_token`, calls `/api/auth/refresh`, retries original request.
-- `AuthContext.jsx` passes `refresh_token` from login/register to storage.
+## Validation
+- Lint: 0 errors, 0 warnings
+- TypeScript `tsc --noEmit`: passes
+- Build: passes (generates 11 chunk files)
+- Tests: 11 pass (7 notification store + 4 StatCard)
 
-### Audit Logging Expansion
-- `create_user` — logs role and name.
-- `update_user` — logs changed fields.
-- `deactivate_user` — logs new `is_active` state.
-- Existing `pay_invoice` audit unchanged.
+## New Files
+| File | Purpose |
+|------|---------|
+| `hooks/useApi.ts` | React Query typed wrappers (useApiQuery + useApiMutation) |
+| `components/common/Skeleton.jsx` | Skeleton loading components |
+| `lib/schemas.ts` | Zod validation schemas |
 
-### CORS Hardening
-- CORS origins configurable via `CORS_ORIGINS` env var (default: `http://localhost:5173`).
-- Separate per-environment origin lists supported.
+## New Dependencies
+- `@tanstack/react-query` — server state management
+- `react-hook-form` — form state management
+- `zod` — schema validation
+- `@hookform/resolvers` — bridge react-hook-form to zod
 
-## Important Findings
-
-- Flask-Limiter 4.x uses in-memory storage by default (not production-safe without Redis).
-- The `auth/refresh` endpoint expects the refresh token in the `Authorization` header, not in the request body (consistent with JWT patterns).
-- Rate limiting works at the IP level via `get_remote_address` — behind a reverse proxy, the `X-Forwarded-For` header must be configured.
-- Migration autogenerate couldn't detect changes because `AUTO_CREATE_TABLES=true` had already applied the schema — migration was written manually.
-- Seed data passwords bypass policy (direct DB insertion) — only affects local demo data.
-
-## Architectural Weaknesses (Updated)
-
-Highest priority remaining:
-1. In-memory rate limiting storage (needs Redis for production).
-2. No gunicorn/waitress production server configured.
-3. No frontend tests.
-4. No payment gateway integration.
-5. Socket.IO sessions are in-memory.
-6. Superadmin dashboard uses mock data.
-
-## Suggested Next Phase
-
-**Phase 6 continued: Superadmin & Multi-Tenant Operations**
-
-Or, if preferred: **Phase 8: Frontend Architecture Modernization** (extract remaining dashboards, add tests, server-state library).
-
-## Likely Impacted Modules For Next Phase
-
-- `backend/superadmin_routes.py` (new)
-- `backend/models.py` (plan features, usage metrics)
-
-## Implementation Cautions
-
-- Do not change existing API or socket payload contracts.
-- Keep the existing demo workflow functional.
-- All 29 backend tests and frontend build must pass.
+## Suggested Next Steps
+- **Phase 10**: Payment Integration — wire Stripe/Razorpay, receipt PDF generation
+- **Phase 11**: Production Hardening — gunicorn, Redis rate limiting, PostgreSQL in CI
+- Expand form validation to more forms (booking, vitals, profile, user creation)
+- Add React DevTools or TanStack Query DevTools for debugging
+- Write mutation tests for useApiMutation
