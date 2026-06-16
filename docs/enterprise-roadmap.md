@@ -1,6 +1,6 @@
 # Enterprise Development Roadmap
 
-Last reviewed: 2026-06-15
+Last reviewed: 2026-06-16
 
 This roadmap transforms Pulse HMS from a functional prototype into a production-grade, enterprise-ready hospital management SaaS platform. Each phase builds on the previous, prioritizing safety, correctness, and maintainability before features.
 
@@ -77,8 +77,8 @@ python -m pytest -q backend/tests/
 - ~~Extract Socket.IO event handlers from `app.py` into `services/` modules~~ — register(socketio) pattern
 - ~~Add shared socket helpers in `services/__init__.py`~~ — require_socket_roles, socket_payload, tenant_appointment, socket_sessions
 - Structured logging (JSON format) with request ID — **done** (Phase 4)
-- Standardize error responses — **not yet done**
-- Add request validation library — **not yet done**
+- Standardize error responses — **done** (`error_response()`/`success_response()` helpers in `validation.py`)
+- Add request validation library — **done** (zod schemas on frontend, `validation.py` helpers on backend)
 - Refactor REST route handlers to use service layer — **not yet done**
 
 ### Validation
@@ -201,7 +201,7 @@ python -m pytest -q backend/tests/
 - ~~Security headers~~ — X-Content-Type-Options, X-Frame-Options, HSTS, Cache-Control via middleware
 
 ### Tasks (Pending)
-- Data encryption for PII — **not yet done**
+- Data encryption for PII — **done** (Fernet-backed `EncryptedField` type + `encrypt_value()`/`decrypt_value()` helpers)
 - Compliance documentation — **not yet done**
 
 ### Validation
@@ -235,7 +235,7 @@ make security-scan
 - ~~Loading skeletons~~ — Skeleton, StatCardSkeleton, DashboardSkeleton with shimmer animation
 
 ### Tasks (Pending)
-- Shared UI component library — **not yet done**
+- Shared UI component library — **done** (Button, Input, Card, Modal in `frontend/src/components/ui/`)
 
 ### Validation
 ```bash
@@ -262,6 +262,8 @@ npm run lint
 - ~~lib/schemas.ts with hospitalRegistrationSchema~~
 - ~~Component tests~~ — 11 tests (useNotificationStore + StatCard)
 - ~~Frontend test infrastructure~~ — vitest, @testing-library/react, jsdom
+- ~~Expanded zod schemas~~ — bookingSchema, vitalsSchema, profileSchema
+- ~~TanStack Query DevTools~~ — added to App.tsx, toggleable via floating button
 
 ### Validation
 ```bash
@@ -301,17 +303,18 @@ cd frontend && npx tsc --noEmit && npm run build && npm run lint
 
 ---
 
-## Phase 11: Production Hardening (Current)
+## Phase 11: Production Hardening (Complete)
 
 **Goal:** Deploy-ready infrastructure with process management, reverse proxy, container orchestration, and environment validation.
 
-### Tasks
-- Replace `python app.py` with gunicorn — **in progress**
-- nginx reverse proxy config — **not yet done**
-- docker-compose.prod.yml — **not yet done**
-- Environment validation on startup — **not yet done**
-- Redis for socket session state — **not yet done**
-- Health check gating in Docker Compose — **not yet done**
+### Tasks (Completed)
+- ~~Replace `python app.py` with gunicorn~~ — `backend/wsgi.py` entry point, Dockerfile updated to `CMD gunicorn wsgi:app`
+- ~~nginx reverse proxy config~~ — `nginx.conf` routing `/api/` and `/socket.io/` with WebSocket upgrade
+- ~~docker-compose.prod.yml~~ — 5 services: nginx, backend (gunicorn), frontend-builder, PostgreSQL, Redis
+- ~~Environment validation on startup~~ — enhanced `Config.validate()` checks both dev and prod
+- ~~Redis for socket session state~~ — `message_queue` passed to SocketIO when `REDIS_URL` is set
+- ~~Health check gating in Docker Compose~~ — backend healthcheck with start_period, depends_on conditions
+- ~~Makefile targets~~ — `compose-prod-up` / `compose-prod-down`
 
 ### Validation
 ```bash
@@ -455,9 +458,9 @@ pytest -q tests/
 | Phase 8 — Frontend Modernization | **Complete** |
 | Phase 9 — React Query & Form Validation | **Complete** |
 | Phase 10 — TypeScript Migration | **Complete** |
-| Phase 11 — Production Hardening | **In Progress** |
+| Phase 11 — Production Hardening | **Complete** |
 | Phase 12 — Observability & Monitoring | Not started |
 | Phase 13 — Performance & Scalability | Not started |
 | Phase 14 — External Integrations | Not started |
 
-**Next focus: Phase 11 — Production Hardening.**
+**Next focus: Phase 12 — Observability & Monitoring.**

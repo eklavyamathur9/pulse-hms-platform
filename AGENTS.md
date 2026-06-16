@@ -16,7 +16,7 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 - CI: GitHub Actions (backend compile + pytest, frontend build + lint)
 - Deployment scaffold: development Docker Compose with optional PostgreSQL service
 
-Do not assume production maturity. The app has tenant-aware JWT/RBAC foundations, local migrations, 29 backend tests, CI, no production server config, and no real payment/compliance integrations.
+Do not assume full production maturity. The app has tenant-aware JWT/RBAC foundations, local migrations, 29 backend tests, CI, Docker Compose production stack (gunicorn + nginx + PostgreSQL + Redis), but no real payment/compliance integrations.
 
 All dashboards are split into focused sub-components and lazy-loaded with Suspense + ErrorBoundary. PDF generation extracted to `lib/pdf.ts`. All frontend source is TypeScript (`.ts`/`.tsx`). ESLint passes with 0 errors, 127 warnings (all `@typescript-eslint/no-explicit-any` — acceptable for initial TS migration).
 
@@ -97,7 +97,7 @@ Frontend:
 Run from repository root unless noted:
 
 ```bash
-python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/rate_limit.py backend/superadmin_routes.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/rate_limit.py backend/superadmin_routes.py backend/encryption.py backend/wsgi.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
 ```
 
 ```bash
@@ -113,7 +113,10 @@ npm run lint
 
 Current lint status: 0 errors, 127 warnings (any types remain in dashboards, acceptable).
 Current test status: 11 frontend tests, 29 backend tests.
-Phase 11 (Production Hardening) in progress: gunicorn, nginx, docker-compose.prod.yml, Redis socket support.
+Phase 11 (Production Hardening) complete: gunicorn, nginx, docker-compose.prod.yml, Redis socket support.
+Phase 3 follow-up complete: error_response()/success_response() helpers in validation.py, encryption.py with Fernet-backed EncryptedField.
+Phase 8 follow-up complete: shared UI library (Button, Input, Card, Modal) in frontend/src/components/ui/.
+Phase 9 follow-up complete: expanded zod schemas (booking, vitals, profile), TanStack Query DevTools added.
 
 ## Testing Requirements
 

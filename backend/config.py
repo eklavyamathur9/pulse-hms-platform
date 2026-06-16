@@ -27,6 +27,7 @@ class Config:
     RATELIMIT_ENABLED = _env("RATELIMIT_ENABLED", "true").lower() == "true"
     RATELIMIT_DEFAULT = _env("RATELIMIT_DEFAULT", "200 per day;50 per hour")
     REDIS_URL = _env("REDIS_URL", None)
+    ENCRYPTION_KEY = _env("ENCRYPTION_KEY", None)
     GUNICORN_WORKERS = int(_env("GUNICORN_WORKERS", "4"))
     SERVER_NAME = _env("SERVER_NAME", None)
     SOCKET_MESSAGE_QUEUE = _env("SOCKET_MESSAGE_QUEUE", REDIS_URL)
@@ -48,6 +49,5 @@ class Config:
                 missing.append("DATABASE_URL")
         if missing:
             raise RuntimeError(
-                f"Server misconfiguration — set the following environment variables:\n  "
-                + "\n  ".join(missing)
+                "Server misconfiguration — set the following environment variables:\n  " + "\n  ".join(missing)
             )

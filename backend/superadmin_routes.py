@@ -88,25 +88,27 @@ def platform_stats():
     )
     total_invoices = Invoice.query.count()
     paid_invoices = Invoice.query.filter_by(status="Paid").count()
-    return jsonify({
-        "hospitals": {
-            "total": total_hospitals,
-            "active": active_hospitals,
-            "inactive": total_hospitals - active_hospitals,
-        },
-        "users": {
-            "total": total_users,
-            **users_by_role,
-        },
-        "appointments": {
-            "total": total_appointments,
-        },
-        "revenue": {
-            "total": float(total_revenue),
-            "total_invoices": total_invoices,
-            "paid_invoices": paid_invoices,
-        },
-    })
+    return jsonify(
+        {
+            "hospitals": {
+                "total": total_hospitals,
+                "active": active_hospitals,
+                "inactive": total_hospitals - active_hospitals,
+            },
+            "users": {
+                "total": total_users,
+                **users_by_role,
+            },
+            "appointments": {
+                "total": total_appointments,
+            },
+            "revenue": {
+                "total": float(total_revenue),
+                "total_invoices": total_invoices,
+                "paid_invoices": paid_invoices,
+            },
+        }
+    )
 
 
 @superadmin_bp.route("/hospitals", methods=["GET"])
@@ -116,16 +118,18 @@ def list_hospitals():
     result = []
     for h in hospitals:
         stats = hospital_stats(h)
-        result.append({
-            "id": h.id,
-            "name": h.name,
-            "subdomain": h.subdomain,
-            "plan": h.plan,
-            "is_active": h.is_active,
-            "feature_flags": h.feature_flags or PLAN_FEATURES.get(h.plan, {}),
-            "created_at": h.created_at.isoformat() if h.created_at else None,
-            "stats": stats,
-        })
+        result.append(
+            {
+                "id": h.id,
+                "name": h.name,
+                "subdomain": h.subdomain,
+                "plan": h.plan,
+                "is_active": h.is_active,
+                "feature_flags": h.feature_flags or PLAN_FEATURES.get(h.plan, {}),
+                "created_at": h.created_at.isoformat() if h.created_at else None,
+                "stats": stats,
+            }
+        )
     return jsonify(result)
 
 
@@ -136,16 +140,18 @@ def get_hospital(hospital_id):
     if not hospital:
         return jsonify({"error": "Hospital not found"}), 404
     stats = hospital_stats(hospital)
-    return jsonify({
-        "id": hospital.id,
-        "name": hospital.name,
-        "subdomain": hospital.subdomain,
-        "plan": hospital.plan,
-        "is_active": hospital.is_active,
-        "feature_flags": hospital.feature_flags or PLAN_FEATURES.get(hospital.plan, {}),
-        "created_at": hospital.created_at.isoformat() if hospital.created_at else None,
-        "stats": stats,
-    })
+    return jsonify(
+        {
+            "id": hospital.id,
+            "name": hospital.name,
+            "subdomain": hospital.subdomain,
+            "plan": hospital.plan,
+            "is_active": hospital.is_active,
+            "feature_flags": hospital.feature_flags or PLAN_FEATURES.get(hospital.plan, {}),
+            "created_at": hospital.created_at.isoformat() if hospital.created_at else None,
+            "stats": stats,
+        }
+    )
 
 
 @superadmin_bp.route("/hospitals", methods=["POST"])
@@ -193,16 +199,18 @@ def create_hospital():
         resource_id=hospital.id,
         details={"name": hospital.name, "plan": hospital.plan, "admin": data["admin_name"]},
     )
-    return jsonify({
-        "message": "Hospital created successfully",
-        "hospital": {
-            "id": hospital.id,
-            "name": hospital.name,
-            "subdomain": hospital.subdomain,
-            "plan": hospital.plan,
-            "is_active": hospital.is_active,
-        },
-    }), 201
+    return jsonify(
+        {
+            "message": "Hospital created successfully",
+            "hospital": {
+                "id": hospital.id,
+                "name": hospital.name,
+                "subdomain": hospital.subdomain,
+                "plan": hospital.plan,
+                "is_active": hospital.is_active,
+            },
+        }
+    ), 201
 
 
 @superadmin_bp.route("/hospitals/<int:hospital_id>", methods=["PUT"])
@@ -238,18 +246,20 @@ def update_hospital(hospital_id):
         details={k: data.get(k) for k in ("name", "plan", "is_active", "subdomain") if k in data},
     )
     stats = hospital_stats(hospital)
-    return jsonify({
-        "message": "Hospital updated",
-        "hospital": {
-            "id": hospital.id,
-            "name": hospital.name,
-            "subdomain": hospital.subdomain,
-            "plan": hospital.plan,
-            "is_active": hospital.is_active,
-            "feature_flags": hospital.feature_flags or PLAN_FEATURES.get(hospital.plan, {}),
-            "stats": stats,
-        },
-    })
+    return jsonify(
+        {
+            "message": "Hospital updated",
+            "hospital": {
+                "id": hospital.id,
+                "name": hospital.name,
+                "subdomain": hospital.subdomain,
+                "plan": hospital.plan,
+                "is_active": hospital.is_active,
+                "feature_flags": hospital.feature_flags or PLAN_FEATURES.get(hospital.plan, {}),
+                "stats": stats,
+            },
+        }
+    )
 
 
 @superadmin_bp.route("/hospitals/<int:hospital_id>/users", methods=["GET"])
@@ -259,16 +269,18 @@ def get_hospital_users(hospital_id):
     if not hospital:
         return jsonify({"error": "Hospital not found"}), 404
     users = User.query.filter_by(hospital_id=hospital_id).order_by(User.role, User.name).all()
-    return jsonify([
-        {
-            "id": u.id,
-            "role": u.role,
-            "name": u.name,
-            "email": u.email,
-            "contact": u.contact,
-            "specialization": u.specialization,
-            "is_available": u.is_available,
-            "is_active": u.is_active,
-        }
-        for u in users
-    ])
+    return jsonify(
+        [
+            {
+                "id": u.id,
+                "role": u.role,
+                "name": u.name,
+                "email": u.email,
+                "contact": u.contact,
+                "specialization": u.specialization,
+                "is_available": u.is_available,
+                "is_active": u.is_active,
+            }
+            for u in users
+        ]
+    )
