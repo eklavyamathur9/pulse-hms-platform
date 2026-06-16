@@ -1,6 +1,7 @@
 import time
 
 from auth_routes import auth_bp
+from cache import cache
 from config import Config
 from flask import Flask, g, jsonify
 from flask_cors import CORS
@@ -12,7 +13,7 @@ from logging_config import log_request_response, request_id_middleware, setup_lo
 from models import db
 from patient_routes import patient_bp
 from prometheus_flask_exporter import PrometheusMetrics
-from rate_limit import limiter
+from rate_limit import limiter, tenant_key
 from services import handle_connect, handle_disconnect
 from services.appointment import register as register_appointment
 from services.lab import register as register_lab
@@ -25,13 +26,26 @@ app = Flask(__name__)
 app.config.from_object(Config)
 Config.validate()
 
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = Config.engine_options()
+
 setup_logging(app)
 
 CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
 app.config["RATELIMIT_DEFAULT"] = Config.RATELIMIT_DEFAULT
 app.config["RATELIMIT_ENABLED"] = Config.RATELIMIT_ENABLED
+if Config.REDIS_URL:
+    app.config["RATELIMIT_STORAGE_URI"] = Config.REDIS_URL
 limiter.init_app(app)
+
+cache_config = {"CACHE_TYPE": "SimpleCache"}
+if Config.REDIS_URL:
+    cache_config = {
+        "CACHE_TYPE": "RedisCache",
+        "CACHE_REDIS_URL": Config.REDIS_URL,
+        "CACHE_DEFAULT_TIMEOUT": 60,
+    }
+cache.init_app(app, cache_config)
 
 if Config.SENTRY_DSN:
     import sentry_sdk
@@ -144,6 +158,11 @@ app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(patient_bp, url_prefix="/api/patients")
 app.register_blueprint(hospital_bp, url_prefix="/api/hospital")
 app.register_blueprint(superadmin_bp, url_prefix="/api/superadmin")
+
+# Per-tenant rate limits for data endpoints (blueprint-level safety net)
+limiter.limit("100 per minute", key_func=tenant_key)(patient_bp)
+limiter.limit("100 per minute", key_func=tenant_key)(hospital_bp)
+limiter.limit("60 per minute", key_func=tenant_key)(superadmin_bp)
 
 
 @socketio.on("connect")

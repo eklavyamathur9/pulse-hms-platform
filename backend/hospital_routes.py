@@ -1,7 +1,23 @@
+import os
+
 from audit import log_action
-from auth_utils import current_user, forbidden, require_hospital_context, require_roles, tenant_get
-from flask import Blueprint, g, jsonify, request
-from models import Appointment, Invoice, LabTest, Payment, Prescription, Rating, User, Vitals, db
+from auth_utils import (
+    current_hospital_id,
+    current_user,
+    forbidden,
+    is_superadmin,
+    require_hospital_context,
+    require_roles,
+    tenant_get,
+)
+from cache import cache
+from config import Config
+from flask import Blueprint, g, jsonify, request, send_file
+from middleware import query_timeout
+from models import Appointment, Document, Invoice, LabTest, Payment, Prescription, Rating, User, Vitals, db
+from pagination import get_pagination_params, paginate, paginated_response
+from rate_limit import limiter, tenant_key
+from upload_service import save_upload
 from validation import int_field, json_body, require_fields
 
 hospital_bp = Blueprint("hospital", __name__)
@@ -36,6 +52,8 @@ def create_invoice_for_appointment(appt):
 
 @hospital_bp.route("/admin/analytics", methods=["GET"])
 @require_roles("admin", "superadmin")
+@query_timeout(15)
+@cache.cached(timeout=30, query_string=True)
 def get_admin_analytics():
     hospital_id, error, status = require_hospital_context()
     if error:
@@ -112,11 +130,11 @@ def get_hospital_queue():
         return error, status
     # Admin/Staff can see everyone Arrived but not Consult_Done
     # For now, let's just fetch Scheduled, Arrived, Vitals_Taken
-    appts = (
-        Appointment.query.filter_by(hospital_id=hospital_id)
-        .filter(Appointment.status.in_(["Scheduled", "Arrived", "Vitals_Taken"]))
-        .all()
+    page, per_page = get_pagination_params()
+    query = Appointment.query.filter_by(hospital_id=hospital_id).filter(
+        Appointment.status.in_(["Scheduled", "Arrived", "Vitals_Taken"])
     )
+    appts, total, p, pp, pages = paginate(query, page, per_page)
 
     result = []
     for a in appts:
@@ -134,7 +152,7 @@ def get_hospital_queue():
                 "symptoms": a.symptoms,
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @hospital_bp.route("/doctor/<int:doc_id>/queue", methods=["GET"])
@@ -150,11 +168,11 @@ def get_doctor_queue(doc_id):
     if not doctor:
         return jsonify({"error": "Doctor not found"}), 404
     # Doctor sees patients ready, arrived, or returning from lab
-    appts = (
-        Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id)
-        .filter(Appointment.status.in_(["Arrived", "Vitals_Taken", "Lab_Pending", "Consult_Pending_Review"]))
-        .all()
+    page, per_page = get_pagination_params()
+    query = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).filter(
+        Appointment.status.in_(["Arrived", "Vitals_Taken", "Lab_Pending", "Consult_Pending_Review"])
     )
+    appts, total, p, pp, pages = paginate(query, page, per_page)
 
     result = []
     for a in appts:
@@ -189,7 +207,7 @@ def get_doctor_queue(doc_id):
                 ],
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @hospital_bp.route("/doctor/<int:doc_id>/stats", methods=["GET"])
@@ -241,7 +259,9 @@ def get_lab_queue():
     if error:
         return error, status
     # Staff sees tests that are Paid - Needs Sample
-    tests = LabTest.query.filter_by(hospital_id=hospital_id, status="Paid - Needs Sample").all()
+    page, per_page = get_pagination_params()
+    query = LabTest.query.filter_by(hospital_id=hospital_id, status="Paid - Needs Sample")
+    tests, total, p, pp, pages = paginate(query, page, per_page)
     result = []
     for t in tests:
         patient = User.query.get(t.patient_id)
@@ -254,7 +274,7 @@ def get_lab_queue():
                 "ordered_at": t.ordered_at,
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @hospital_bp.route("/patient/<int:patient_id>/tests", methods=["GET"])
@@ -271,11 +291,12 @@ def get_patient_tests(patient_id):
         query = query.join(Appointment, Appointment.id == LabTest.appointment_id).filter(
             Appointment.doctor_id == user.id
         )
-    tests = query.order_by(LabTest.id.desc()).all()
+    page, per_page = get_pagination_params()
+    tests, total, p, pp, pages = paginate(query.order_by(LabTest.id.desc()), page, per_page)
     result = []
     for t in tests:
         result.append({"id": t.id, "test_name": t.test_name, "status": t.status, "result_text": t.result_text})
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @hospital_bp.route("/pharmacy/queue", methods=["GET"])
@@ -286,22 +307,24 @@ def get_pharmacy_queue():
     hospital_id, error, status = require_hospital_context()
     if error:
         return error, status
-    prescriptions = Prescription.query.filter_by(hospital_id=hospital_id, status="Pending Dispense").all()
+    page, per_page = get_pagination_params()
+    query = Prescription.query.filter_by(hospital_id=hospital_id, status="Pending Dispense")
+    prescriptions, total, p, pp, pages = paginate(query, page, per_page)
     result = []
-    for p in prescriptions:
-        patient = User.query.get(p.patient_id)
-        doctor = User.query.get(p.doctor_id)
+    for p_list in prescriptions:
+        patient = User.query.get(p_list.patient_id)
+        doctor = User.query.get(p_list.doctor_id)
         result.append(
             {
-                "id": p.id,
+                "id": p_list.id,
                 "patient_name": patient.name if patient else "Unknown",
                 "doctor_name": doctor.name if doctor else "Unknown",
-                "medication": p.medication,
-                "status": p.status,
-                "created_at": str(p.created_at),
+                "medication": p_list.medication,
+                "status": p_list.status,
+                "created_at": str(p_list.created_at),
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @hospital_bp.route("/rating", methods=["POST"])
@@ -517,7 +540,9 @@ def get_patient_invoices(patient_id):
     user = current_user()
     if user.role == "patient" and user.id != patient_id:
         return forbidden("Patients can only access their own invoices")
-    invoices = Invoice.query.filter_by(hospital_id=hospital_id, patient_id=patient_id).all()
+    page, per_page = get_pagination_params()
+    query = Invoice.query.filter_by(hospital_id=hospital_id, patient_id=patient_id)
+    invoices, total, p, pp, pages = paginate(query, page, per_page)
     result = []
     for inv in invoices:
         appt = Appointment.query.get(inv.appointment_id)
@@ -549,7 +574,7 @@ def get_patient_invoices(patient_id):
                 "created_at": str(inv.created_at),
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @hospital_bp.route("/invoice/<int:inv_id>/pay", methods=["PUT"])
@@ -599,6 +624,10 @@ def pay_invoice(inv_id):
     from services import tenant_room
 
     emit("payment_processed", {"invoice_id": inv.id, "amount": inv.total}, room=tenant_room(inv.hospital_id))
+
+    from tasks import generate_invoice_pdf
+
+    generate_invoice_pdf.delay(inv.id, inv.hospital_id)
 
     return jsonify({"message": "Invoice paid", "payment_id": payment.id, "transaction_id": payment.transaction_id})
 
@@ -673,7 +702,8 @@ def admin_search():
     users_q = User.query.filter_by(hospital_id=hospital_id)
     if role_filter:
         users_q = users_q.filter_by(role=role_filter)
-    users = users_q.all()
+    page, per_page = get_pagination_params()
+    users, user_total, up, upp, upages = paginate(users_q, page, per_page)
     for u in users:
         if (
             query
@@ -699,7 +729,8 @@ def admin_search():
         appts_q = appts_q.filter(Appointment.date_str >= date_from)
     if date_to:
         appts_q = appts_q.filter(Appointment.date_str <= date_to)
-    appts = appts_q.order_by(Appointment.date_str.desc()).limit(100).all()
+    appts_q = appts_q.order_by(Appointment.date_str.desc())
+    appts, appt_total, ap, app, apages = paginate(appts_q, page, per_page)
     for a in appts:
         patient = User.query.get(a.patient_id)
         doctor = User.query.get(a.doctor_id)
@@ -720,4 +751,128 @@ def admin_search():
             }
         )
 
-    return jsonify(results)
+    resp = jsonify(results)
+    resp.headers["X-Total-Users"] = str(user_total)
+    resp.headers["X-Total-Appointments"] = str(appt_total)
+    return resp
+
+
+@hospital_bp.route("/lab/upload", methods=["POST"])
+@require_roles("staff", "doctor", "admin")
+@limiter.limit("10 per minute", key_func=tenant_key)
+def upload_lab_report():
+    hospital_id, error_resp, status = require_hospital_context()
+    if error_resp:
+        return error_resp, status
+
+    user = current_user()
+    patient_id = request.form.get("patient_id")
+    lab_test_id = request.form.get("lab_test_id")
+    description = request.form.get("description")
+
+    missing = []
+    if not patient_id:
+        missing.append("patient_id")
+    if not lab_test_id:
+        missing.append("lab_test_id")
+    if missing:
+        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+
+    try:
+        patient_id = int(patient_id)
+        lab_test_id = int(lab_test_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "patient_id and lab_test_id must be integers"}), 400
+
+    lab_test = LabTest.query.filter_by(id=lab_test_id, hospital_id=hospital_id).first()
+    if not lab_test:
+        return jsonify({"error": "Lab test not found"}), 404
+
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "No file provided"}), 400
+
+    doc, err = save_upload(file, hospital_id, patient_id, user.id, lab_test_id, description)
+    if err:
+        return jsonify({"error": err}), 400
+
+    lab_test.status = "Completed"
+    db.session.commit()
+
+    log_action(
+        hospital_id,
+        user.id,
+        "upload_lab_report",
+        "lab_test",
+        lab_test_id,
+        f"Uploaded {doc.original_name} ({doc.file_size} bytes)",
+    )
+
+    return jsonify(
+        {
+            "document": {
+                "id": doc.id,
+                "original_name": doc.original_name,
+                "file_size": doc.file_size,
+                "content_type": doc.content_type,
+                "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+            }
+        }
+    ), 201
+
+
+@hospital_bp.route("/lab/documents/<int:doc_id>", methods=["GET"])
+@require_roles("patient", "staff", "doctor", "admin", "superadmin")
+def download_lab_report(doc_id):
+    user = current_user()
+    hospital_id = current_hospital_id() or user.hospital_id
+    if not hospital_id:
+        return jsonify({"error": "hospital_id is required"}), 400
+
+    doc = Document.query.filter_by(id=doc_id).first()
+    if not doc:
+        return jsonify({"error": "Document not found"}), 404
+
+    if not (is_superadmin() or doc.hospital_id == hospital_id):
+        return forbidden()
+
+    if user.role == "patient" and doc.patient_id != user.id:
+        return forbidden()
+
+    filepath = os.path.join(Config.UPLOAD_FOLDER, doc.filename)
+    if not os.path.exists(filepath):
+        return jsonify({"error": "File not found on disk"}), 404
+
+    return send_file(filepath, mimetype=doc.content_type, as_attachment=True, download_name=doc.original_name)
+
+
+@hospital_bp.route("/lab/test/<int:test_id>/documents", methods=["GET"])
+@require_roles("patient", "staff", "doctor", "admin", "superadmin")
+def list_lab_documents(test_id):
+    user = current_user()
+    hospital_id = current_hospital_id() or user.hospital_id
+    if not hospital_id:
+        return jsonify({"error": "hospital_id is required"}), 400
+
+    lab_test = LabTest.query.filter_by(id=test_id).first()
+    if not lab_test or lab_test.hospital_id != hospital_id:
+        return jsonify({"error": "Lab test not found"}), 404
+
+    if user.role == "patient" and lab_test.patient_id != user.id:
+        return forbidden()
+
+    docs = Document.query.filter_by(lab_test_id=test_id, hospital_id=hospital_id).all()
+    return jsonify(
+        {
+            "documents": [
+                {
+                    "id": d.id,
+                    "original_name": d.original_name,
+                    "file_size": d.file_size,
+                    "content_type": d.content_type,
+                    "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
+                }
+                for d in docs
+            ]
+        }
+    )

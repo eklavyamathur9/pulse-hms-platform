@@ -118,6 +118,7 @@ Phase 3 follow-up complete: error_response()/success_response() helpers in valid
 Phase 8 follow-up complete: shared UI library (Button, Input, Card, Modal) in frontend/src/components/ui/.
 Phase 9 follow-up complete: expanded zod schemas (booking, vitals, profile), TanStack Query DevTools added.
 Phase 12 (Observability & Monitoring) complete: Sentry error tracking (backend + frontend), Prometheus metrics at /metrics, Grafana dashboards, JSON error handlers, gunicorn JSON access logs.
+Phase 13 (Performance & Scalability) complete: pagination (backend/pagination.py), query timeout middleware (backend/middleware.py), per-tenant rate limiting (Redis-backed, blueprint-level), Redis caching (Flask-Caching), file upload service (upload_service.py + Document model + migration b6f4c3d2e1f0), Celery background jobs (celery_app.py + tasks.py), k6 load testing script (load-testing/script.k6.js). PR #15 open.
 
 ## Testing Requirements
 

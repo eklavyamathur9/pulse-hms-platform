@@ -194,6 +194,26 @@ class Payment(db.Model):
     paid_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class Document(db.Model):
+    __table_args__ = (
+        db.Index("ix_document_hospital", "hospital_id"),
+        db.Index("ix_document_lab_test", "hospital_id", "lab_test_id"),
+        db.Index("ix_document_patient", "hospital_id", "patient_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey("hospital.id"), nullable=False)
+    lab_test_id = db.Column(db.Integer, db.ForeignKey("lab_test.id"), nullable=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    filename = db.Column(db.String(256), nullable=False)
+    original_name = db.Column(db.String(256), nullable=False)
+    content_type = db.Column(db.String(100), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class AuditLog(db.Model):
     __table_args__ = (
         db.Index("ix_audit_log_hospital", "hospital_id"),

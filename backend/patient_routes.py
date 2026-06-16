@@ -1,6 +1,7 @@
 from auth_utils import current_hospital_id, current_user, forbidden, require_hospital_context, require_roles
 from flask import Blueprint, jsonify
 from models import Appointment, User, db
+from pagination import get_pagination_params, paginate, paginated_response
 from validation import int_field, json_body
 
 patient_bp = Blueprint("patient", __name__)
@@ -32,7 +33,8 @@ def get_patient_appointments(patient_id):
     user = current_user()
     if user.role == "doctor":
         query = query.filter_by(doctor_id=user.id)
-    appts = query.order_by(Appointment.id.desc()).all()
+    page, per_page = get_pagination_params()
+    appts, total, p, pp, pages = paginate(query.order_by(Appointment.id.desc()), page, per_page)
     result = [
         {
             "id": a.id,
@@ -46,7 +48,7 @@ def get_patient_appointments(patient_id):
         }
         for a in appts
     ]
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @patient_bp.route("/<int:patient_id>/prescriptions", methods=["GET"])
@@ -63,20 +65,21 @@ def get_patient_prescriptions(patient_id):
     user = current_user()
     if user.role == "doctor":
         query = query.filter_by(doctor_id=user.id)
-    prescriptions = query.order_by(Prescription.id.desc()).all()
+    page, per_page = get_pagination_params()
+    prescriptions, total, p, pp, pages = paginate(query.order_by(Prescription.id.desc()), page, per_page)
     result = []
-    for p in prescriptions:
-        doc = User.query.get(p.doctor_id)
+    for rx in prescriptions:
+        doc = User.query.get(rx.doctor_id)
         result.append(
             {
-                "id": p.id,
-                "appointment_id": p.appointment_id,
-                "medication_details": p.medication,
+                "id": rx.id,
+                "appointment_id": rx.appointment_id,
+                "medication_details": rx.medication,
                 "digital_signature": f"Dr. {doc.name}" if doc else "Signature Verify Failed",
-                "issued_at": p.created_at,
+                "issued_at": rx.created_at,
             }
         )
-    return jsonify(result)
+    return paginated_response(result, total, p, pp, pages)
 
 
 @patient_bp.route("/<int:patient_id>/profile", methods=["PUT"])

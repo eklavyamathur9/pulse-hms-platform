@@ -39,6 +39,8 @@ services:
       - RATELIMIT_ENABLED=true
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-4}
       - SENTRY_DSN=${SENTRY_DSN:-}
+    volumes:
+      - uploads:/app/backend/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -102,6 +104,28 @@ services:
       timeout: 3s
       retries: 5
 
+  celery-worker:
+    build:
+      context: ./backend
+    command: celery -A celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - REDIS_URL=redis://redis:6379/0
+      - UPLOAD_FOLDER=/app/uploads
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - pulse-net
+
   prometheus:
     image: prom/prometheus:v2.55.0
     expose:
@@ -144,3 +168,4 @@ volumes:
   frontend-dist:
   prometheus-data:
   grafana-data:
+  uploads:
