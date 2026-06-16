@@ -2,6 +2,9 @@ import React from 'react';
 import { FileText } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { downloadPrescriptionPDF } from '../../lib/pdf';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Card } from '../ui/Card';
 
 interface MedicalHistoryProps {
   historyAppointments: any[];
@@ -40,53 +43,51 @@ export default function MedicalHistory({
       </p>
 
       {historyAppointments.length === 0 && prescriptions.length === 0 && completedLabs.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>No history found.</div>
+        <Card className="text-center">No history found.</Card>
       )}
 
       {historyAppointments.filter((a: any) => a.followup_days && a.followup_days > 0).map(a => {
         const doctor = allDoctors.find((d: any) => d.id === a.doctor_id);
         return (
-          <div key={`fu-${a.id}`} className="card" style={{
-            marginBottom: '1rem', borderLeft: '4px solid var(--warning)',
-            background: 'var(--warning-bg)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}>
-            <div>
-              <strong style={{ color: 'var(--warning)' }}>Follow-up Recommended</strong>
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-dark)' }}>
-                {doctor ? doctor.name : 'Your doctor'} recommends a follow-up visit within{' '}
-                <strong>{a.followup_days} days</strong>.
-              </p>
+          <Card key={`fu-${a.id}`}
+            className="mb-4 border-l-4"
+            style={{ borderLeftColor: 'var(--warning)', background: 'var(--warning-bg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <strong style={{ color: 'var(--warning)' }}>Follow-up Recommended</strong>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-dark)' }}>
+                  {doctor ? doctor.name : 'Your doctor'} recommends a follow-up visit within{' '}
+                  <strong>{a.followup_days} days</strong>.
+                </p>
+              </div>
+              <Button variant="primary" onClick={onBrowseDoctors}>
+                Book Follow-up
+              </Button>
             </div>
-            <button className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}
-              onClick={onBrowseDoctors}>
-              Book Follow-up
-            </button>
-          </div>
+          </Card>
         );
       })}
 
       {historyAppointments.filter((a: any) => a.status === 'Completed' && !ratedAppointments.includes(a.id)).map(a => {
         const doctor = doctors.find((d: any) => d.id === a.doctor_id);
         return (
-          <div key={`rate-${a.id}`} className="card glass-panel"
-            style={{ marginBottom: '1rem', padding: '1.5rem' }}>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>
-              Rate your visit #{a.id} {doctor ? `with ${doctor.name}` : ''}
-            </h3>
-            <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.75rem' }}>
-              {[1, 2, 3, 4, 5].map(star => (
-                <span key={star} onClick={() => setRatingStars(star)}
-                  style={{ cursor: 'pointer', fontSize: '1.8rem', color: star <= ratingStars ? 'var(--warning)' : 'var(--border-color)', transition: 'color 0.15s' }}>
-                  ★
-                </span>
-              ))}
-            </div>
-            <input type="text" placeholder="Optional feedback..." value={ratingComment}
-              onChange={e => setRatingComment(e.target.value)}
-              style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border)', marginBottom: '0.75rem' }} />
-            <button className="btn btn-primary" disabled={ratingStars === 0}
-              onClick={async () => {
+          <Card key={`rate-${a.id}`} className="glass-panel" padding={false}>
+            <div style={{ padding: '1.5rem' }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>
+                Rate your visit #{a.id} {doctor ? `with ${doctor.name}` : ''}
+              </h3>
+              <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.75rem' }}>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <span key={star} onClick={() => setRatingStars(star)}
+                    style={{ cursor: 'pointer', fontSize: '1.8rem', color: star <= ratingStars ? 'var(--warning)' : 'var(--border-color)', transition: 'color 0.15s' }}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              <Input placeholder="Optional feedback..." value={ratingComment}
+                onChange={e => setRatingComment(e.target.value)} className="mb-3" />
+              <Button variant="primary" disabled={ratingStars === 0}
+                onClick={async () => {
                 try {
                   const res = await apiFetch('/hospital/rating', {
                     method: 'POST',
@@ -111,8 +112,9 @@ export default function MedicalHistory({
                 }
               }}>
               Submit Rating
-            </button>
-          </div>
+            </Button>
+            </div>
+          </Card>
         );
       })}
 
@@ -120,8 +122,8 @@ export default function MedicalHistory({
         <div style={{ marginBottom: 'var(--spacing-xl)' }}>
           <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.3rem' }}>E-Prescriptions</h2>
           {prescriptions.map((rx: any) => (
-            <div key={rx.id} className="card glass-panel"
-              style={{ marginBottom: '1rem', borderLeft: '4px solid var(--success)' }}>
+            <Card key={rx.id} className="glass-panel mb-4"
+              style={{ borderLeft: '4px solid var(--success)' }}>
               <div style={{ marginBottom: '1rem' }}>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Prescription ID: #{rx.id} | Issued: {new Date(rx.issued_at).toLocaleDateString()}
@@ -143,13 +145,13 @@ export default function MedicalHistory({
                   <strong>{rx.digital_signature}</strong>
                 </div>
                 <div>
-                  <button className="btn btn-secondary"
+                  <Button variant="secondary"
                     onClick={() => downloadPrescriptionPDF(rx, user.name)}>
                     Download PDF
-                  </button>
+                  </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -158,7 +160,7 @@ export default function MedicalHistory({
         <div style={{ marginBottom: 'var(--spacing-xl)' }}>
           <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.3rem' }}>Completed Lab Reports</h2>
           {completedLabs.map((test: any) => (
-            <div key={test.id} className="card" style={{ marginBottom: '1rem' }}>
+            <Card key={test.id} className="mb-4">
               <h3 style={{ margin: 0, color: 'var(--text-dark)' }}>{test.test_name}</h3>
               <div style={{
                 background: 'var(--success-bg)', color: 'var(--success)',
@@ -167,7 +169,7 @@ export default function MedicalHistory({
                 <strong>Result:</strong><br />
                 {test.result_text}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
