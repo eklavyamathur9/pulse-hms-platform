@@ -38,6 +38,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - RATELIMIT_ENABLED=true
       - GUNICORN_WORKERS=${GUNICORN_WORKERS:-4}
+      - SENTRY_DSN=${SENTRY_DSN:-}
     depends_on:
       db:
         condition: service_healthy
@@ -101,6 +102,38 @@ services:
       timeout: 3s
       retries: 5
 
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    expose:
+      - "9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - pulse-net
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - pulse-net
+    depends_on:
+      - prometheus
+
 networks:
   pulse-net:
     driver: bridge
@@ -109,3 +142,5 @@ volumes:
   pgdata:
   redis-data:
   frontend-dist:
+  prometheus-data:
+  grafana-data:

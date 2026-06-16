@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import * as Sentry from '@sentry/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import useThemeStore from './stores/useThemeStore';
@@ -13,6 +14,14 @@ import HospitalRegistration from './components/HospitalRegistration';
 import ErrorBoundary from './components/ErrorBoundary';
 import { DashboardSkeleton } from './components/common/Skeleton';
 import type { ReactNode } from 'react';
+
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 0.2,
+  });
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {

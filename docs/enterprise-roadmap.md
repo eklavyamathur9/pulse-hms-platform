@@ -332,28 +332,38 @@ python -m pytest -q backend/tests/
 
 ---
 
-## Phase 12: Observability & Monitoring
+## Phase 12: Observability & Monitoring (Complete)
 
 **Goal:** Production-grade monitoring, alerting, and debugging capabilities.
 
-### Tasks
-- OpenTelemetry / distributed tracing — **not yet done**
-- Metrics endpoints (Prometheus) — **not yet done**
-- Sentry error tracking — **not yet done**
-- Grafana dashboards — **not yet done**
-- Alerting rules — **not yet done**
+### Tasks (Completed)
+- ~~Sentry error tracking (backend + frontend)~~ — `sentry_sdk` for Flask, `@sentry/react` for React, DSN config via `SENTRY_DSN`/`VITE_SENTRY_DSN`
+- ~~Metrics endpoints (Prometheus)~~ — `prometheus_flask_exporter` auto-exposes `/metrics` with request rate/duration/status codes
+- ~~JSON error handlers~~ — `@app.errorhandler(HTTPException)`, `500`, `404`, `405` return JSON
+- ~~Request timing~~ — `X-Response-Time` header + `g.start_time` middleware
+- ~~Grafana dashboards~~ — provisioning config + overview dashboard in `grafana/`, auto-configured datasource
+- ~~Prometheus + Grafana in Docker Compose~~ — both services added to `docker-compose.prod.yml` with persistent volumes
+- ~~Gunicorn JSON access logs~~ — `gunicorn.conf.py` with structured JSON log format, configurable via `LOG_FORMAT`
+
+### Tasks (Deferred)
+- OpenTelemetry / distributed tracing — **deferred to later phase**
+- Alerting rules (Prometheus Alertmanager) — **deferred**
 
 ### Validation
 ```bash
 curl http://localhost:5000/api/health
+curl http://localhost:5000/metrics
 python -m pytest -q backend/tests/
 ```
 
 ### Deliverables
 - Structured logging (done)
 - Health check endpoints (done)
-- Prometheus metrics (pending)
-- Error tracking (pending)
+- Sentry error tracking (done)
+- Prometheus metrics endpoint at `/metrics` (done)
+- Grafana with auto-provisioned Prometheus datasource + Pulse HMS dashboard (done)
+- JSON gunicorn access logs (done)
+- Flask global JSON error handlers (done)
 
 ---
 
@@ -459,8 +469,8 @@ pytest -q tests/
 | Phase 9 — React Query & Form Validation | **Complete** |
 | Phase 10 — TypeScript Migration | **Complete** |
 | Phase 11 — Production Hardening | **Complete** |
-| Phase 12 — Observability & Monitoring | Not started |
+| Phase 12 — Observability & Monitoring | **Complete** |
 | Phase 13 — Performance & Scalability | Not started |
 | Phase 14 — External Integrations | Not started |
 
-**Next focus: Phase 12 — Observability & Monitoring.**
+**Next focus: Phase 13 — Performance & Scalability.**
