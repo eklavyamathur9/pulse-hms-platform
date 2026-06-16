@@ -1,5 +1,7 @@
 import React from 'react';
 import { Activity, CheckCircle } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
 
 interface LabPanelProps {
   labQueue: any[];
@@ -18,21 +20,21 @@ export default function LabPanel({ labQueue, labUploadForm, labResult, onLabUplo
       <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--spacing-xl)' }}>Process patient samples and upload test results.</p>
 
       {labUploadForm ? (
-        <div className="card glass-panel" style={{ borderLeft: '4px solid var(--primary)', marginBottom: 'var(--spacing-xl)' }}>
+        <Card className="glass-panel mb-6" style={{ borderLeft: '4px solid var(--primary)' }}>
           <h3>Upload Results for Test #{labUploadForm}</h3>
           <form onSubmit={onSubmitLabReport} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <textarea required value={labResult} onChange={e => onLabResultChange(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--input-border)', minHeight: '100px' }} placeholder="Enter diagnostic results metrics here..."></textarea>
             </div>
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <button type="submit" className="btn btn-primary"><CheckCircle size={18} /> Upload Report</button>
-              <button type="button" className="btn btn-secondary" onClick={onCancelLabUpload}>Cancel</button>
+              <Button type="submit" variant="primary"><CheckCircle size={18} /> Upload Report</Button>
+              <Button type="button" variant="secondary" onClick={onCancelLabUpload}>Cancel</Button>
             </div>
           </form>
-        </div>
+        </Card>
       ) : null}
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <Card padding={false}>
         <table>
           <thead style={{ background: 'var(--bg-main)' }}>
             <tr>
@@ -46,9 +48,9 @@ export default function LabPanel({ labQueue, labUploadForm, labResult, onLabUplo
                 <td style={{ fontWeight: 500 }}>{t.patient_name}</td>
                 <td>{t.test_name}</td>
                 <td>
-                  <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }} onClick={() => onLabUploadFormChange(t.id)}>
+                  <Button variant="primary" size="sm" onClick={() => onLabUploadFormChange(t.id)}>
                     Upload Findings
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -59,7 +61,7 @@ export default function LabPanel({ labQueue, labUploadForm, labResult, onLabUplo
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
     </>
   );
 }

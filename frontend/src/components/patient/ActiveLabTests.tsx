@@ -1,4 +1,6 @@
 import React from 'react';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
 
 interface ActiveLabTestsProps {
   labTests: any[];
@@ -13,27 +15,27 @@ export default function ActiveLabTests({ labTests, payForTest }: ActiveLabTestsP
     <div style={{ marginTop: 'var(--spacing-xl)' }}>
       <h2 style={{ marginBottom: 'var(--spacing-md)' }}>Active Laboratory Needs</h2>
       {activeTests.map((test: any) => (
-        <div key={test.id} className="card"
-          style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h3 style={{ margin: 0 }}>{test.test_name}</h3>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Status: {test.status}
-            </span>
+        <Card key={test.id} className="mb-4" padding={false}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0 }}>{test.test_name}</h3>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Status: {test.status}
+              </span>
+            </div>
+            {test.status === 'Pending Payment' && (
+              <Button variant="danger"
+                onClick={() => payForTest(test.id)}>
+                Pay ₹50 Now
+              </Button>
+            )}
+            {test.status === 'Paid - Needs Sample' && (
+              <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                Please visit the Lab
+              </span>
+            )}
           </div>
-          {test.status === 'Pending Payment' && (
-            <button className="btn btn-warning"
-              style={{ background: 'var(--warning)', color: 'white' }}
-              onClick={() => payForTest(test.id)}>
-              Pay ₹50 Now
-            </button>
-          )}
-          {test.status === 'Paid - Needs Sample' && (
-            <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
-              Please visit the Lab
-            </span>
-          )}
-        </div>
+        </Card>
       ))}
     </div>
   );

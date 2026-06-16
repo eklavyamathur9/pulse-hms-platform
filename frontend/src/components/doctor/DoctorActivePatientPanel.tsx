@@ -1,5 +1,7 @@
 import React from 'react';
 import { Activity, User, FileText, AlertCircle } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
 
 interface DoctorActivePatientPanelProps {
   patient: any;
@@ -17,13 +19,14 @@ interface DoctorActivePatientPanelProps {
 
 export default function DoctorActivePatientPanel({ patient, onClose, testName, onTestNameChange, prescriptionText, onPrescriptionTextChange, followupDays, onFollowupDaysChange, onPrescribeTest, onIssuePrescription, onNotesSave }: DoctorActivePatientPanelProps) {
   return (
-    <div className="card glass-panel animate-fade-in" style={{ padding: 'var(--spacing-xl)' }}>
+    <Card className="glass-panel animate-fade-in" padding={false}>
+      <div style={{ padding: 'var(--spacing-xl)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-lg)' }}>
         <div>
           <h2 style={{ fontSize: '1.8rem', margin: 0, color: 'var(--text-dark)' }}>{patient.patient_name}</h2>
           <p style={{ color: 'var(--text-muted)' }}>Age: {patient.patient_age} • Visit #{patient.id}</p>
         </div>
-        <button className="btn btn-secondary" onClick={onClose}>Close</button>
+        <Button variant="secondary" onClick={onClose}>Close</Button>
       </div>
 
       {patient.vitals ? (
@@ -100,7 +103,7 @@ export default function DoctorActivePatientPanel({ patient, onClose, testName, o
         <h4 style={{ marginBottom: '1rem' }}>Order Laboratory Test</h4>
         <form onSubmit={onPrescribeTest} style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
           <input type="text" required placeholder="e.g. Complete Blood Count (CBC)" value={testName} onChange={e => onTestNameChange(e.target.value)} style={{ flex: 1, padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} />
-          <button type="submit" className="btn btn-secondary">Send to Lab Pipeline</button>
+          <Button type="submit" variant="secondary">Send to Lab Pipeline</Button>
         </form>
 
         <hr style={{ border: 0, height: '1px', background: 'var(--border-color)', marginBottom: '2rem' }} />
@@ -118,9 +121,10 @@ export default function DoctorActivePatientPanel({ patient, onClose, testName, o
               <option value={30}>1 month</option>
             </select>
           </div>
-          <button type="submit" className="btn btn-primary">Sign & Issue Prescription (Close Visit)</button>
+          <Button type="submit" variant="primary">Sign & Issue Prescription (Close Visit)</Button>
         </form>
       </div>
-    </div>
+      </div>
+    </Card>
   );
 }

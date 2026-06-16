@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { HeartPulse, ShieldCheck, LogIn, UserPlus } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
@@ -96,16 +98,6 @@ export default function Login() {
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '0.8rem 1rem',
-    border: '1px solid #CBD5E1',
-    borderRadius: '0.6rem',
-    fontSize: '0.95rem',
-    transition: 'border-color 0.2s ease',
-    outline: 'none',
-  };
-
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #E0EAFC 0%, #CFDEF3 100%)' }}>
       <div className="glass-panel animate-fade-in" style={{ padding: '2.5rem', width: '100%', maxWidth: '460px' }}>
@@ -140,37 +132,32 @@ export default function Login() {
 
             <form onSubmit={handleLogin}>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Workspace ID</label>
-                <input type="number" value={hospitalId} onChange={e => setHospitalId(e.target.value)} placeholder="1" style={inputStyle} required />
+                <Input label="Workspace ID" type="number" value={hospitalId} onChange={e => setHospitalId(e.target.value)} placeholder="1" required />
               </div>
               {tab === 'staff' ? (
                 <>
                   <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Work Email</label>
-                    <input type="email" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="admin@pulse.com" style={inputStyle} required />
+                    <Input label="Work Email" type="email" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="admin@pulse.com" required />
                   </div>
                   <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Secure Password</label>
-                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={inputStyle} required />
+                    <Input label="Secure Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
                   </div>
                 </>
               ) : (
                 <>
                   <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Mobile Number</label>
-                    <input type="tel" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="+1 555-0100" style={inputStyle} required />
+                    <Input label="Mobile Number" type="tel" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="+1 555-0100" required />
                   </div>
                   <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Password</label>
-                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={inputStyle} required />
+                    <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
                   </div>
                 </>
               )}
 
-              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', opacity: loading ? 0.7 : 1, padding: '0.9rem' }}>
+              <Button type="submit" disabled={loading} variant="primary" className="w-full" style={{ opacity: loading ? 0.7 : 1 }}>
                 {tab === 'staff' ? <ShieldCheck size={20} /> : <LogIn size={20} />}
                 {loading ? 'Verifying...' : 'Sign In'}
-              </button>
+              </Button>
             </form>
 
             <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
@@ -191,39 +178,33 @@ export default function Login() {
           <>
             <form onSubmit={handleRegister}>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Workspace ID *</label>
-                <input type="number" value={hospitalId} onChange={e => setHospitalId(e.target.value)} placeholder="1" style={inputStyle} required />
+                <Input label="Workspace ID *" type="number" value={hospitalId} onChange={e => setHospitalId(e.target.value)} placeholder="1" required />
               </div>
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Full Name *</label>
-                <input type="text" value={regName} onChange={e => setRegName(e.target.value)} placeholder="John Doe" style={inputStyle} required />
+                <Input label="Full Name *" value={regName} onChange={e => setRegName(e.target.value)} placeholder="John Doe" required />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Mobile Number *</label>
-                <input type="tel" value={regContact} onChange={e => setRegContact(e.target.value)} placeholder="+91 98765 43210" style={inputStyle} required />
+                <Input label="Mobile Number *" type="tel" value={regContact} onChange={e => setRegContact(e.target.value)} placeholder="+91 98765 43210" required />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Email (optional)</label>
-                <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="john@gmail.com" style={inputStyle} />
+                <Input label="Email (optional)" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="john@gmail.com" />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Password *</label>
-                  <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="••••••" style={inputStyle} required />
+                  <Input label="Password *" type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="••••••" required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, marginBottom: '0.4rem' }}>Confirm *</label>
-                  <input type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)} placeholder="••••••" style={inputStyle} required />
+                  <Input label="Confirm *" type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)} placeholder="••••••" required />
                 </div>
               </div>
 
-              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', opacity: loading ? 0.7 : 1, padding: '0.9rem' }}>
+              <Button type="submit" disabled={loading} variant="primary" className="w-full" style={{ opacity: loading ? 0.7 : 1 }}>
                 <UserPlus size={20} />
                 {loading ? 'Creating Account...' : 'Create Patient Account'}
-              </button>
+              </Button>
             </form>
 
             <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
