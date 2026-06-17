@@ -1,6 +1,6 @@
 # Current Status
 
-Last reviewed: 2026-06-15
+Last reviewed: 2026-06-16
 
 ## Completed Systems And Features
 
@@ -47,16 +47,20 @@ Last reviewed: 2026-06-15
 - Real-time analytics update on payment events
 
 ### Superadmin
-- Basic dashboard with hospital listing (mock data)
+- Real dashboard with platform stats (total hospitals, users, appointments, revenue)
+- Hospital CRUD (create, update plan, activate/suspend)
+- Per-hospital user management
 
 ### Code Quality & Infrastructure
-- ESLint: 0 errors, 0 warnings
+- ESLint: 0 errors, 129 warnings (pre-existing `any` types)
 - Ruff: clean throughout backend codebase
 - GitHub Actions CI: 4 focused workflows (lint-format, test, security-scan, docker-build)
 - 29 backend pytest tests (auth, tenant isolation, validation, socket workflow mutations)
-- Alembic migrations (baseline `58e5f1bc23af`, audit log `aaed159d1748`, payment `e7f242c6b558`)
+- 11 frontend tests (useNotificationStore + StatCard)
+- Alembic migrations (baseline `58e5f1bc23af`, audit log `aaed159d1748`, payment `e7f242c6b558`, document `b6f4c3d2e1f0`)
 - Multi-stage Dockerfiles with non-root user
 - Development Docker Compose with optional PostgreSQL service
+- Production Docker Compose (nginx, gunicorn, PostgreSQL, Redis, Celery worker, Prometheus, Grafana)
 - Structured JSON logging with request ID tracking
 - Git workflow: feature branches -> PR -> merge to main; branch protection on main
 - Makefile for common dev tasks (lint, test, build, clean, compose, security-scan, setup, freeze)
@@ -81,14 +85,19 @@ Last reviewed: 2026-06-15
 
 - React SPA communicates with Flask REST API via `apiFetch`.
 - React SPA connects to Flask-SocketIO with JWT auth (`SocketContext`).
-- Flask stores data in SQLite using SQLAlchemy models (10 models).
+- Flask stores data in SQLite using SQLAlchemy models (11 models).
+- List endpoints support optional pagination (`?page=N&per_page=N`) via `backend/pagination.py`.
 - Domain service modules in `backend/services/` handle Socket.IO workflow events.
 - Tenant isolation is enforced by `hospital_id` on all tenant-owned queries.
 - Role checks are centralized in `backend/auth_utils.py`.
+- Per-tenant rate limiting via Flask-Limiter (Redis-backed in prod, in-memory fallback).
+- Redis caching layer (Flask-Caching) for analytics/stats endpoints.
+- File upload service (`backend/upload_service.py`) for lab reports via REST API.
+- Celery background jobs (`backend/celery_app.py`) for async PDF generation and notifications.
+- Query timeout middleware (`backend/middleware.py`) with `SIGALRM` enforcement on Unix.
 - Audit trail via `backend/audit.py` for clinical and billing actions.
-- A structured JSON logging with request ID tracking per request.
+- Structured JSON logging with request ID tracking per request.
 - No external integrations (payment gateway, email, SMS) are active.
-- No cache, queue, worker, or production server layer exists.
 
 ## Active Conventions
 
@@ -110,18 +119,17 @@ Last reviewed: 2026-06-15
 - PDF utilities extracted to `lib/pdf.js`.
 - All dashboards now lazy-loaded with `React.lazy` + Suspense + ErrorBoundary.
 
-## Pending Work (High Priority from Roadmap)
+## Pending Work (Next Phase: External Integrations)
 
-- **Phase 7: Security Hardening** — refresh token rotation, password policy, rate limiting, CORS hardening.
 - Wire production payment gateway (Stripe/Razorpay).
-- Replace mock superadmin data with real cross-tenant APIs.
-- Add route-level loaders or server-state library (TanStack Query).
-- Add form validation library and schemas.
-- Add frontend tests (component + workflow).
-- Move to PostgreSQL for production.
-- Replace dev Docker/runtime with production Nginx/Caddy + gunicorn.
-- Add Redis/message queue for Socket.IO horizontal scaling.
-- Add monitoring (Sentry, metrics).
+- REST API versioning (`/api/v1/...`).
+- Public API documentation (OpenAPI/Swagger).
+- API key authentication for third-party integrations.
+- Webhook system for external event notifications.
+- Telemedicine / video consultation scaffold.
+- SMS notifications (Twilio).
+- Email notifications (SendGrid).
+- Lab equipment HL7/FHIR data ingestion.
 - Add backup/restore flow for database.
 - Standardize error response shape across all endpoints.
 - Add request validation schemas (marshmallow/pydantic).
@@ -130,13 +138,8 @@ Last reviewed: 2026-06-15
 
 - Flask-Migrate `check` command may report no changes when DB is already current.
 - `seed.py --reset` drops and recreates all tables (safe for dev only).
-- Superadmin dashboard uses mock data — no real cross-tenant APIs exist.
-- `AdminDashboard.jsx`, `DoctorDashboard.jsx`, `StaffDashboard.jsx` still mix data fetching, UI, and workflow logic.
 - Auth token stored in `localStorage` (XSS risk).
 - Role route guard has no loading/expired-token validation state.
-- Production Docker flow still uses Vite dev server for frontend.
-- Socket sessions are in-memory — multi-process scaling needs a shared session store (Redis).
-- No rate limiting on auth/public endpoints.
 - String statuses (not enums) throughout workflow models.
 - No SQLAlchemy relationship properties — manual lookups and N+1 patterns in routes.
 - PostgreSQL service in Docker Compose is optional; CI does not test against PostgreSQL.
@@ -152,8 +155,8 @@ Last reviewed: 2026-06-15
 
 ## Current Priorities
 
-1. Security hardening — refresh token rotation, rate limiting, password policy.
-2. Wire payment gateway integration.
+1. External integrations — payment gateway, SMS/email, telemedicine.
+2. API versioning and public documentation (OpenAPI/Swagger).
 3. Add frontend tests.
-4. Replace SQLite with PostgreSQL in CI and production.
-5. Standardize API error responses and request validation.
+4. Standardize API error responses and request validation.
+5. Backup/restore flow for database.
