@@ -2,8 +2,6 @@ import logging
 import os
 
 from audit import log_action
-
-logger = logging.getLogger(__name__)
 from auth_utils import (
     current_hospital_id,
     current_user,
@@ -22,6 +20,8 @@ from pagination import get_pagination_params, paginate, paginated_response
 from rate_limit import limiter, tenant_key
 from upload_service import save_upload
 from validation import int_field, json_body, require_fields
+
+logger = logging.getLogger(__name__)
 
 hospital_bp = Blueprint("hospital", __name__)
 
