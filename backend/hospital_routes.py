@@ -633,7 +633,10 @@ def pay_invoice(inv_id):
 
     from tasks import generate_invoice_pdf
 
-    generate_invoice_pdf.delay(inv.id, inv.hospital_id)
+    try:
+        generate_invoice_pdf.delay(inv.id, inv.hospital_id)
+    except Exception:
+        logger.warning("Could not enqueue invoice PDF task (Celery broker unavailable)")
 
     return jsonify({"message": "Invoice paid", "payment_id": payment.id, "transaction_id": payment.transaction_id})
 
@@ -730,7 +733,10 @@ def confirm_online_payment(inv_id):
         emit("payment_processed", {"invoice_id": inv.id, "amount": inv.total}, room=tenant_room(inv.hospital_id))
     except Exception:
         logger.warning("Could not emit socket event for online payment")
-    generate_invoice_pdf.delay(inv.id, inv.hospital_id)
+    try:
+        generate_invoice_pdf.delay(inv.id, inv.hospital_id)
+    except Exception:
+        logger.warning("Could not enqueue invoice PDF task (Celery broker unavailable)")
 
     return jsonify({"message": "Online payment confirmed", "payment_id": payment.id})
 
