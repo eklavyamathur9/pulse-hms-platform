@@ -1,6 +1,6 @@
 # Database Documentation
 
-Last reviewed: 2026-06-15
+Last reviewed: 2026-06-19
 
 This document describes the current SQLAlchemy model layer in `backend/models.py`.
 
@@ -14,7 +14,8 @@ This document describes the current SQLAlchemy model layer in `backend/models.py
 - Seed: `backend/seed.py` upserts local demo data
 - Reset: `backend/seed.py --reset` drops and recreates local SQLite tables after safety checks
 - Migrations: Flask-Migrate/Alembic — baseline migration in `backend/migrations/versions/`
-- Current migration head: `a5f3b1c2d4e6` (adds feature_flags to Hospital)
+- Current migration head: `e3f4a5b6c7d8` (teleconsultation)
+- Current models: 15 (Hospital, User, Appointment, Vitals, LabTest, Prescription, Rating, Invoice, Payment, AuditLog, ApiKey, Webhook, WebhookDelivery, Teleconsultation, Document)
 
 ## Model Overview
 
@@ -27,14 +28,23 @@ erDiagram
   Hospital ||--o{ Prescription : owns
   Hospital ||--o{ Rating : owns
   Hospital ||--o{ Invoice : owns
+  Hospital ||--o{ ApiKey : owns
+  Hospital ||--o{ Webhook : owns
+  Webhook ||--o{ WebhookDelivery : owns
+  Hospital ||--o{ Teleconsultation : owns
+  Hospital ||--o{ Document : owns
+  Hospital ||--o{ AuditLog : owns
   User ||--o{ Appointment : patient_id
   User ||--o{ Appointment : doctor_id
+  User ||--o{ RefreshToken : owns
   Appointment ||--o{ Vitals : appointment_id
   Appointment ||--o{ LabTest : appointment_id
   Appointment ||--o{ Prescription : appointment_id
   Appointment ||--o{ Rating : appointment_id
   Appointment ||--o{ Invoice : appointment_id
+  Appointment ||--o{ Teleconsultation : appointment
   Invoice ||--o{ Payment : invoice_id
+  LabTest ||--o{ Document : lab_test
 ```
 
 Important note: the code declares foreign keys but does not define SQLAlchemy relationship properties. Route code manually queries related records.
@@ -228,9 +238,106 @@ Observed statuses:
 - `Unpaid`
 - `Paid`
 
+### `api_key`
+
+API key table for programmatic hospital access.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | Integer PK | Key id |
+| `hospital_id` | FK hospital.id | Required tenant ownership |
+| `name` | String(100) | Human-readable label |
+| `key_hash` | String(200) | Hashed API key value |
+| `prefix` | String(20) | First few chars for identification |
+| `is_active` | Boolean | Defaults true |
+| `created_at` | DateTime | Defaults UTC now |
+| `revoked_at` | DateTime | Nullable; set when revoked |
+
+### `webhook`
+
+Webhook configuration for outbound event notifications.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | Integer PK | Webhook id |
+| `hospital_id` | FK hospital.id | Required tenant ownership |
+| `url` | String(500) | Callback endpoint |
+| `secret` | String(200) | HMAC signing secret |
+| `events` | JSON | Subscribed event types |
+| `is_active` | Boolean | Defaults true |
+| `created_at` | DateTime | Defaults UTC now |
+
+### `webhook_delivery`
+
+Delivery log for each webhook invocation.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | Integer PK | Delivery id |
+| `webhook_id` | FK webhook.id | Required |
+| `event` | String(100) | Event name |
+| `payload` | JSON | Event payload snapshot |
+| `status` | String(20) | `pending`, `delivered`, `failed` |
+| `response_code` | Integer | Nullable; HTTP response code |
+| `response_body` | Text | Nullable; response body text |
+| `delivered_at` | DateTime | Nullable; when delivery succeeded |
+| `created_at` | DateTime | Defaults UTC now |
+
+### `teleconsultation`
+
+Teleconsultation room tracking table.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | Integer PK | Room id |
+| `hospital_id` | FK hospital.id | Required tenant ownership |
+| `appointment_id` | FK appointment.id | Required |
+| `room_name` | String(100) | Unique room identifier |
+| `status` | String(20) | `pending`, `active`, `ended` |
+| `started_at` | DateTime | Nullable |
+| `ended_at` | DateTime | Nullable |
+| `created_at` | DateTime | Defaults UTC now |
+
+### `document`
+
+File upload tracking table.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | Integer PK | Document id |
+| `hospital_id` | FK hospital.id | Required tenant ownership |
+| `lab_test_id` | FK lab_test.id | Nullable; associated lab result |
+| `filename` | String(255) | Stored filename |
+| `original_filename` | String(255) | Original upload filename |
+| `file_size` | Integer | File size in bytes |
+| `mime_type` | String(100) | MIME content type |
+| `uploaded_at` | DateTime | Defaults UTC now |
+
+### `audit_log`
+
+Compliance and traceability log.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | Integer PK | Log id |
+| `hospital_id` | Integer | Tenant id (no FK for resilience) |
+| `user_id` | Integer | User id (nullable for system actions) |
+| `action` | String(100) | Action name (e.g. `appointment.create`) |
+| `resource_type` | String(50) | Affected model name |
+| `resource_id` | Integer | Affected record id |
+| `details` | JSON | Nullable; action-specific metadata |
+| `ip_address` | String(50) | Nullable; request origin |
+| `created_at` | DateTime | Defaults UTC now |
+
+Indexes:
+
+- `(hospital_id, created_at)`
+- `(hospital_id, action)`
+- `(user_id)`
+
 ## Data Ownership
 
-Tenant-owned tables include `hospital_id`:
+Tenant-owned tables filter by `hospital_id`:
 
 - `User`
 - `Appointment`
@@ -241,9 +348,14 @@ Tenant-owned tables include `hospital_id`:
 - `Invoice`
 - `Payment`
 - `AuditLog`
-- `RefreshToken`
+- `RefreshToken` — tenant-owned via `User.hospital_id`
+- `ApiKey`
+- `Webhook`
+- `WebhookDelivery` — uses `webhook_id` instead of `hospital_id`; tenant-owned through `Webhook.hospital_id`
+- `Teleconsultation`
+- `Document`
 
-Routes and socket handlers should always filter tenant-owned records by `hospital_id`.
+Routes and socket handlers should always filter tenant-owned records by `hospital_id`. Use `auth_utils.py` helpers (`current_hospital_id()`, `tenant_get(...)`) for consistent enforcement.
 
 ### `payment`
 
@@ -298,5 +410,3 @@ Indexes:
 | SQLite default in dev | Low | whole backend | Not suitable for concurrent production workloads | Use PostgreSQL via DATABASE_URL in production | Low |
 | String statuses | Medium | workflow routes, socket events | Typos and invalid states possible | Centralize constants/enums | Low |
 | No relationship properties | Medium | all route modules | Repeated manual lookups and N+1 patterns | Add SQLAlchemy relationships | Medium |
-| ~~No audit tables~~ | ~~High~~ | ~~clinical/billing/admin actions~~ | ~~Weak compliance and traceability~~ | ~~Add `AuditLog` model~~ | ~~Medium~~ |
-| ~~Mock revenue~~ | ~~Medium~~ | ~~admin analytics~~ | ~~Revenue is hardcoded (`completed_labs * 50`)~~ | ~~Use actual payment data from Invoice/Payment tables~~ | ~~Low~~ |

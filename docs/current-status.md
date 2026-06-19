@@ -1,6 +1,6 @@
 # Current Status
 
-Last reviewed: 2026-06-16
+Last reviewed: 2026-06-19
 
 ## Completed Systems And Features
 
@@ -10,10 +10,14 @@ Last reviewed: 2026-06-16
 - Patient registration and login
 - Staff, doctor, admin, superadmin login with role routing
 - JWT authentication with role and tenant claims
+- Refresh token rotation (auto-rotation on refresh, revocation on logout)
+- Password policy enforcement (register, change-password, admin-create)
+- Rate limiting on auth endpoints (login: 20/min, register: 5/hr, register-hospital: 3/hr)
 - Tenant-scoped backend helper utilities (`auth_utils.py`)
 - Role/tenant-guarded REST routes for all operational data
 - Socket.IO authenticated tenant-room workflow events
 - Light/dark theme toggle persisted in localStorage
+- Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, Cache-Control)
 
 ### Clinical Workflows
 - Patient appointment booking with doctor/slot selection
@@ -35,57 +39,84 @@ Last reviewed: 2026-06-16
 
 ### Billing
 - Invoice generation per appointment (consultation + lab + pharmacy totals)
-- Invoice pay with Payment record creation
+- Invoice pay with Payment record creation (cash + online via Stripe)
 - Payment tracking via Payment model (method, transaction_id, status, paid_at)
 - Payment audit logging with amount, method, and transaction_id
 - `payment_processed` socket event for real-time dashboard refresh
+- Stripe PaymentIntent create/confirm (mock mode when unconfigured)
 
 ### Admin
 - Analytics dashboard (total patients, appointments, revenue from real paid invoices)
 - User management (create, edit, deactivate staff/doctor/admin)
 - Search across users and appointments
 - Real-time analytics update on payment events
+- Developer Portal (API key management, webhook management, Swagger docs)
 
 ### Superadmin
 - Real dashboard with platform stats (total hospitals, users, appointments, revenue)
 - Hospital CRUD (create, update plan, activate/suspend)
 - Per-hospital user management
+- Plan-based feature flags (trial/basic/pro/enterprise)
+
+### External Integrations (Phase 14)
+- API versioning (`/api/v1/`) with backward-compat 301 redirects
+- OpenAPI/Swagger docs at `/api/v1/docs/`
+- API key authentication (`ApiKey` model, CRUD, `require_api_key` decorator)
+- Webhook system (`Webhook`/`WebhookDelivery` models, HMAC-signed dispatch, Celery-backed retry)
+- Telemedicine scaffold (`Teleconsultation` model, Jitsi room management)
+- SMS notifications (Twilio with graceful fallback)
+- Email notifications (SendGrid with graceful fallback)
+- Payment gateway (Stripe PaymentIntent create/confirm, mock mode when unconfigured)
+- HL7/FHIR lab data ingestion (FHIR Observation parser)
+- API usage analytics (in-memory tracker + AuditLog-based historical queries)
+- Developer Portal UI (React tab in AdminDashboard)
 
 ### Code Quality & Infrastructure
-- ESLint: 0 errors, 129 warnings (pre-existing `any` types)
+- ESLint: 0 errors, 129 warnings (pre-existing `any` types — acceptable)
 - Ruff: clean throughout backend codebase
+- Backend: 49 pytest tests (7 API + 6 socket + 16 workflow + 20 integration)
+- Frontend: 11 tests (useNotificationStore + StatCard)
 - GitHub Actions CI: 4 focused workflows (lint-format, test, security-scan, docker-build)
-- 29 backend pytest tests (auth, tenant isolation, validation, socket workflow mutations)
-- 11 frontend tests (useNotificationStore + StatCard)
-- Alembic migrations (baseline `58e5f1bc23af`, audit log `aaed159d1748`, payment `e7f242c6b558`, document `b6f4c3d2e1f0`)
+- Alembic migrations (baseline `58e5f1bc23af`, latest `e3f4a5b6c7d8` for teleconsultation)
 - Multi-stage Dockerfiles with non-root user
 - Development Docker Compose with optional PostgreSQL service
-- Production Docker Compose (nginx, gunicorn, PostgreSQL, Redis, Celery worker, Prometheus, Grafana)
+- Production Docker Compose (nginx, gunicorn, PostgreSQL, Redis, Celery, Prometheus, Grafana)
 - Structured JSON logging with request ID tracking
-- Git workflow: feature branches -> PR -> merge to main; branch protection on main
-- Makefile for common dev tasks (lint, test, build, clean, compose, security-scan, setup, freeze)
+- Redis caching layer (Flask-Caching) for analytics/stats
+- Per-tenant rate limiting (Redis-backed, blueprint-level)
+- Pagination on all list endpoints (backward-compatible)
+- Query timeout middleware (SIGALRM on Unix)
+- File upload service (Document model + migration)
+- Celery background jobs (invoice PDF, webhook dispatch, notifications)
+- Sentry error tracking (backend + frontend)
+- Prometheus metrics endpoint at `/metrics`
+- Grafana dashboard with auto-provisioned datasource
+- gunicorn JSON access logs
+- Load testing with k6
 
 ### Documentation
 - `docs/architecture.md` — system design, data flow diagrams, component boundaries
-- `docs/backend.md` — backend entry point, configuration, blueprints, models, workflows, CI
+- `docs/backend.md` — backend entry point, configuration, blueprints, models, CI
 - `docs/frontend.md` — frontend stack, folder structure, routes, state, data flows
 - `docs/api.md` — REST endpoint inventory, Socket.IO events, request lifecycle
 - `docs/database.md` — schema documentation, ER diagram, migration management
 - `docs/deployment.md` — Docker, environment variables, CI/CD, production gaps
 - `docs/current-status.md` — this file
-- `docs/enterprise-roadmap.md` — full 10-phase plan to production
+- `docs/enterprise-roadmap.md` — phased plan through Phase 15
 - `docs/coding-standards.md` — current conventions
 - `docs/ai-bootstrap.md` — AI session bootstrap process
 - `docs/architectural-weaknesses.md` — catalog of known gaps with severity and impact
 - `docs/decisions/` — 5+ architectural decision records
 - `docs/phases/` — phase analyses and handoffs
 - `docs/templates/` — reusable doc templates (ADR, phase, review, implementation plan)
+- `docs/phase-14-testing.md` — live testing guide for Phase 14 features
 
 ## Current Architecture Summary
 
 - React SPA communicates with Flask REST API via `apiFetch`.
 - React SPA connects to Flask-SocketIO with JWT auth (`SocketContext`).
-- Flask stores data in SQLite using SQLAlchemy models (11 models).
+- Flask stores data in SQLite using SQLAlchemy models (15 models).
+- REST API versioned at `/api/v1/`; legacy `/api/` redirects via 301.
 - List endpoints support optional pagination (`?page=N&per_page=N`) via `backend/pagination.py`.
 - Domain service modules in `backend/services/` handle Socket.IO workflow events.
 - Tenant isolation is enforced by `hospital_id` on all tenant-owned queries.
@@ -97,12 +128,21 @@ Last reviewed: 2026-06-16
 - Query timeout middleware (`backend/middleware.py`) with `SIGALRM` enforcement on Unix.
 - Audit trail via `backend/audit.py` for clinical and billing actions.
 - Structured JSON logging with request ID tracking per request.
-- No external integrations (payment gateway, email, SMS) are active.
+- Stripe integration with mock mode fallback.
+- API key auth for third-party integrations.
+- Webhook system with HMAC-signed payload delivery.
+- Twilio/SendGrid notification integrations with graceful fallback.
+- Telemedicine scaffold with Jitsi room management.
+- FHIR lab data ingestion.
+- Swagger/OpenAPI documentation at `/api/v1/docs/`.
 
 ## Active Conventions
 
 - Use `apiFetch` for frontend API calls.
 - Use `require_roles`, `tenant_get`, `current_user()`, `current_hospital_id()` for backend access control.
+- API key auth via `require_api_key` decorator for external integrations.
+- Webhook payloads signed with HMAC-SHA256 using per-webhook secrets.
+- All notification providers use lazy imports + graceful fallback.
 - Keep docs updated after architecture-affecting changes.
 - Keep work phase-based (see enterprise-roadmap.md).
 - No direct commits to `main` — always use feature branches and PRs.
@@ -118,21 +158,13 @@ Last reviewed: 2026-06-16
 - PatientDashboard split from 915 to ~220 lines; 7 sub-components extracted.
 - PDF utilities extracted to `lib/pdf.js`.
 - All dashboards now lazy-loaded with `React.lazy` + Suspense + ErrorBoundary.
+- TypeScript migration complete (all source files `.ts`/`.tsx`).
+- React Query integration for server-state caching.
+- Shared UI component library (Button, Input, Card, Modal).
 
-## Pending Work (Next Phase: External Integrations)
+## Phase 14 Completion
 
-- Wire production payment gateway (Stripe/Razorpay).
-- REST API versioning (`/api/v1/...`).
-- Public API documentation (OpenAPI/Swagger).
-- API key authentication for third-party integrations.
-- Webhook system for external event notifications.
-- Telemedicine / video consultation scaffold.
-- SMS notifications (Twilio).
-- Email notifications (SendGrid).
-- Lab equipment HL7/FHIR data ingestion.
-- Add backup/restore flow for database.
-- Standardize error response shape across all endpoints.
-- Add request validation schemas (marshmallow/pydantic).
+Phase 14 (External Integrations & Ecosystem) is complete. See `docs/phases/latest.md` for handoff details and `docs/phase-14-testing.md` for live testing guide.
 
 ## Known Issues
 
@@ -144,6 +176,18 @@ Last reviewed: 2026-06-16
 - No SQLAlchemy relationship properties — manual lookups and N+1 patterns in routes.
 - PostgreSQL service in Docker Compose is optional; CI does not test against PostgreSQL.
 - No pre-commit hooks installed locally (pre-commit config exists but is not activated).
+- `emit()` from flask_socketio used in HTTP routes (pay_invoice, confirm_online_payment) may not work in multi-worker gunicorn deployments.
+- `encryption.py` has hardcoded PBKDF2 salt — weakens encryption if source is known.
+- Webhook delivery uses `urlopen` without explicit URL allowlisting (SSRF risk for self-hosted).
+- 10 N+1 query patterns across hospital_routes for queue/list endpoints.
+- `db.session.commit()` not wrapped in try/except in 7 route files.
+- Jitsi Meet URL hardcoded in telemedicine_routes.py (not configurable).
+- `/api/v1/admin/usage` route missing `@jwt_required()` — crashes on unauthenticated request.
+- `usage_analytics.py` route `admin_usage()` missing `@jwt_required()` — crashes without valid JWT.
+- Frontend error states missing in all 5 dashboards — network failures silently show empty UI.
+- ~70 hardcoded hex colors bypassing CSS variable theme system (dashboards + CSS files).
+- 31 frontend files with excessive `any` types (precludes strict TS mode).
+- No ARIA attributes or keyboard handlers on clickable elements across 10+ files.
 
 ## Known Risks
 
@@ -153,10 +197,14 @@ Last reviewed: 2026-06-16
 - Production deployment risk due to dev servers and SQLite.
 - Compliance risk due to limited audit breadth and absence of formal security controls.
 
-## Current Priorities
+## Next Priority: Phase 15 — Quality & Bug Fix
 
-1. External integrations — payment gateway, SMS/email, telemedicine.
-2. API versioning and public documentation (OpenAPI/Swagger).
-3. Add frontend tests.
-4. Standardize API error responses and request validation.
-5. Backup/restore flow for database.
+See `docs/enterprise-roadmap.md` for full scope. Focus areas:
+1. Fix 2 HIGH-priority backend bugs (missing JWT decorator, hardcoded Jitsi URL)
+2. Wrap all `db.session.commit()` in try/except across all route files
+3. Fix post-fetch tenant checks to use query-time filtering
+4. Add error states to all dashboards
+5. Extract shared utilities (sortQueue)
+6. Define status constants/enums
+7. Update stale docs
+8. Add frontend tests

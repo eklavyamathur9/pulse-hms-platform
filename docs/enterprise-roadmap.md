@@ -1,6 +1,6 @@
 # Enterprise Development Roadmap
 
-Last reviewed: 2026-06-16
+Last reviewed: 2026-06-19
 
 This roadmap transforms Pulse HMS from a functional prototype into a production-grade, enterprise-ready hospital management SaaS platform. Each phase builds on the previous, prioritizing safety, correctness, and maintainability before features.
 
@@ -9,27 +9,25 @@ This roadmap transforms Pulse HMS from a functional prototype into a production-
 **Goal:** Make the codebase safe to refactor by establishing testing, CI, and code quality gates.
 
 ### Tasks (Completed)
-- ~~Expand backend test coverage (auth, tenant isolation, workflow state transitions, error paths)~~ — 29 tests (7 API + 6 socket + 16 workflow)
+- ~~Expand backend test coverage (auth, tenant isolation, workflow state transitions, error paths)~~ — 49 tests (7 API + 6 socket + 16 workflow + 20 integration)
 - ~~Set up GitHub Actions CI with PR status checks~~ — initial ci.yml → later split into 4 workflows
 - ~~Add pre-commit hooks (ruff, trailing-whitespace, end-of-file-fixer, check-yaml)~~
 - ~~Set up branch protection rules~~ — no direct pushes to main
 - ~~Add `ruff` for Python linting~~ — ruff config in pyproject.toml
-- ~~Configure ESLint~~ — 0 errors, 0 warnings
+- ~~Configure ESLint~~ — 0 errors, 129 warnings (baseline any types)
 - `dotenv` validation on startup — **not yet done**
 
 ### Validation
 ```bash
-# Backend
 python -m pytest -q backend/tests/
 python -m py_compile backend/*.py backend/services/*.py
 
-# Frontend
 cd frontend && npm run build && npm run lint
 ```
 
 ### Deliverables
 - CI passing on every PR
-- Test coverage baseline established (29 tests)
+- Test coverage baseline established (49 tests)
 - Linting/formatting enforced
 - Developer setup documented in README
 
@@ -76,15 +74,14 @@ python -m pytest -q backend/tests/
   - ~~`services/vitals.py` — submit vitals~~
 - ~~Extract Socket.IO event handlers from `app.py` into `services/` modules~~ — register(socketio) pattern
 - ~~Add shared socket helpers in `services/__init__.py`~~ — require_socket_roles, socket_payload, tenant_appointment, socket_sessions
-- Structured logging (JSON format) with request ID — **done** (Phase 4)
-- Standardize error responses — **done** (`error_response()`/`success_response()` helpers in `validation.py`)
-- Add request validation library — **done** (zod schemas on frontend, `validation.py` helpers on backend)
+- ~~Structured logging (JSON format) with request ID~~
+- ~~Standardize error responses~~ — `error_response()`/`success_response()` helpers in `validation.py`
+- ~~Add request validation library~~ — zod schemas on frontend, `validation.py` helpers on backend
 - Refactor REST route handlers to use service layer — **not yet done**
 
 ### Validation
 ```bash
 python -m pytest -q backend/tests/
-# Manual: all role workflows still functional
 ```
 
 ### Deliverables
@@ -99,26 +96,20 @@ python -m pytest -q backend/tests/
 
 **Goal:** Deploy-ready infrastructure with reverse proxy, process management, and container orchestration.
 
-### Tasks (Partially Completed in Phase 3.5)
+### Tasks (Completed in Phase 11)
 - ~~Multi-stage Dockerfiles with non-root users~~ — backend + frontend Dockerfiles updated
 - ~~Health check endpoints~~ — `/api/ping` and `/api/health`
-- nginx reverse proxy config — **not yet done**
-- Replace `python app.py` with gunicorn — **not yet done** (gunicorn in requirements but not wired)
-- docker-compose.prod.yml — **not yet done**
-- Redis for socket session state — **not yet done**
-- Environment validation on startup — **not yet done**
-
-### Validation
-```bash
-make compose
-# Verify all endpoints, real-time events, and database connectivity
-```
+- ~~nginx reverse proxy config~~ — `nginx.conf` routing `/api/` and `/socket.io/` with WebSocket upgrade
+- ~~Replace `python app.py` with gunicorn~~ — `backend/wsgi.py` entry point
+- ~~docker-compose.prod.yml~~ — 5 services: nginx, backend (gunicorn), frontend-builder, PostgreSQL, Redis
+- ~~Redis for socket session state~~ — `message_queue` passed to SocketIO when `REDIS_URL` set
+- ~~Environment validation on startup~~ — enhanced `Config.validate()`
 
 ### Deliverables
 - Multi-stage Dockerfiles (done)
 - Health check endpoints (done)
-- Production Docker Compose stack (pending)
-- nginx configuration (pending)
+- Production Docker Compose stack (done)
+- nginx configuration (done)
 
 ---
 
@@ -127,22 +118,16 @@ make compose
 **Goal:** Meet healthcare compliance baseline (HIPAA-like) with audit trails, access controls, and data protection.
 
 ### Tasks (Completed in Phase 7)
-- ~~AuditLog model + log_action() helper~~ — Phase 4, expanded in Phase 7
-- ~~Audit logging on create_user, update_user, deactivate_user~~ — Phase 7
-- ~~Security scanning in CI~~ — ruff security rules, pip-audit, Trivy (Phase 3.5)
+- ~~AuditLog model + log_action() helper~~
+- ~~Audit logging on create_user, update_user, deactivate_user~~
+- ~~Security scanning in CI~~ — ruff security rules, pip-audit, Trivy
 - ~~CORS configuration~~ — Flask-CORS with per-environment configurable origins
 - ~~Refresh token rotation~~ — RefreshToken model, /auth/refresh, /auth/logout, frontend auto-refresh
-- ~~Password policy enforcement~~ — validate_password_strength(), /auth/change-password, applied on register/create
+- ~~Password policy enforcement~~ — validate_password_strength(), /auth/change-password
 - ~~Rate limiting on auth endpoints~~ — Flask-Limiter: login (20/min), register (5/hr), register-hospital (3/hr)
 - ~~Security headers~~ — X-Content-Type-Options, X-Frame-Options, HSTS, Cache-Control via middleware
-- Data encryption for PII — **not yet done**
+- ~~Data encryption for PII~~ — Fernet-backed EncryptedField type + encrypt_value()/decrypt_value()
 - Compliance documentation — **not yet done**
-
-### Validation
-```bash
-python -m pytest -q backend/tests/
-make security-scan
-```
 
 ### Deliverables
 - Audit log for pay_invoice + user management (done)
@@ -151,6 +136,7 @@ make security-scan
 - Security scanning in CI (done)
 - Security headers (done)
 - Password policy (done)
+- PII encryption helpers (done)
 
 ---
 
@@ -159,147 +145,61 @@ make security-scan
 **Goal:** Replace mock superadmin dashboard with real tenant management, plan-based feature flags, and platform monitoring.
 
 ### Tasks (Completed)
-- ~~Payment model and migration~~ — `e7f242c6b558`, fields for method, transaction_id, status, paid_at (Phase 5)
-- ~~pay_invoice route creates Payment record + audit log + socket event~~ (Phase 5)
-- ~~Admin analytics uses real paid invoice revenue~~ — replaces mock `completed_labs * 50` (Phase 5)
+- ~~Payment model and migration~~ — `e7f242c6b558`
+- ~~pay_invoice route creates Payment record + audit log + socket event~~
+- ~~Admin analytics uses real paid invoice revenue~~
 - ~~Superadmin REST API endpoints~~ — `GET /api/superadmin/stats`, `GET/POST/PUT /api/superadmin/hospitals`, `GET /api/superadmin/hospitals/<id>/users`
-- ~~Plan-based feature flags~~ — `feature_flags` JSON column on Hospital, `PLAN_FEATURES` dict defining capabilities per plan (trial/basic/pro/enterprise), auto-set on plan change
-- ~~Real SuperAdminDashboard frontend~~ — Rewrote with real API integration, 3 tabs (Overview, Hospitals, Users), hospital CRUD, plan editing, user creation per hospital
-- ~~feature_flags auto-set on register-hospital and seed~~ — seed.py and auth_routes.py both set feature_flags based on plan
+- ~~Plan-based feature flags~~ — `feature_flags` JSON column on Hospital, `PLAN_FEATURES` dict
+- ~~Real SuperAdminDashboard frontend~~ — Rewrote with real API integration
+- ~~feature_flags auto-set on register-hospital and seed~~
 
 ### Tasks (Deferred)
-- Tenant onboarding flow improvements (wizard, email verification) — **deferred to later phase**
-- Subscription billing / Stripe integration — **deferred to later phase**
-
-### Validation
-```bash
-python -m pytest -q backend/tests/
-# Manual: superadmin login → dashboard shows real stats from API
-```
-
-### Deliverables
-- `backend/superadmin_routes.py` — 6 endpoints for hospital CRUD + stats
-- `feature_flags` JSON column + migration `a5f3b1c2d4e6`
-- `PLAN_FEATURES` mapping for trial/basic/pro/enterprise
-- Rewritten `SuperAdminDashboard.jsx` with real API data
-- Updated seed.py and auth_routes.py to set feature_flags
+- Tenant onboarding flow improvements (wizard, email verification) — **deferred**
+- Subscription billing / Stripe integration — **deferred** (basic Stripe scaffold done in Phase 14)
 
 ---
 
 ## Phase 7: Security Hardening & Compliance (Complete)
 
-**Goal:** Meet healthcare compliance baseline (HIPAA-like) with audit trails, access controls, and data protection.
-
-### Tasks (Completed)
-- ~~AuditLog model + log_action() helper~~ — tracking user management, invoice payments
-- ~~Audit logging on create_user, update_user, deactivate_user~~
-- ~~Security scanning in CI~~ — ruff security rules, pip-audit, Trivy
-- ~~CORS configuration~~ — Flask-CORS with per-environment configurable origins
-- ~~Refresh token rotation~~ — RefreshToken model, /auth/refresh, /auth/logout, frontend auto-refresh
-- ~~Password policy enforcement~~ — validate_password_strength(), /auth/change-password, applied on register/create
-- ~~Rate limiting on auth endpoints~~ — Flask-Limiter: login (20/min), register (5/hr), register-hospital (3/hr)
-- ~~Security headers~~ — X-Content-Type-Options, X-Frame-Options, HSTS, Cache-Control via middleware
-
-### Tasks (Pending)
-- Data encryption for PII — **done** (Fernet-backed `EncryptedField` type + `encrypt_value()`/`decrypt_value()` helpers)
-- Compliance documentation — **not yet done**
-
-### Validation
-```bash
-python -m pytest -q backend/tests/
-make security-scan
-```
-
-### Deliverables
-- Audit log for user management + pay_invoice (done)
-- Token rotation (done)
-- Rate limiting (done)
-- Security scanning in CI (done)
-- Security headers (done)
-- Password policy (done)
+**Goal:** Meet healthcare compliance baseline. See Phase 5 deliverables.
 
 ---
 
 ## Phase 8: Frontend Modernization (Complete)
 
-**Goal:** Improve frontend maintainability, performance, and developer experience.
-
-### Tasks
-- ~~PatientDashboard split into 7 sub-components~~ — 915 → ~220 lines
-- ~~DoctorDashboard, StaffDashboard, AdminDashboard split~~ — all 5 dashboards now modular
+### Tasks (Completed)
+- ~~PatientDashboard split into 7 sub-components~~
+- ~~DoctorDashboard, StaffDashboard, AdminDashboard split~~
 - ~~PDF generation extracted to lib/pdf.ts~~
 - ~~Lazy loading for route-based code splitting~~ — React.lazy + Suspense for all dashboards
-- ~~Error boundaries for each dashboard~~ — ErrorBoundary component wrapping each lazy route
+- ~~Error boundaries for each dashboard~~
 - ~~Custom hooks for shared data fetching~~ — useDataFetch, useSocketRefresh
 - ~~Zustand stores for client state~~ — useNotificationStore, useThemeStore
-- ~~Loading skeletons~~ — Skeleton, StatCardSkeleton, DashboardSkeleton with shimmer animation
-
-### Tasks (Pending)
-- Shared UI component library — **done** (Button, Input, Card, Modal in `frontend/src/components/ui/`)
-
-### Validation
-```bash
-npm run build
-npm run lint
-```
-
-### Deliverables
-- All 5 dashboards split into focused sub-components
-- Error boundaries + Suspense for every route
-- Zustand state management
-- Skeleton loading components
+- ~~Loading skeletons~~
+- ~~Shared UI component library~~ — Button, Input, Card, Modal in `frontend/src/components/ui/`
 
 ---
 
 ## Phase 9: React Query & Form Validation (Complete)
 
-**Goal:** Replace ad-hoc data fetching with TanStack React Query for server-state caching, background refetch, and stale-while-revalidate. Add form validation.
-
 ### Tasks (Completed)
 - ~~React Query integration~~ — useApiQuery + useApiMutation typed wrappers
-- ~~All 5 dashboards refactored to use React Query~~ — socket-driven invalidation for real-time
-- ~~Form validation~~ — zod + react-hook-form for HospitalRegistration
-- ~~lib/schemas.ts with hospitalRegistrationSchema~~
-- ~~Component tests~~ — 11 tests (useNotificationStore + StatCard)
-- ~~Frontend test infrastructure~~ — vitest, @testing-library/react, jsdom
-- ~~Expanded zod schemas~~ — bookingSchema, vitalsSchema, profileSchema
-- ~~TanStack Query DevTools~~ — added to App.tsx, toggleable via floating button
-
-### Validation
-```bash
-cd frontend && npm run build && npm run lint && npm run test
-```
-
-### Deliverables
-- TanStack React Query data layer
-- Zod + react-hook-form validation
-- Skeleton loading components
-- Test infrastructure (vitest)
+- ~~All 5 dashboards refactored to use React Query~~
+- ~~Zod + react-hook-form validation~~
+- ~~TanStack Query DevTools~~
+- ~~Frontend test infrastructure (vitest)~~ — 11 tests
 
 ---
 
 ## Phase 10: TypeScript Migration (Complete)
 
-**Goal:** Migrate entire frontend codebase from JavaScript to TypeScript for type safety, better IDE support, and reduced runtime errors.
-
 ### Tasks (Completed)
-- ~~All .js/.jsx source files converted to .ts/.tsx~~ — 37+ files across lib/, context/, hooks/, stores/, components/
+- ~~All .js/.jsx source files converted to .ts/.tsx~~ — 37+ files
 - ~~tsconfig.json with strict mode~~
-- ~~ESLint config updated for TypeScript parsing~~ — typescript-eslint plugin
+- ~~ESLint config updated for TypeScript parsing~~
 - ~~Typed props interfaces for all components~~
-- ~~lib/pdf.ts with typed jsPDF API~~
 - ~~Context providers type-safe~~ — AuthContext, SocketContext
 - ~~Typed React Query hooks~~ — useApiQuery<T>, useApiMutation
-
-### Validation
-```bash
-cd frontend && npx tsc --noEmit && npm run build && npm run lint
-```
-
-### Deliverables
-- 37+ files converted to TypeScript
-- 0 tsc errors, 0 lint errors
-- 11/11 tests passing
 
 ---
 
@@ -308,134 +208,113 @@ cd frontend && npx tsc --noEmit && npm run build && npm run lint
 **Goal:** Deploy-ready infrastructure with process management, reverse proxy, container orchestration, and environment validation.
 
 ### Tasks (Completed)
-- ~~Replace `python app.py` with gunicorn~~ — `backend/wsgi.py` entry point, Dockerfile updated to `CMD gunicorn wsgi:app`
-- ~~nginx reverse proxy config~~ — `nginx.conf` routing `/api/` and `/socket.io/` with WebSocket upgrade
+- ~~gunicorn production server~~ — `backend/wsgi.py` entry point
+- ~~nginx reverse proxy config~~ — `nginx.conf` with WebSocket upgrade
 - ~~docker-compose.prod.yml~~ — 5 services: nginx, backend (gunicorn), frontend-builder, PostgreSQL, Redis
-- ~~Environment validation on startup~~ — enhanced `Config.validate()` checks both dev and prod
-- ~~Redis for socket session state~~ — `message_queue` passed to SocketIO when `REDIS_URL` is set
-- ~~Health check gating in Docker Compose~~ — backend healthcheck with start_period, depends_on conditions
+- ~~Environment validation on startup~~ — enhanced `Config.validate()`
+- ~~Redis for socket session state~~ — `message_queue` passed to SocketIO
+- ~~Health check gating in Docker Compose~~
 - ~~Makefile targets~~ — `compose-prod-up` / `compose-prod-down`
-
-### Validation
-```bash
-docker compose -f docker-compose.prod.yml up -d
-curl http://localhost/api/health
-python -m pytest -q backend/tests/
-```
-
-### Deliverables
-- gunicorn production server
-- nginx reverse proxy
-- Production Docker Compose stack
-- Environment validation
-- Redis-backed socket sessions
 
 ---
 
 ## Phase 12: Observability & Monitoring (Complete)
 
-**Goal:** Production-grade monitoring, alerting, and debugging capabilities.
-
 ### Tasks (Completed)
-- ~~Sentry error tracking (backend + frontend)~~ — `sentry_sdk` for Flask, `@sentry/react` for React, DSN config via `SENTRY_DSN`/`VITE_SENTRY_DSN`
-- ~~Metrics endpoints (Prometheus)~~ — `prometheus_flask_exporter` auto-exposes `/metrics` with request rate/duration/status codes
-- ~~JSON error handlers~~ — `@app.errorhandler(HTTPException)`, `500`, `404`, `405` return JSON
-- ~~Request timing~~ — `X-Response-Time` header + `g.start_time` middleware
-- ~~Grafana dashboards~~ — provisioning config + overview dashboard in `grafana/`, auto-configured datasource
-- ~~Prometheus + Grafana in Docker Compose~~ — both services added to `docker-compose.prod.yml` with persistent volumes
-- ~~Gunicorn JSON access logs~~ — `gunicorn.conf.py` with structured JSON log format, configurable via `LOG_FORMAT`
+- ~~Sentry error tracking (backend + frontend)~~
+- ~~Metrics endpoints (Prometheus)~~ — `/metrics`
+- ~~JSON error handlers~~ — all HTTP exceptions return JSON
+- ~~Request timing~~ — `X-Response-Time` header
+- ~~Grafana dashboards~~ — provisioning config + overview dashboard
+- ~~Prometheus + Grafana in Docker Compose~~
+- ~~Gunicorn JSON access logs~~
 
 ### Tasks (Deferred)
-- OpenTelemetry / distributed tracing — **deferred to later phase**
+- OpenTelemetry / distributed tracing — **deferred**
 - Alerting rules (Prometheus Alertmanager) — **deferred**
-
-### Validation
-```bash
-curl http://localhost:5000/api/health
-curl http://localhost:5000/metrics
-python -m pytest -q backend/tests/
-```
-
-### Deliverables
-- Structured logging (done)
-- Health check endpoints (done)
-- Sentry error tracking (done)
-- Prometheus metrics endpoint at `/metrics` (done)
-- Grafana with auto-provisioned Prometheus datasource + Pulse HMS dashboard (done)
-- JSON gunicorn access logs (done)
-- Flask global JSON error handlers (done)
 
 ---
 
 ## Phase 13: Performance & Scalability (Complete)
 
-**Goal:** Handle multi-tenant growth with horizontal scaling and performance optimization.
-
 ### Tasks (Completed)
-- ~~Add Redis caching layer~~ — Flask-Caching with SimpleCache (dev) / RedisCache (prod), applied to admin analytics and superadmin stats
-- ~~Add pagination to all list endpoints~~ — `backend/pagination.py` with optional `?page=N&per_page=N`, 14 endpoints updated, backward-compatible
-- ~~Add query timeout middleware~~ — `backend/middleware.py` with `@query_timeout(seconds)` using SIGALRM on Unix, applied to analytics/stats
-- ~~Add per-tenant rate limiting~~ — `tenant_key()` extracting `hospital_id` from JWT, Redis-backed when REDIS_URL set, blueprint-level limits (patient/hospital: 100/min, superadmin: 60/min)
-- ~~Implement file upload service~~ — `backend/upload_service.py` with UUID naming, extension validation (PDF/PNG/JPG/DOC), 16 MB limit, `Document` model + migration `b6f4c3d2e1f0`, REST endpoints for upload/download/list
-- ~~Implement background job processing~~ — Celery + Redis, `celery_app.py` with `generate_invoice_pdf` (with retry) and `send_notification` tasks, docker-compose celery-worker service
-- ~~Load test with k6~~ — `load-testing/script.k6.js` with staged ramp-up (5→20→5 users), error rate <5% and p95 <2s thresholds
+- ~~Redis caching layer~~ — Flask-Caching (SimpleCache dev / RedisCache prod)
+- ~~Pagination on all list endpoints~~ — `backend/pagination.py`, 14 endpoints
+- ~~Query timeout middleware~~ — `backend/middleware.py` with SIGALRM
+- ~~Per-tenant rate limiting~~ — `tenant_key()`, Redis-backed when REDIS_URL set
+- ~~File upload service~~ — `backend/upload_service.py`, `Document` model + migration
+- ~~Background job processing~~ — Celery + Redis, `celery_app.py` with `generate_invoice_pdf` and `send_notification`
+- ~~Load test with k6~~ — `load-testing/script.k6.js`
 
 ### Tasks (Deferred)
-- S3-compatible storage for production (MinIO or AWS S3) — local filesystem used for dev
-- CDN configuration for static assets — nginx handles this in production
-- Database connection pooling (PgBouncer) — can be added when PostgreSQL is the default
-- Cache doctor availability slots and user session data — basic Redis already wired
+- S3-compatible storage for production (MinIO or AWS S3)
+- CDN configuration for static assets
+- Database connection pooling (PgBouncer)
+
+---
+
+## Phase 14: External Integrations & Ecosystem (Complete)
+
+**Goal:** Enable third-party integrations and expand the platform ecosystem.
+
+### Tasks (Completed)
+- ~~REST API versioning (`/api/v1/`) with backward-compat 301 redirects~~
+- ~~OpenAPI/Swagger docs at `/api/v1/docs/`~~
+- ~~API key authentication (`ApiKey` model, CRUD, `require_api_key` decorator)~~
+- ~~Webhook system (`Webhook`/`WebhookDelivery` models, HMAC-signed, Celery-backed)~~
+- ~~Telemedicine scaffold (`Teleconsultation` model, Jitsi room management)~~
+- ~~SMS notifications (Twilio with graceful fallback)~~
+- ~~Email notifications (SendGrid with graceful fallback)~~
+- ~~Payment gateway (Stripe PaymentIntent create/confirm, mock mode)~~
+- ~~HL7/FHIR lab data ingestion~~
+- ~~API usage analytics (in-memory tracker + AuditLog-based historical queries)~~
+- ~~Developer Portal UI (React tab in AdminDashboard)~~
+- ~~20 integration tests (all passing)~~
+- ~~Live testing guide: `docs/phase-14-testing.md`~~
+
+### Deliverables
+- Versioned REST API (`/api/v1/`)
+- OpenAPI documentation
+- API key authentication
+- Webhook system
+- Stripe payment integration
+- Twilio/SendGrid notification integrations
+- Telemedicine scaffold
+- FHIR lab ingestion
+- Usage analytics
+- Developer Portal
+
+---
+
+## Phase 15: Quality & Bug Fix (In Progress)
+
+**Goal:** Fix critical bugs, improve code quality, and pay down technical debt identified in the Phase 14 audit.
+
+### Tasks
+- Fix 2 HIGH-priority backend bugs:
+  - Add `@jwt_required()` to `/api/v1/admin/usage` route (`usage_analytics.py`)
+  - Make Jitsi Meet URL configurable via env var
+- Wrap all `db.session.commit()` in try/except across 7 route files
+- Fix post-fetch tenant checks (Document, LabTest) to use query-time filtering
+- Add error states to all 5 dashboards (replace silent failures)
+- Extract shared `sortQueue` utility
+- Define status constants/enums in `models.py`
+- Update all stale documentation (this phase)
+- Add frontend tests
+
+### Tasks (Deferred)
+- Full TypeScript `any` cleanup (~31 files)
+- Accessibility overhaul
+- Dark mode CSS variable migration for dashboards
+- N+1 query optimization
+- OpenTelemetry / distributed tracing
+- Alerting rules (Prometheus Alertmanager)
 
 ### Validation
 ```bash
 python -m pytest -q backend/tests/
-cd backend && python -m ruff check . && python -m ruff format --check .
 cd frontend && npm run build && npm run lint
 ```
-
-### Deliverables
-- Redis caching layer (Flask-Caching, auto-detects Redis)
-- Paginated API endpoints (14 endpoints, backward-compatible)
-- Query timeout middleware (SIGALRM + passive fallback)
-- Per-tenant rate limiting (Redis-backed, blueprint-level)
-- File upload service (lab reports, Document model + migration)
-- Background job infrastructure (Celery + Redis, invoice PDF generation)
-- Load test suite (k6 script with staged ramp-up)
-
----
-
-## Phase 14: External Integrations & Ecosystem
-
-**Goal:** Enable third-party integrations and expand the platform ecosystem.
-
-### Tasks
-- Add REST API versioning (`/api/v1/...`)
-- Create public API documentation (OpenAPI/Swagger)
-- Add API key authentication for third-party integrations
-- Add webhook system for external event notifications
-- Build integration endpoints:
-  - Telemedicine / video consultation scaffold
-  - SMS notifications (Twilio)
-  - Email notifications (SendGrid)
-  - Payment gateway integration (Razorpay/Stripe)
-  - Lab equipment HL7/FHIR data ingestion
-- Create an integration marketplace / plugin architecture
-- Add API usage analytics per tenant
-- Add developer portal with API keys and documentation
-
-### Validation
-```bash
-pytest -q tests/
-# Manual: API key auth works, webhooks deliver
-```
-
-### Deliverables
-- Versioned REST API
-- OpenAPI documentation
-- API key authentication
-- Webhook system
-- Payment integration
-- Notification integrations
 
 ---
 
@@ -466,6 +345,7 @@ pytest -q tests/
 | Phase 11 — Production Hardening | **Complete** |
 | Phase 12 — Observability & Monitoring | **Complete** |
 | Phase 13 — Performance & Scalability | **Complete** |
-| Phase 14 — External Integrations | Not started |
+| Phase 14 — External Integrations & Ecosystem | **Complete** |
+| Phase 15 — Quality & Bug Fix | **In Progress** |
 
-**Next focus: Phase 14 — External Integrations.**
+**Next focus: Phase 15 — Quality & Bug Fix.**
