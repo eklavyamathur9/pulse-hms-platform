@@ -8,7 +8,7 @@ from models import Hospital, RefreshToken, User, db
 from pagination import get_pagination_params, paginate, paginated_response
 from rate_limit import limiter
 from superadmin_routes import PLAN_FEATURES
-from validation import int_field, json_body, require_fields, validate_password_strength
+from validation import int_field, json_body, require_fields, safe_commit, validate_password_strength
 from werkzeug.security import check_password_hash, generate_password_hash
 
 auth_bp = Blueprint("auth", __name__)
@@ -29,7 +29,7 @@ def store_refresh_token(user_id, raw_token):
         expires_at=expires_at,
     )
     db.session.add(token)
-    db.session.commit()
+    safe_commit()
 
 
 def revoke_refresh_token(raw_token):
@@ -37,7 +37,7 @@ def revoke_refresh_token(raw_token):
     for token in tokens:
         if check_password_hash(token.token_hash, raw_token):
             token.is_revoked = True
-            db.session.commit()
+            safe_commit()
             return token
     return None
 
@@ -82,7 +82,7 @@ def register_hospital():
         feature_flags=PLAN_FEATURES.get("trial", {}),
     )
     db.session.add(new_hospital)
-    db.session.commit()
+    safe_commit()
 
     admin_user = User(
         hospital_id=new_hospital.id,
@@ -92,7 +92,7 @@ def register_hospital():
         password=generate_password_hash(password),
     )
     db.session.add(admin_user)
-    db.session.commit()
+    safe_commit()
 
     return jsonify({"message": "Hospital registered successfully", "hospital_id": new_hospital.id}), 201
 
@@ -142,7 +142,7 @@ def register():
         password=generate_password_hash(password),
     )
     db.session.add(new_user)
-    db.session.commit()
+    safe_commit()
 
     access, refresh = make_tokens(new_user)
 
@@ -313,9 +313,9 @@ def change_password():
         return jsonify({"error": "; ".join(pw_errors)}), 400
     user.password = generate_password_hash(data["new_password"])
     user.password_changed_at = datetime.utcnow()
-    db.session.commit()
+    safe_commit()
     RefreshToken.query.filter_by(user_id=user.id, is_revoked=False).update({"is_revoked": True})
-    db.session.commit()
+    safe_commit()
     return jsonify({"message": "Password changed successfully. Please log in again."})
 
 
@@ -451,7 +451,7 @@ def create_user():
         specialization=data.get("specialization"),
     )
     db.session.add(new_user)
-    db.session.commit()
+    safe_commit()
     log_action(
         hospital_id=hospital_id,
         user_id=current_user().id,
@@ -485,7 +485,7 @@ def update_user(user_id):
     user.role = data.get("role", user.role)
     user.is_available = data.get("is_available", user.is_available)
     user.is_active = data.get("is_active", user.is_active)
-    db.session.commit()
+    safe_commit()
     log_action(
         hospital_id=user.hospital_id,
         user_id=current_user().id,
@@ -510,9 +510,9 @@ def deactivate_user(user_id):
     if user.role == "superadmin":
         return jsonify({"error": "Superadmin accounts cannot be deactivated from tenant user screens"}), 403
     user.is_active = not user.is_active
-    db.session.commit()
+    safe_commit()
     RefreshToken.query.filter_by(user_id=user.id, is_revoked=False).update({"is_revoked": True})
-    db.session.commit()
+    safe_commit()
     log_action(
         hospital_id=user.hospital_id,
         user_id=current_user().id,

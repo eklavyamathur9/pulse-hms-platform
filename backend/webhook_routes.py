@@ -3,7 +3,7 @@ import secrets
 from auth_utils import current_hospital_id, require_roles, tenant_get
 from flask import Blueprint, jsonify
 from models import Webhook, WebhookDelivery, db
-from validation import json_body, require_fields
+from validation import json_body, require_fields, safe_commit
 from webhook import WEBHOOK_EVENTS, dispatch_event
 
 webhook_bp = Blueprint("webhooks", __name__)
@@ -68,7 +68,7 @@ def create_webhook():
         wh.is_active = bool(data["is_active"])
 
     db.session.add(wh)
-    db.session.commit()
+    safe_commit()
 
     return jsonify(
         {
@@ -113,7 +113,7 @@ def update_webhook(webhook_id):
     if "timeout_seconds" in data:
         wh.timeout_seconds = int(data["timeout_seconds"])
 
-    db.session.commit()
+    safe_commit()
     return jsonify({"message": "Webhook updated"})
 
 
@@ -126,7 +126,7 @@ def delete_webhook(webhook_id):
         return jsonify({"error": "Webhook not found"}), 404
 
     db.session.delete(wh)
-    db.session.commit()
+    safe_commit()
     return jsonify({"message": "Webhook deleted"})
 
 

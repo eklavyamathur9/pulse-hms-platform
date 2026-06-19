@@ -5,6 +5,87 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+# ── Status Constants ──────────────────────────────────────────────
+
+class AppointmentStatus:
+    SCHEDULED = "Scheduled"
+    ARRIVED = "Arrived"
+    VITALS_TAKEN = "Vitals_Taken"
+    CONSULT_DONE = "Consult_Done"
+    LAB_PENDING = "Lab_Pending"
+    COMPLETED = "Completed"
+    CANCELLED = "Cancelled"
+    ALL = {SCHEDULED, ARRIVED, VITALS_TAKEN, CONSULT_DONE, LAB_PENDING, COMPLETED, CANCELLED}
+
+
+class LabTestStatus:
+    PENDING_PAYMENT = "Pending Payment"
+    PAID = "Paid"
+    SAMPLE_COLLECTED = "Sample Collected"
+    COMPLETED = "Completed"
+    ALL = {PENDING_PAYMENT, PAID, SAMPLE_COLLECTED, COMPLETED}
+
+
+class PrescriptionStatus:
+    PENDING_DISPENSE = "Pending Dispense"
+    DISPENSED = "Dispensed"
+    ALL = {PENDING_DISPENSE, DISPENSED}
+
+
+class InvoiceStatus:
+    UNPAID = "Unpaid"
+    PAID = "Paid"
+    ALL = {UNPAID, PAID}
+
+
+class PaymentStatus:
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+    ALL = {PENDING, COMPLETED, FAILED, REFUNDED}
+
+
+class TeleconsultationStatus:
+    SCHEDULED = "scheduled"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    ALL = {SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED}
+
+
+class WebhookDeliveryStatus:
+    PENDING = "pending"
+    DELIVERED = "delivered"
+    FAILED = "failed"
+    ALL = {PENDING, DELIVERED, FAILED}
+
+
+class PaymentMethod:
+    CASH = "cash"
+    CARD = "card"
+    ONLINE = "online"
+    INSURANCE = "insurance"
+    ALL = {CASH, CARD, ONLINE, INSURANCE}
+
+
+class UserRole:
+    PATIENT = "patient"
+    DOCTOR = "doctor"
+    STAFF = "staff"
+    ADMIN = "admin"
+    SUPERADMIN = "superadmin"
+    ALL = {PATIENT, DOCTOR, STAFF, ADMIN, SUPERADMIN}
+
+
+class HospitalPlan:
+    TRIAL = "trial"
+    BASIC = "basic"
+    PRO = "pro"
+    ENTERPRISE = "enterprise"
+    ALL = {TRIAL, BASIC, PRO, ENTERPRISE}
+
+
 class Hospital(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)

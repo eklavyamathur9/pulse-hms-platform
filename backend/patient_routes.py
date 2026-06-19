@@ -2,7 +2,7 @@ from auth_utils import current_hospital_id, current_user, forbidden, require_hos
 from flask import Blueprint, jsonify
 from models import Appointment, User, db
 from pagination import get_pagination_params, paginate, paginated_response
-from validation import int_field, json_body
+from validation import int_field, json_body, safe_commit
 
 patient_bp = Blueprint("patient", __name__)
 
@@ -109,7 +109,7 @@ def update_patient_profile(patient_id):
     user.weight_baseline = data.get("weight_baseline", user.weight_baseline)
     user.allergies = data.get("allergies", user.allergies)
 
-    db.session.commit()
+    safe_commit()
 
     return jsonify(
         {

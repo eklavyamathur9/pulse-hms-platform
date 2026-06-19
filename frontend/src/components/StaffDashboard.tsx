@@ -3,15 +3,11 @@ import { useSocket } from '../context/SocketContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApiQuery } from '../hooks/useApi';
 import useSocketRefresh from '../hooks/useSocketRefresh';
-import VitalsPanel from './staff/VitalsPanel';
 import LabPanel from './staff/LabPanel';
 import PharmacyPanel from './staff/PharmacyPanel';
+import VitalsPanel from './staff/VitalsPanel';
+import { sortQueue } from '../lib/utils';
 import { DashboardSkeleton } from './common/Skeleton';
-
-const sortQueue = (data: unknown): any[] =>
-  (data as any[]).sort((a: any, b: any) =>
-    (b.pain_level >= 8 ? 1 : 0) - (a.pain_level >= 8 ? 1 : 0)
-  );
 
 export default function StaffDashboard() {
   const socket = useSocket();
@@ -22,11 +18,13 @@ export default function StaffDashboard() {
   const [labUploadForm, setLabUploadForm] = useState<any>(null);
   const [labResult, setLabResult] = useState('');
 
-  const { data: queue = [], isLoading } = useApiQuery<any[]>('staff-queue', '/hospital/queue', {
+  const { data: queue = [], isLoading, error: queueError } = useApiQuery<any[]>('staff-queue', '/hospital/queue', {
     transform: sortQueue, refetchInterval: 15_000,
   });
-  const { data: labQueue = [] } = useApiQuery<any[]>('staff-lab-queue', '/hospital/lab/queue');
-  const { data: pharmacyQueue = [] } = useApiQuery<any[]>('staff-pharmacy-queue', '/hospital/pharmacy/queue');
+  const { data: labQueue = [], error: labError } = useApiQuery<any[]>('staff-lab-queue', '/hospital/lab/queue');
+  const { data: pharmacyQueue = [], error: pharmError } = useApiQuery<any[]>('staff-pharmacy-queue', '/hospital/pharmacy/queue');
+
+  const fetchError = queueError || labError || pharmError;
 
   useSocketRefresh(socket, ['queue_updated', 'appointment_booked'], () => {
     queryClient.invalidateQueries({ queryKey: ['staff-queue'] });
@@ -62,6 +60,7 @@ export default function StaffDashboard() {
     if (socket) socket.emit('action_dispense_meds', { prescriptionId: rxId });
   };
 
+  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) return <DashboardSkeleton rows={3} />;
 
   return (

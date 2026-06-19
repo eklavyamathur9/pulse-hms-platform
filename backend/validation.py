@@ -1,6 +1,9 @@
+import logging
 import re
 
 from flask import jsonify, request
+
+logger = logging.getLogger(__name__)
 
 
 def error_response(message, status_code=400, code=None):
@@ -63,3 +66,16 @@ def validate_password_strength(password):
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-]", password):
         errors.append("Password must contain a special character")
     return errors
+
+
+def safe_commit():
+    try:
+        from models import db
+
+        db.session.commit()
+    except Exception as e:
+        from models import db
+
+        db.session.rollback()
+        logger.error("Database commit failed, rolled back: %s", str(e))
+        raise

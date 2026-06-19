@@ -221,8 +221,10 @@ export default function SuperAdminDashboard() {
     name: '', email: '', contact: '', password: 'changeme', role: 'doctor', specialization: '', hospital_id: '',
   });
 
-  const { data: stats, isLoading } = useApiQuery<Record<string, any>>('superadmin-stats', '/superadmin/stats');
-  const { data: hospitals = [] } = useApiQuery<any[]>('superadmin-hospitals', '/superadmin/hospitals');
+  const { data: stats, isLoading, error: statsError } = useApiQuery<Record<string, any>>('superadmin-stats', '/superadmin/stats');
+  const { data: hospitals = [], error: hospitalsError } = useApiQuery<any[]>('superadmin-hospitals', '/superadmin/hospitals');
+
+  const fetchError = statsError || hospitalsError;
 
   const createHospitalMutation = useApiMutation('/superadmin/hospitals', 'POST', {
     invalidateKeys: ['superadmin-hospitals', 'superadmin-stats'],
@@ -300,6 +302,7 @@ export default function SuperAdminDashboard() {
     return true;
   });
 
+  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) return <DashboardSkeleton />;
   if (!stats) return null;
 

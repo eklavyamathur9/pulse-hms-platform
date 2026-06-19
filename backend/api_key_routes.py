@@ -4,7 +4,7 @@ from api_key import generate_api_key
 from auth_utils import current_hospital_id, current_user, require_roles, tenant_get
 from flask import Blueprint, jsonify
 from models import ApiKey, db
-from validation import int_field, json_body, require_fields
+from validation import int_field, json_body, require_fields, safe_commit
 
 api_key_bp = Blueprint("api_keys", __name__)
 
@@ -70,7 +70,7 @@ def create_api_key():
         api_key.expires_at = datetime.utcnow() + timedelta(days=days)
 
     db.session.add(api_key)
-    db.session.commit()
+    safe_commit()
 
     return jsonify(
         {
@@ -106,7 +106,7 @@ def update_api_key(key_id):
     if "is_active" in data:
         api_key.is_active = bool(data["is_active"])
 
-    db.session.commit()
+    safe_commit()
     return jsonify({"message": "API key updated"})
 
 
@@ -119,5 +119,5 @@ def delete_api_key(key_id):
         return jsonify({"error": "API key not found"}), 404
 
     db.session.delete(api_key)
-    db.session.commit()
+    safe_commit()
     return jsonify({"message": "API key deleted"})

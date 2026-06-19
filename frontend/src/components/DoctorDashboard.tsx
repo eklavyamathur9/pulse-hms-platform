@@ -4,17 +4,13 @@ import { useSocket } from '../context/SocketContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { notify } from '../stores/useNotificationStore';
 import { apiFetch } from '../lib/api';
+import { sortQueue } from '../lib/utils';
 import { useApiQuery } from '../hooks/useApi';
 import useSocketRefresh from '../hooks/useSocketRefresh';
 import DoctorStatsCards from './doctor/DoctorStatsCards';
 import DoctorQueuePanel from './doctor/DoctorQueuePanel';
 import DoctorActivePatientPanel from './doctor/DoctorActivePatientPanel';
 import { DashboardSkeleton } from './common/Skeleton';
-
-const sortQueue = (data: unknown): any[] =>
-  (data as any[]).sort((a: any, b: any) =>
-    (b.pain_level >= 8 ? 1 : 0) - (a.pain_level >= 8 ? 1 : 0)
-  );
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
@@ -26,15 +22,17 @@ export default function DoctorDashboard() {
   const [followupDays, setFollowupDays] = useState<number>(0);
   const [isAvailable, setIsAvailable] = useState(true);
 
-  const { data: queue = [], isLoading } = useApiQuery<any[]>(
+  const { data: queue = [], isLoading, error: queueError } = useApiQuery<any[]>(
     ['doctor-queue', user!.id],
     `/hospital/doctor/${user!.id}/queue`,
     { transform: sortQueue, refetchInterval: 15_000 }
   );
-  const { data: stats = { patients_today: 0, revenue: 0, rating: 0 } } = useApiQuery<Record<string, any>>(
+  const { data: stats = { patients_today: 0, revenue: 0, rating: 0 }, error: statsError } = useApiQuery<Record<string, any>>(
     ['doctor-stats', user!.id],
     `/hospital/doctor/${user!.id}/stats`
   );
+
+  const fetchError = queueError || statsError;
 
   const fetchAvailability = useCallback(async () => {
     try {
@@ -99,6 +97,7 @@ export default function DoctorDashboard() {
     } catch(err) { console.error(err); }
   };
 
+  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) return <DashboardSkeleton rows={3} />;
 
   return (

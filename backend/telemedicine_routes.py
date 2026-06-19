@@ -4,7 +4,7 @@ from datetime import datetime
 from auth_utils import current_hospital_id, current_user, require_roles, tenant_get
 from flask import Blueprint, jsonify, request
 from models import Teleconsultation, db
-from validation import int_field, json_body, require_fields
+from validation import int_field, json_body, require_fields, safe_commit
 
 telemedicine_bp = Blueprint("telemedicine", __name__)
 
@@ -61,11 +61,13 @@ def create_room():
         scheduled_at=datetime.fromisoformat(data["scheduled_at"]) if data.get("scheduled_at") else None,
     )
 
+    from config import Config
+
     if provider == "jitsi":
-        tc.meeting_url = f"https://meet.jit.si/{room_name}"
+        tc.meeting_url = f"https://{Config.JITSI_DOMAIN}/{room_name}"
 
     db.session.add(tc)
-    db.session.commit()
+    safe_commit()
 
     return jsonify(
         {
@@ -133,7 +135,7 @@ def start_consultation(room_id):
 
     tc.status = "in_progress"
     tc.started_at = datetime.utcnow()
-    db.session.commit()
+    safe_commit()
 
     return jsonify({"message": "Consultation started"})
 
@@ -148,7 +150,7 @@ def end_consultation(room_id):
 
     tc.status = "completed"
     tc.ended_at = datetime.utcnow()
-    db.session.commit()
+    safe_commit()
 
     return jsonify({"message": "Consultation ended"})
 
@@ -165,6 +167,6 @@ def update_notes(room_id):
     if error:
         return error, status
     tc.notes = data.get("notes", tc.notes)
-    db.session.commit()
+    safe_commit()
 
     return jsonify({"message": "Notes updated"})
