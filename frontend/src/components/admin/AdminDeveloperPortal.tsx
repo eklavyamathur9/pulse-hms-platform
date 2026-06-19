@@ -1,6 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useSocket } from '../../context/SocketContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { notify } from '../../stores/useNotificationStore';
 import { apiFetch } from '../../lib/api';
@@ -28,8 +26,6 @@ interface Webhook {
 }
 
 export default function AdminDeveloperPortal() {
-  const { user } = useAuth();
-  const socket = useSocket();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('api-keys');
   const [showCreateKey, setShowCreateKey] = useState(false);
