@@ -1,6 +1,9 @@
+import logging
 import os
 
 from audit import log_action
+
+logger = logging.getLogger(__name__)
 from auth_utils import (
     current_hospital_id,
     current_user,
@@ -623,13 +626,113 @@ def pay_invoice(inv_id):
     from flask_socketio import emit
     from services import tenant_room
 
-    emit("payment_processed", {"invoice_id": inv.id, "amount": inv.total}, room=tenant_room(inv.hospital_id))
+    try:
+        emit("payment_processed", {"invoice_id": inv.id, "amount": inv.total}, room=tenant_room(inv.hospital_id))
+    except Exception:
+        logger.warning("Could not emit socket event for payment")
 
     from tasks import generate_invoice_pdf
 
     generate_invoice_pdf.delay(inv.id, inv.hospital_id)
 
     return jsonify({"message": "Invoice paid", "payment_id": payment.id, "transaction_id": payment.transaction_id})
+
+
+@hospital_bp.route("/invoice/<int:inv_id>/create-payment-intent", methods=["POST"])
+@require_roles("patient", "staff", "admin", "superadmin")
+def create_payment_intent(inv_id):
+    from payments_stripe import create_payment_intent as cpi
+
+    inv = tenant_get(Invoice, inv_id)
+    if not inv:
+        return jsonify({"error": "Invoice not found"}), 404
+    if inv.status == "Paid":
+        return jsonify({"error": "Invoice already paid"}), 409
+
+    amount_cents = int(inv.total * 100)
+    intent = cpi(amount_cents, metadata={"invoice_id": inv.id, "hospital_id": inv.hospital_id})
+
+    if "error" in intent:
+        return jsonify({"error": intent["error"]}), 500
+
+    return jsonify(
+        {
+            "client_secret": intent["client_secret"],
+            "payment_intent_id": intent["id"],
+            "amount": intent["amount"],
+            "publishable_key": Config.STRIPE_PUBLISHABLE_KEY,
+        }
+    )
+
+
+@hospital_bp.route("/invoice/<int:inv_id>/confirm-online-payment", methods=["POST"])
+@require_roles("patient", "staff", "admin", "superadmin")
+def confirm_online_payment(inv_id):
+    from datetime import datetime
+
+    from payments_stripe import confirm_payment
+
+    inv = tenant_get(Invoice, inv_id)
+    if not inv:
+        return jsonify({"error": "Invoice not found"}), 404
+    if inv.status == "Paid":
+        return jsonify({"error": "Invoice already paid"}), 409
+
+    data, error, status = json_body()
+    if error:
+        return error, status
+    error, status = require_fields(data, "payment_intent_id")
+    if error:
+        return error, status
+
+    result = confirm_payment(data["payment_intent_id"])
+    if "error" in result:
+        return jsonify({"error": result["error"]}), 500
+
+    if result.get("status") != "succeeded":
+        return jsonify({"error": f"Payment not successful: {result.get('status')}"}), 400
+
+    user = current_user()
+    payment = Payment(
+        hospital_id=inv.hospital_id,
+        invoice_id=inv.id,
+        patient_id=inv.patient_id,
+        amount=inv.total,
+        method="online",
+        transaction_id=data["payment_intent_id"],
+        status="completed",
+        paid_at=datetime.utcnow(),
+    )
+    db.session.add(payment)
+    inv.status = "Paid"
+    db.session.commit()
+
+    log_action(
+        hospital_id=inv.hospital_id,
+        user_id=user.id,
+        action="pay_invoice_online",
+        resource_type="invoice",
+        resource_id=inv.id,
+        details={
+            "amount": inv.total,
+            "payment_id": payment.id,
+            "transaction_id": payment.transaction_id,
+            "method": "online",
+        },
+        ip_address=getattr(g, "ip_address", None),
+    )
+
+    from flask_socketio import emit
+    from services import tenant_room
+    from tasks import generate_invoice_pdf
+
+    try:
+        emit("payment_processed", {"invoice_id": inv.id, "amount": inv.total}, room=tenant_room(inv.hospital_id))
+    except Exception:
+        logger.warning("Could not emit socket event for online payment")
+    generate_invoice_pdf.delay(inv.id, inv.hospital_id)
+
+    return jsonify({"message": "Online payment confirmed", "payment_id": payment.id})
 
 
 # ===== CLINICAL SUMMARIES =====

@@ -27,7 +27,7 @@ let jwtToken = '';
 let hospitalId = 0;
 
 export function setup() {
-  const loginRes = http.post(`${BASE_URL}/api/auth/login`, JSON.stringify({
+  const loginRes = http.post(`${BASE_URL}/api/v1/auth/login`, JSON.stringify({
     email: ADMIN_EMAIL,
     password: ADMIN_PASSWORD,
   }), { headers: { 'Content-Type': 'application/json' } });
@@ -50,25 +50,25 @@ export default function (data) {
   group('dashboard endpoints', function () {
     let res;
 
-    res = http.get(`${BASE_URL}/api/hospital/admin/analytics`, params);
+    res = http.get(`${BASE_URL}/api/v1/hospital/admin/analytics`, params);
     check(res, { 'analytics 200': (r) => r.status === 200 });
     errorRate.add(res.status !== 200);
     apiDuration.add(res.timings.duration);
     sleep(1);
 
-    res = http.get(`${BASE_URL}/api/hospital/queue`, params);
+    res = http.get(`${BASE_URL}/api/v1/hospital/queue`, params);
     check(res, { 'queue 200': (r) => r.status === 200 });
     errorRate.add(res.status !== 200);
     apiDuration.add(res.timings.duration);
     sleep(0.5);
 
-    res = http.get(`${BASE_URL}/api/hospital/lab/queue`, params);
+    res = http.get(`${BASE_URL}/api/v1/hospital/lab/queue`, params);
     check(res, { 'lab queue 200': (r) => r.status === 200 });
     errorRate.add(res.status !== 200);
     apiDuration.add(res.timings.duration);
     sleep(0.5);
 
-    res = http.get(`${BASE_URL}/api/hospital/pharmacy/queue`, params);
+    res = http.get(`${BASE_URL}/api/v1/hospital/pharmacy/queue`, params);
     check(res, { 'pharmacy queue 200': (r) => r.status === 200 });
     errorRate.add(res.status !== 200);
     apiDuration.add(res.timings.duration);
@@ -76,7 +76,7 @@ export default function (data) {
   });
 
   group('patient list with pagination', function () {
-    const res = http.get(`${BASE_URL}/api/hospital/admin/users?page=1&per_page=10`, params);
+    const res = http.get(`${BASE_URL}/api/v1/hospital/admin/users?page=1&per_page=10`, params);
     check(res, { 'paginated users 200': (r) => r.status === 200 });
     check(res, { 'has X-Total-Count header': (r) => r.headers['X-Total-Count'] !== undefined });
     errorRate.add(res.status !== 200);
@@ -85,7 +85,7 @@ export default function (data) {
   });
 
   group('doctor endpoints', function () {
-    const res = http.get(`${BASE_URL}/api/auth/doctors`, params);
+    const res = http.get(`${BASE_URL}/api/v1/auth/doctors`, params);
     check(res, { 'doctors 200': (r) => r.status === 200 });
     errorRate.add(res.status !== 200);
     apiDuration.add(res.timings.duration);
@@ -94,7 +94,7 @@ export default function (data) {
 
   group('superadmin endpoints', function () {
     if (hospitalId) {
-      const res = http.get(`${BASE_URL}/api/superadmin/stats?hospital_id=${hospitalId}`, params);
+      const res = http.get(`${BASE_URL}/api/v1/superadmin/stats?hospital_id=${hospitalId}`, params);
       check(res, { 'superadmin stats 200': (r) => r.status === 200 });
       errorRate.add(res.status !== 200);
       apiDuration.add(res.timings.duration);

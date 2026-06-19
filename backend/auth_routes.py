@@ -159,6 +159,52 @@ def register():
 @auth_bp.route("/login", methods=["POST"])
 @limiter.limit("20 per minute")
 def login():
+    """
+    Authenticate a user
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - identifier
+            - password
+          properties:
+            identifier:
+              type: string
+              example: doctor@hospital.test
+            password:
+              type: string
+              example: pass123
+            type:
+              type: string
+              example: staff
+            hospital_id:
+              type: integer
+              example: 1
+    responses:
+      200:
+        description: Login successful
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            token:
+              type: string
+            refresh_token:
+              type: string
+            user:
+              type: object
+      400:
+        description: Missing required fields
+      401:
+        description: Invalid credentials
+    """
     data, error, status = json_body()
     if error:
         return error, status

@@ -135,9 +135,12 @@ def make_user(hospital_id, role, name, *, password, email=None, contact=None, **
     return user
 
 
+API = "/api/v1"
+
+
 def login(client, identifier, password, hospital_id, role_type="staff"):
     response = client.post(
-        "/api/auth/login",
+        f"{API}/auth/login",
         json={
             "identifier": identifier,
             "password": password,

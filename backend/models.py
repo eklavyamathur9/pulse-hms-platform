@@ -214,6 +214,81 @@ class Document(db.Model):
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class ApiKey(db.Model):
+    __table_args__ = (
+        db.Index("ix_api_key_hospital", "hospital_id"),
+        db.Index("ix_api_key_key_hash", "key_hash"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey("hospital.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    name = db.Column(db.String(100), nullable=False)
+    key_hash = db.Column(db.String(200), nullable=False, unique=True)
+    key_prefix = db.Column(db.String(20), nullable=False)
+    scopes = db.Column(db.JSON, default=list)
+    is_active = db.Column(db.Boolean, default=True)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Webhook(db.Model):
+    __table_args__ = (db.Index("ix_webhook_hospital", "hospital_id"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey("hospital.id"), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
+    secret = db.Column(db.String(200), nullable=False)
+    events = db.Column(db.JSON, default=list)
+    is_active = db.Column(db.Boolean, default=True)
+    retry_count = db.Column(db.Integer, default=3)
+    timeout_seconds = db.Column(db.Integer, default=10)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class WebhookDelivery(db.Model):
+    __table_args__ = (
+        db.Index("ix_webhook_delivery_webhook", "webhook_id"),
+        db.Index("ix_webhook_delivery_status", "status"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    webhook_id = db.Column(db.Integer, db.ForeignKey("webhook.id"), nullable=False)
+    event = db.Column(db.String(50), nullable=False)
+    payload = db.Column(db.JSON, nullable=False)
+    status = db.Column(db.String(20), default="pending")
+    response_code = db.Column(db.Integer, nullable=True)
+    response_body = db.Column(db.Text, nullable=True)
+    attempts = db.Column(db.Integer, default=0)
+    next_retry_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Teleconsultation(db.Model):
+    __table_args__ = (
+        db.Index("ix_teleconsultation_appointment", "appointment_id"),
+        db.Index("ix_teleconsultation_hospital_status", "hospital_id", "status"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    hospital_id = db.Column(db.Integer, db.ForeignKey("hospital.id"), nullable=False)
+    appointment_id = db.Column(db.Integer, db.ForeignKey("appointment.id"), nullable=False)
+    doctor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    room_name = db.Column(db.String(100), nullable=False, unique=True)
+    provider = db.Column(db.String(50), default="jitsi")
+    status = db.Column(db.String(30), default="scheduled")
+    scheduled_at = db.Column(db.DateTime, nullable=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    meeting_url = db.Column(db.String(500), nullable=True)
+    recording_url = db.Column(db.String(500), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class AuditLog(db.Model):
     __table_args__ = (
         db.Index("ix_audit_log_hospital", "hospital_id"),
