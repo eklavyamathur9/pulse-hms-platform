@@ -108,10 +108,51 @@ def _render_invoice_pdf(invoice, patient_name):
 
 @celery.task
 def send_notification(notification_type, recipient_id, payload=None):
+    from notifications import send_email, send_sms
+
+    payload = payload or {}
     logger.info(
         "Notification queued: type=%s recipient=%s payload=%s",
         notification_type,
         recipient_id,
         payload,
     )
-    return {"sent": True, "type": notification_type, "recipient": recipient_id}
+
+    if notification_type == "sms":
+        result = send_sms(to=recipient_id, message=payload.get("message", ""))
+    elif notification_type == "email":
+        result = send_email(
+            to=recipient_id,
+            subject=payload.get("subject", ""),
+            body=payload.get("body", ""),
+            html=payload.get("html"),
+        )
+    else:
+        logger.warning("Unknown notification type: %s", notification_type)
+        return {"sent": False, "error": f"Unknown type: {notification_type}"}
+
+    return {"sent": result.success, "provider": result.provider, "message_id": result.message_id}
+
+
+@celery.task(bind=True, max_retries=3, default_retry_delay=60)
+def async_deliver_webhook(self, delivery_id):
+    from models import Webhook, WebhookDelivery, db
+    from webhook import _do_deliver
+
+    app = _get_flask_app()
+    with app.app_context():
+        delivery = db.session.get(WebhookDelivery, delivery_id)
+        if not delivery:
+            logger.warning("Webhook delivery %s not found", delivery_id)
+            return
+        webhook = db.session.get(Webhook, delivery.webhook_id)
+        if not webhook:
+            delivery.status = "failed"
+            delivery.response_body = "Webhook endpoint deleted"
+            db.session.commit()
+            return
+        try:
+            _do_deliver(delivery, webhook)
+        except Exception as exc:
+            logger.error("Webhook delivery %s failed: %s", delivery_id, exc)
+            raise self.retry(exc=exc)

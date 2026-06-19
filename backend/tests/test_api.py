@@ -1,8 +1,8 @@
-from conftest import auth_header, login
+from conftest import API, auth_header, login
 
 
 def test_register_hospital_requires_json(client):
-    response = client.post("/api/auth/register-hospital", data="not-json")
+    response = client.post(f"{API}/auth/register-hospital", data="not-json")
 
     assert response.status_code == 400
     assert "JSON" in response.get_json()["error"]
@@ -10,21 +10,21 @@ def test_register_hospital_requires_json(client):
 
 def test_login_is_tenant_scoped(client, seeded):
     good = client.post(
-        "/api/auth/login",
+        f"{API}/auth/login",
         json={
             "identifier": "admin@one.test",
             "password": "adminpass",
             "hospital_id": seeded["hospital_one_id"],
-            "type": "staff",
+            "type": "staf",
         },
     )
     wrong_tenant = client.post(
-        "/api/auth/login",
+        f"{API}/auth/login",
         json={
             "identifier": "admin@one.test",
             "password": "adminpass",
             "hospital_id": seeded["hospital_two_id"],
-            "type": "staff",
+            "type": "staf",
         },
     )
 
@@ -42,7 +42,7 @@ def test_doctor_list_is_tenant_scoped(client, seeded):
         role_type="patient",
     )
 
-    response = client.get("/api/auth/doctors/all", headers=auth_header(token))
+    response = client.get(f"{API}/auth/doctors/all", headers=auth_header(token))
 
     assert response.status_code == 200
     names = {doctor["name"] for doctor in response.get_json()}
@@ -59,7 +59,7 @@ def test_patient_cannot_read_other_tenant_patient_appointments(client, seeded):
     )
 
     response = client.get(
-        f"/api/patients/{seeded['other_patient_id']}/appointments",
+        f"{API}/patients/{seeded['other_patient_id']}/appointments",
         headers=auth_header(token),
     )
 
@@ -70,8 +70,8 @@ def test_admin_user_creation_validates_required_name(client, seeded):
     token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
 
     response = client.post(
-        "/api/auth/admin/users",
-        json={"role": "staff", "email": "newstaff@one.test", "password": "pass123"},
+        f"{API}/auth/admin/users",
+        json={"role": "staf", "email": "newstaff@one.test", "password": "pass123"},
         headers=auth_header(token),
     )
 
@@ -89,7 +89,7 @@ def test_rating_validation_and_success(client, seeded):
     )
 
     invalid = client.post(
-        "/api/hospital/rating",
+        f"{API}/hospital/rating",
         json={
             "appointment_id": seeded["appointment_id"],
             "patient_id": seeded["patient_id"],
@@ -99,7 +99,7 @@ def test_rating_validation_and_success(client, seeded):
         headers=auth_header(token),
     )
     valid = client.post(
-        "/api/hospital/rating",
+        f"{API}/hospital/rating",
         json={
             "appointment_id": seeded["appointment_id"],
             "patient_id": seeded["patient_id"],
@@ -124,7 +124,7 @@ def test_patient_cannot_pay_other_tenant_invoice(client, seeded):
     )
 
     response = client.put(
-        f"/api/hospital/invoice/{seeded['other_invoice_id']}/pay",
+        f"{API}/hospital/invoice/{seeded['other_invoice_id']}/pay",
         headers=auth_header(token),
     )
 

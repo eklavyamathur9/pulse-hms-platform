@@ -10,6 +10,7 @@ import AdminStatsCards from './admin/AdminStatsCards';
 import AdminAnalyticsCharts from './admin/AdminAnalyticsCharts';
 import AdminUserManagement from './admin/AdminUserManagement';
 import AdminSearchPanel from './admin/AdminSearchPanel';
+import AdminDeveloperPortal from './admin/AdminDeveloperPortal';
 import { DashboardSkeleton } from './common/Skeleton';
 
 export default function AdminDashboard() {
@@ -63,6 +64,7 @@ export default function AdminDashboard() {
         <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'analytics' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'analytics' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('analytics')}>Analytics</button>
         <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'users' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'users' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('users')}>User Management</button>
         <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'search' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'search' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('search')}>Search & Filters</button>
+        <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'developer' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'developer' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('developer')}>Developer</button>
       </div>
 
       {tab === 'analytics' && analytics && (
@@ -82,6 +84,10 @@ export default function AdminDashboard() {
 
       {tab === 'search' && (
         <AdminSearchPanel onSearch={handleSearch} results={searchResults} />
+      )}
+
+      {tab === 'developer' && (
+        <AdminDeveloperPortal />
       )}
     </div>
   );

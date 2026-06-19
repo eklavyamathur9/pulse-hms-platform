@@ -34,9 +34,21 @@ class Config:
     SERVER_NAME = _env("SERVER_NAME", None)
     SOCKET_MESSAGE_QUEUE = _env("SOCKET_MESSAGE_QUEUE", REDIS_URL)
     QUERY_TIMEOUT_SECONDS = int(_env("QUERY_TIMEOUT_SECONDS", "10"))
+    API_PREFIX = _env("API_PREFIX", "/api/v1")
     UPLOAD_FOLDER = _env("UPLOAD_FOLDER", UPLOAD_DIR)
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
     ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
+
+    # Notification providers
+    TWILIO_ACCOUNT_SID = _env("TWILIO_ACCOUNT_SID", None)
+    TWILIO_AUTH_TOKEN = _env("TWILIO_AUTH_TOKEN", None)
+    TWILIO_FROM_NUMBER = _env("TWILIO_FROM_NUMBER", None)
+    SENDGRID_API_KEY = _env("SENDGRID_API_KEY", None)
+    SENDGRID_FROM_EMAIL = _env("SENDGRID_FROM_EMAIL", None)
+
+    # Payment providers
+    STRIPE_SECRET_KEY = _env("STRIPE_SECRET_KEY", None)
+    STRIPE_PUBLISHABLE_KEY = _env("STRIPE_PUBLISHABLE_KEY", None)
 
     @classmethod
     def engine_options(cls):

@@ -1,4 +1,4 @@
-from conftest import auth_header, login, socket_client
+from conftest import API, auth_header, login, socket_client
 from models import Appointment, LabTest, Prescription, User, Vitals, db
 
 
@@ -221,7 +221,7 @@ def test_doctor_can_only_see_own_appointments(client, seeded):
     doctor_token = login(client, "doctor@one.test", "doctorpass", seeded["hospital_one_id"])
 
     response = client.get(
-        f"/api/hospital/doctor/{seeded['doctor_id']}/queue",
+        f"{API}/hospital/doctor/{seeded['doctor_id']}/queue",
         headers=auth_header(doctor_token),
     )
     assert response.status_code == 200
@@ -233,7 +233,7 @@ def test_doctor_can_only_see_own_appointments(client, seeded):
 def test_doctor_cannot_see_other_doctor_appointments(client, seeded):
     doctor_token = login(client, "doctor@one.test", "doctorpass", seeded["hospital_one_id"])
     response = client.get(
-        f"/api/hospital/doctor/{9999}/queue",
+        f"{API}/hospital/doctor/{9999}/queue",
         headers=auth_header(doctor_token),
     )
     assert response.status_code == 403
@@ -243,7 +243,7 @@ def test_admin_user_management(client, seeded):
     admin_token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
 
     # Can list users in their tenant
-    response = client.get("/api/auth/admin/users", headers=auth_header(admin_token))
+    response = client.get(f"{API}/auth/admin/users", headers=auth_header(admin_token))
     assert response.status_code == 200
     user_emails = {u["email"] for u in response.get_json() if u.get("email")}
     assert "admin@one.test" in user_emails
@@ -254,10 +254,10 @@ def test_admin_user_management(client, seeded):
 
     # Can create a new staff user
     response = client.post(
-        "/api/auth/admin/users",
+        f"{API}/auth/admin/users",
         json={
-            "name": "New Staff",
-            "role": "staff",
+            "name": "New Staf",
+            "role": "staf",
             "email": "new@one.test",
             "password": "Pass123!@",
             "contact": "+1 555-9999",
@@ -268,7 +268,7 @@ def test_admin_user_management(client, seeded):
 
     # Can deactivate a user
     response = client.put(
-        f"/api/auth/admin/users/{seeded['staff_id']}/deactivate",
+        f"{API}/auth/admin/users/{seeded['staff_id']}/deactivate",
         headers=auth_header(admin_token),
     )
     assert response.status_code == 200
@@ -280,25 +280,25 @@ def test_admin_user_management(client, seeded):
 
 def test_staff_cannot_manage_users(client, seeded):
     staff_token = login(client, "staff@one.test", "staffpass", seeded["hospital_one_id"])
-    response = client.get("/api/auth/admin/users", headers=auth_header(staff_token))
+    response = client.get(f"{API}/auth/admin/users", headers=auth_header(staff_token))
     assert response.status_code == 403
 
 
 def test_patient_cannot_access_admin_analytics(client, seeded):
     patient_token = login(client, "1111111111", "patientpass", seeded["hospital_one_id"], role_type="patient")
-    response = client.get("/api/hospital/admin/analytics", headers=auth_header(patient_token))
+    response = client.get(f"{API}/hospital/admin/analytics", headers=auth_header(patient_token))
     assert response.status_code == 403
 
 
 def test_missing_payload_returns_error(client, seeded):
     admin_token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
-    response = client.post("/api/auth/admin/users", json={}, headers=auth_header(admin_token))
+    response = client.post(f"{API}/auth/admin/users", json={}, headers=auth_header(admin_token))
     assert response.status_code == 400
 
 
 def test_register_hospital_with_duplicate_subdomain(client, seeded):
     response = client.post(
-        "/api/auth/register-hospital",
+        f"{API}/auth/register-hospital",
         json={
             "name": "Second Pulse",
             "subdomain": "pulse-one",
@@ -311,14 +311,14 @@ def test_register_hospital_with_duplicate_subdomain(client, seeded):
 
 
 def test_non_existent_endpoint_returns_404(client):
-    response = client.get("/api/nonexistent")
+    response = client.get(f"{API}/nonexistent")
     assert response.status_code == 404
 
 
 def test_patient_can_view_own_profile(client, seeded):
     patient_token = login(client, "1111111111", "patientpass", seeded["hospital_one_id"], role_type="patient")
     response = client.get(
-        f"/api/patients/{seeded['patient_id']}/appointments",
+        f"{API}/patients/{seeded['patient_id']}/appointments",
         headers=auth_header(patient_token),
     )
     assert response.status_code == 200
@@ -329,7 +329,7 @@ def test_patient_can_view_own_profile(client, seeded):
 def test_patient_cannot_update_other_patient_profile(client, seeded):
     patient_token = login(client, "1111111111", "patientpass", seeded["hospital_one_id"], role_type="patient")
     response = client.put(
-        f"/api/patients/{seeded['other_patient_id']}/profile",
+        f"{API}/patients/{seeded['other_patient_id']}/profile",
         json={"name": "Hacker"},
         headers=auth_header(patient_token),
     )

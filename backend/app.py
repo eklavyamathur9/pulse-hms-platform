@@ -1,11 +1,14 @@
 import time
 
+from api_key_routes import api_key_bp
 from auth_routes import auth_bp
 from cache import cache
 from config import Config
-from flask import Flask, g, jsonify
+from fhir_routes import fhir_bp
+from flasgger import Swagger
+from flask import Flask, g, jsonify, redirect, request
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager, jwt_required
 from flask_migrate import Migrate
 from flask_socketio import SocketIO
 from hospital_routes import hospital_bp
@@ -20,11 +23,17 @@ from services.lab import register as register_lab
 from services.pharmacy import register as register_pharmacy
 from services.vitals import register as register_vitals
 from superadmin_routes import superadmin_bp
+from telemedicine_routes import telemedicine_bp
+from usage import tracker
+from usage_analytics import register_usage_routes
+from webhook_routes import webhook_bp
 from werkzeug.exceptions import HTTPException
 
 app = Flask(__name__)
 app.config.from_object(Config)
 Config.validate()
+
+API = Config.API_PREFIX  # e.g. "/api/v1"
 
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = Config.engine_options()
 
@@ -61,6 +70,31 @@ metrics.info("app_info", "Pulse HMS", version="1.0.0")
 
 db.init_app(app)
 jwt = JWTManager(app)
+
+swagger = Swagger(
+    app,
+    config={
+        "headers": [],
+        "specs": [
+            {
+                "endpoint": "apispec",
+                "route": f"{API}/swagger.json",
+                "rule_filter": lambda rule: True,
+                "model_filter": lambda tag: True,
+            }
+        ],
+        "static_url_path": f"{API}/docs",
+        "swagger_ui": True,
+        "specs_route": f"{API}/docs/",
+        "title": "Pulse HMS API",
+        "version": "1.0.0",
+        "description": "Hospital Management System REST API. All endpoints require JWT authentication unless noted.",
+        "termsOfService": "",
+        "swagger_ui_config": {
+            "defaultModelsExpandDepth": -1,
+        },
+    },
+)
 migrate = Migrate(app, db)
 socketio_kwargs = {
     "cors_allowed_origins": Config.CORS_ORIGINS,
@@ -84,6 +118,13 @@ register_pharmacy(socketio)
 def before_request():
     request_id_middleware()
     g.start_time = time.time()
+    try:
+        from flask_jwt_extended import get_jwt
+
+        claims = get_jwt()
+        g.hospital_id = claims.get("hospital_id")
+    except Exception:
+        g.hospital_id = None
 
 
 @app.after_request
@@ -96,6 +137,8 @@ def after_request(response):
     response.headers["X-XSS-Protection"] = "0"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Cache-Control"] = "no-store"
+    if hasattr(g, "hospital_id") and g.hospital_id and g.hospital_id != 0:
+        tracker.record(g.hospital_id, request.endpoint or "unknown")
     return log_request_response(response)
 
 
@@ -119,13 +162,30 @@ def handle_405(e):
     return jsonify({"error": "Method not allowed", "code": 405}), 405
 
 
-@app.route("/api/ping", methods=["GET"])
+@app.route(f"{API}/ping", methods=["GET"])
 def ping():
+    """
+    Health check endpoint
+    ---
+    tags:
+      - System
+    responses:
+      200:
+        description: Backend is running
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: ok
+            message:
+              type: string
+    """
     app.logger.info("Ping endpoint called")
     return jsonify({"status": "ok", "message": "Pulse HMS Backend is running"})
 
 
-@app.route("/api/health", methods=["GET"])
+@app.route(f"{API}/health", methods=["GET"])
 def health():
     status = "healthy"
     db_ok = True
@@ -144,7 +204,7 @@ def health():
     )
 
 
-@app.route("/api/health/db", methods=["GET"])
+@app.route(f"{API}/health/db", methods=["GET"])
 def health_db():
     try:
         with app.app_context():
@@ -154,15 +214,56 @@ def health_db():
         return jsonify({"status": "degraded", "database": "disconnected", "error": str(e)}), 503
 
 
-app.register_blueprint(auth_bp, url_prefix="/api/auth")
-app.register_blueprint(patient_bp, url_prefix="/api/patients")
-app.register_blueprint(hospital_bp, url_prefix="/api/hospital")
-app.register_blueprint(superadmin_bp, url_prefix="/api/superadmin")
+app.register_blueprint(auth_bp, url_prefix=f"{API}/auth")
+app.register_blueprint(patient_bp, url_prefix=f"{API}/patients")
+app.register_blueprint(hospital_bp, url_prefix=f"{API}/hospital")
+app.register_blueprint(superadmin_bp, url_prefix=f"{API}/superadmin")
+app.register_blueprint(api_key_bp, url_prefix=f"{API}/auth")
+app.register_blueprint(webhook_bp, url_prefix=f"{API}/auth")
+app.register_blueprint(telemedicine_bp, url_prefix=f"{API}/hospital")
+app.register_blueprint(fhir_bp, url_prefix=f"{API}/hospital")
+
+# Backward-compat: redirect old /api/<domain>/... to /api/v1/<domain>/...
+_OLD_API_DOMAINS = ["auth", "patients", "hospital", "superadmin", "ping", "health"]
+
+
+@app.route("/api")
+def api_root_redirect():
+    return redirect(f"{API}/", 301)
+
+
+for _domain in _OLD_API_DOMAINS:
+    app.add_url_rule(
+        f"/api/{_domain}/<path:subpath>",
+        f"legacy_{_domain}",
+        lambda subpath, d=_domain: redirect(f"{API}/{d}/{subpath}", 301),
+    )
+    app.add_url_rule(
+        f"/api/{_domain}",
+        f"legacy_{_domain}_root",
+        lambda d=_domain: redirect(f"{API}/{d}", 301),
+    )
 
 # Per-tenant rate limits for data endpoints (blueprint-level safety net)
 limiter.limit("100 per minute", key_func=tenant_key)(patient_bp)
 limiter.limit("100 per minute", key_func=tenant_key)(hospital_bp)
 limiter.limit("60 per minute", key_func=tenant_key)(superadmin_bp)
+
+
+register_usage_routes(app, API)
+
+
+@app.route(f"{API}/admin/usage/live", methods=["GET"])
+@jwt_required()
+def live_usage():
+    from auth_utils import current_hospital_id, is_superadmin
+
+    hospital_id = current_hospital_id()
+    if is_superadmin():
+        return jsonify(tracker.get_usage())
+    if hospital_id:
+        return jsonify(tracker.get_usage(hospital_id))
+    return jsonify({"error": "hospital_id required"}), 400
 
 
 @socketio.on("connect")
