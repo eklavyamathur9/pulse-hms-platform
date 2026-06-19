@@ -39,6 +39,8 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
     ALLOWED_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "doc", "docx"}
 
+    JITSI_DOMAIN = _env("JITSI_DOMAIN", "meet.jit.si")
+
     # Notification providers
     TWILIO_ACCOUNT_SID = _env("TWILIO_ACCOUNT_SID", None)
     TWILIO_AUTH_TOKEN = _env("TWILIO_AUTH_TOKEN", None)

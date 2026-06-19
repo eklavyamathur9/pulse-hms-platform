@@ -19,10 +19,12 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<string>('analytics');
   const [searchResults, setSearchResults] = useState<any>(null);
 
-  const { data: analytics, isLoading } = useApiQuery<Record<string, any>>('admin-analytics', '/hospital/admin/analytics', {
+  const { data: analytics, isLoading, error: analyticsError } = useApiQuery<Record<string, any>>('admin-analytics', '/hospital/admin/analytics', {
     refetchInterval: 30_000,
   });
-  const { data: allUsers = [] } = useApiQuery<any[]>('admin-users', '/auth/admin/users');
+  const { data: allUsers = [], error: usersError } = useApiQuery<any[]>('admin-users', '/auth/admin/users');
+
+  const fetchError = analyticsError || usersError;
 
   useSocketRefresh(socket, ['queue_updated', 'appointment_booked', 'payment_processed'], () => {
     queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
@@ -49,6 +51,7 @@ export default function AdminDashboard() {
     } catch (e) { notify.error('Search failed.'); }
   };
 
+  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) return <DashboardSkeleton />;
 
   return (

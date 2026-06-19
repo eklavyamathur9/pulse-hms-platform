@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from flask import jsonify, request
+from flask_jwt_extended import jwt_required
 from models import AuditLog
 
 
@@ -35,6 +36,7 @@ def get_tenant_usage(hospital_id: int, days: int = 7):
 
 def register_usage_routes(app, api_prefix):
     @app.route(f"{api_prefix}/admin/usage", methods=["GET"])
+    @jwt_required()
     def admin_usage():
         from auth_utils import current_hospital_id, is_superadmin
 

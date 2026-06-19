@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify
 from middleware import query_timeout
 from models import Appointment, Hospital, Invoice, Payment, User, db
 from pagination import get_pagination_params, paginate, paginated_response
-from validation import json_body, require_fields, validate_password_strength
+from validation import json_body, require_fields, safe_commit, validate_password_strength
 from werkzeug.security import generate_password_hash
 
 superadmin_bp = Blueprint("superadmin", __name__)
@@ -197,7 +197,7 @@ def create_hospital():
         password=generate_password_hash(data["admin_password"]),
     )
     db.session.add(admin_user)
-    db.session.commit()
+    safe_commit()
     log_action(
         hospital_id=hospital.id,
         user_id=current_user().id,
@@ -243,7 +243,7 @@ def update_hospital(hospital_id):
         hospital.feature_flags = PLAN_FEATURES[data["plan"]]
     if "is_active" in data:
         hospital.is_active = bool(data["is_active"])
-    db.session.commit()
+    safe_commit()
     log_action(
         hospital_id=hospital.id,
         user_id=current_user().id,

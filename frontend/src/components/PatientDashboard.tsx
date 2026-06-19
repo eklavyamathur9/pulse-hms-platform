@@ -29,25 +29,27 @@ export default function PatientDashboard() {
   const [selectedSlot, setSelectedSlot] = useState('');
   const [slotsLoading, setSlotsLoading] = useState(false);
 
-  const { data: rawAppointments, isLoading } = useApiQuery<any[]>(
+  const { data: rawAppointments, isLoading, error: appointmentsError } = useApiQuery<any[]>(
     ['patient-appointments', user!.id],
     `/patients/${user!.id}/appointments`
   );
-  const { data: labTests = [] } = useApiQuery<any[]>(
+  const { data: labTests = [], error: labTestsError } = useApiQuery<any[]>(
     ['patient-lab-tests', user!.id],
     `/hospital/patient/${user!.id}/tests`
   );
-  const { data: prescriptions = [] } = useApiQuery<any[]>(
+  const { data: prescriptions = [], error: prescriptionsError } = useApiQuery<any[]>(
     ['patient-prescriptions', user!.id],
     `/patients/${user!.id}/prescriptions`
   );
-  const { data: doctors = [] } = useApiQuery<any[]>('patient-doctors', '/auth/doctors');
-  const { data: allDoctors = [] } = useApiQuery<any[]>('patient-doctors-all', '/auth/doctors/all');
-  const { data: invoices = [] } = useApiQuery<any[]>(
+  const { data: doctors = [], error: doctorsError } = useApiQuery<any[]>('patient-doctors', '/auth/doctors');
+  const { data: allDoctors = [], error: allDoctorsError } = useApiQuery<any[]>('patient-doctors-all', '/auth/doctors/all');
+  const { data: invoices = [], error: invoicesError } = useApiQuery<any[]>(
     ['patient-invoices', user!.id],
     `/hospital/patient/${user!.id}/invoices`,
     { enabled: false }
   );
+
+  const fetchError = appointmentsError || labTestsError || prescriptionsError || doctorsError || allDoctorsError || invoicesError;
 
   const activeAppointments = useMemo(() =>
     (rawAppointments as any[])?.filter((a: any) => !['Completed', 'Cancelled'].includes(a.status)) ?? [],
@@ -177,6 +179,7 @@ export default function PatientDashboard() {
     setProfileSaving(false);
   };
 
+  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) {
     return <DashboardSkeleton rows={5} />;
   }

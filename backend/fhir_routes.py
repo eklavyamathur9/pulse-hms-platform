@@ -2,7 +2,7 @@ from auth_utils import current_hospital_id, require_roles
 from fhir import parse_bundle
 from flask import Blueprint, jsonify
 from models import LabTest, db
-from validation import int_field, json_body
+from validation import int_field, json_body, safe_commit
 
 fhir_bp = Blueprint("fhir", __name__)
 
@@ -49,7 +49,7 @@ def ingest_observations():
         db.session.add(lab)
         created.append({"id": lab.id, "test_name": lab.test_name, "status": lab.status})
 
-    db.session.commit()
+    safe_commit()
 
     return jsonify({"message": f"{len(created)} lab test(s) created", "lab_tests": created}), 201
 

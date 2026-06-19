@@ -938,12 +938,10 @@ def download_lab_report(doc_id):
     if not hospital_id:
         return jsonify({"error": "hospital_id is required"}), 400
 
-    doc = Document.query.filter_by(id=doc_id).first()
+    doc = (Document.query if is_superadmin() else Document.query.filter_by(hospital_id=hospital_id))
+    doc = doc.filter_by(id=doc_id).first()
     if not doc:
         return jsonify({"error": "Document not found"}), 404
-
-    if not (is_superadmin() or doc.hospital_id == hospital_id):
-        return forbidden()
 
     if user.role == "patient" and doc.patient_id != user.id:
         return forbidden()
@@ -963,8 +961,9 @@ def list_lab_documents(test_id):
     if not hospital_id:
         return jsonify({"error": "hospital_id is required"}), 400
 
-    lab_test = LabTest.query.filter_by(id=test_id).first()
-    if not lab_test or lab_test.hospital_id != hospital_id:
+    lab_test = (LabTest.query if is_superadmin() else LabTest.query.filter_by(hospital_id=hospital_id))
+    lab_test = lab_test.filter_by(id=test_id).first()
+    if not lab_test:
         return jsonify({"error": "Lab test not found"}), 404
 
     if user.role == "patient" and lab_test.patient_id != user.id:
