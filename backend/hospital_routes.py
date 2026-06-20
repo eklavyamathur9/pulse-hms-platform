@@ -220,7 +220,7 @@ def get_doctor_queue(doc_id):
 def get_doctor_stats(doc_id):
     from datetime import datetime
 
-    from models import Appointment, Invoice, Rating, User, db
+    from models import Appointment, Rating, User, db
 
     hospital_id, error, status = require_hospital_context()
     if error:

@@ -132,7 +132,6 @@ def rotate_api_key(key_id):
         return jsonify({"error": "API key not found"}), 404
 
     raw, key_hash, prefix = generate_api_key()
-    old_prefix = api_key.key_prefix
     api_key.key_hash = key_hash
     api_key.key_prefix = prefix
     safe_commit()
