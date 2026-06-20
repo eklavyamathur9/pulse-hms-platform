@@ -121,3 +121,32 @@ def delete_api_key(key_id):
     db.session.delete(api_key)
     safe_commit()
     return jsonify({"message": "API key deleted"})
+
+
+@api_key_bp.route("/admin/api-keys/<int:key_id>/rotate", methods=["POST"])
+@require_roles("superadmin", "admin")
+def rotate_api_key(key_id):
+    hospital_id = current_hospital_id()
+    api_key = tenant_get(ApiKey, key_id)
+    if not api_key or (hospital_id and api_key.hospital_id != hospital_id):
+        return jsonify({"error": "API key not found"}), 404
+
+    raw, key_hash, prefix = generate_api_key()
+    old_prefix = api_key.key_prefix
+    api_key.key_hash = key_hash
+    api_key.key_prefix = prefix
+    safe_commit()
+
+    return jsonify(
+        {
+            "message": "API key rotated",
+            "api_key": {
+                "id": api_key.id,
+                "name": api_key.name,
+                "raw_key": raw,
+                "key_prefix": api_key.key_prefix,
+                "scopes": api_key.scopes,
+                "expires_at": api_key.expires_at.isoformat() if api_key.expires_at else None,
+            },
+        }
+    )

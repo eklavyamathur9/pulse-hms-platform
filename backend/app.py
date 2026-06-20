@@ -137,6 +137,15 @@ def after_request(response):
     response.headers["X-XSS-Protection"] = "0"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Cache-Control"] = "no-store"
+    response.headers["Content-Security-Policy"] = (
+        f"default-src 'self'; "
+        f"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://{Config.JITSI_DOMAIN}; "
+        f"style-src 'self' 'unsafe-inline'; "
+        f"img-src 'self' data: blob:; "
+        f"font-src 'self' data:; "
+        f"connect-src 'self' ws: wss:; "
+        f"frame-src https://{Config.JITSI_DOMAIN};"
+    )
     if hasattr(g, "hospital_id") and g.hospital_id and g.hospital_id != 0:
         tracker.record(g.hospital_id, request.endpoint or "unknown")
     return log_request_response(response)

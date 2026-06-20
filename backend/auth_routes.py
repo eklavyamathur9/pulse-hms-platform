@@ -13,6 +13,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 auth_bp = Blueprint("auth", __name__)
 
+MAX_LOGIN_ATTEMPTS = 5
+ACCOUNT_LOCKOUT_MINUTES = 30
+
 
 def make_tokens(user):
     access = create_access_token(identity=str(user.id), additional_claims=user_claims(user))
@@ -231,7 +234,15 @@ def login():
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
 
+    if user.locked_until and user.locked_until > datetime.utcnow():
+        remaining = int((user.locked_until - datetime.utcnow()).total_seconds() // 60)
+        return jsonify({"error": f"Account locked. Try again in {remaining} minute(s)."}), 429
+
     if not user.password or not check_password_hash(user.password, password):
+        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+        if user.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
+            user.locked_until = datetime.utcnow() + timedelta(minutes=ACCOUNT_LOCKOUT_MINUTES)
+        safe_commit()
         return jsonify({"error": "Invalid credentials"}), 401
 
     if not user.is_active:
@@ -242,6 +253,10 @@ def login():
             return jsonify({"error": "Invalid role type selected"}), 401
         if role_type == "staff" and user.role == "patient":
             return jsonify({"error": "Invalid role type selected"}), 401
+
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    safe_commit()
 
     access, refresh = make_tokens(user)
 
