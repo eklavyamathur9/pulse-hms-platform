@@ -1,5 +1,8 @@
+import os
+
+from app import app
 from conftest import API, auth_header, login
-from models import ApiKey, Teleconsultation, Webhook, db
+from models import ApiKey, Document, LabTest, Teleconsultation, Webhook, db
 
 
 def test_api_key_crud(client, seeded):
@@ -352,3 +355,116 @@ def test_notification_task_mock(client, seeded):
     result = send_notification("sms", "+1234567890", {"message": "Test SMS"})
     assert result["sent"] is False
     assert result["provider"] == "twilio"
+
+
+def test_usage_analytics_requires_auth(client, seeded):
+    response = client.get(f"{API}/admin/usage?days=7")
+    assert response.status_code == 401
+
+
+def test_jitsi_domain_configurable(monkeypatch, client, seeded):
+    from config import Config
+    monkeypatch.setattr(Config, "JITSI_DOMAIN", "meet.example.com")
+    admin_token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
+
+    response = client.post(
+        f"{API}/hospital/telemedicine/rooms",
+        json={
+            "appointment_id": seeded["scheduled_appointment_id"],
+            "patient_id": seeded["patient_id"],
+        },
+        headers=auth_header(admin_token),
+    )
+    assert response.status_code == 201
+    url = response.get_json()["teleconsultation"]["meeting_url"]
+    assert url.startswith("https://meet.example.com/")
+
+
+def test_document_download_tenant_isolation(client, seeded):
+    from config import Config
+    import io
+
+    admin_token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
+
+    doc = Document(
+        hospital_id=seeded["hospital_one_id"],
+        patient_id=seeded["patient_id"],
+        uploaded_by=seeded["admin_id"],
+        filename="test.txt",
+        original_name="test.txt",
+        content_type="text/plain",
+        file_size=4,
+    )
+    db.session.add(doc)
+    db.session.flush()
+    os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+    with open(os.path.join(Config.UPLOAD_FOLDER, doc.filename), "w") as f:
+        f.write("test")
+    db.session.commit()
+
+    # Same tenant — should succeed
+    response = client.get(
+        f"{API}/hospital/lab/documents/{doc.id}",
+        headers=auth_header(admin_token),
+    )
+    assert response.status_code == 200
+
+    # Different tenant — should 404
+    other_token = login(client, "staff@one.test", "staffpass", seeded["hospital_one_id"])
+    doc2 = Document(
+        hospital_id=seeded["hospital_two_id"],
+        patient_id=seeded["other_patient_id"],
+        uploaded_by=seeded["admin_id"],
+        filename="other.txt",
+        original_name="other.txt",
+        content_type="text/plain",
+        file_size=5,
+    )
+    db.session.add(doc2)
+    db.session.flush()
+    with open(os.path.join(Config.UPLOAD_FOLDER, doc2.filename), "w") as f:
+        f.write("other")
+    db.session.commit()
+
+    # Fetch doc from other hospital — should 404
+    response = client.get(
+        f"{API}/hospital/lab/documents/{doc2.id}",
+        headers=auth_header(admin_token),
+    )
+    assert response.status_code == 404
+
+
+def test_lab_test_documents_tenant_isolation(client, seeded):
+    lab_test = LabTest(
+        hospital_id=seeded["hospital_two_id"],
+        appointment_id=seeded["other_appointment_id"],
+        patient_id=seeded["other_patient_id"],
+        test_name="X-Ray",
+    )
+    db.session.add(lab_test)
+    db.session.commit()
+
+    admin_token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
+
+    # Fetch lab test from different tenant — should 404
+    response = client.get(
+        f"{API}/hospital/lab/test/{lab_test.id}/documents",
+        headers=auth_header(admin_token),
+    )
+    assert response.status_code == 404
+
+
+def test_safe_commit_propagates_exception(client, seeded):
+    from validation import safe_commit
+    import pytest
+
+    # Force a commit failure by violating a constraint
+    from sqlalchemy.exc import IntegrityError
+
+    with pytest.raises(IntegrityError):
+        with app.app_context():
+            from models import Hospital
+
+            h = Hospital(name="Test", subdomain="pulse-one")  # duplicate subdomain
+            db.session.add(h)
+            safe_commit()
