@@ -1,6 +1,6 @@
 # AI Bootstrap Guide
 
-Last reviewed: 2026-05-16
+Last reviewed: 2026-06-20
 
 Use this file to start future AI-assisted development sessions efficiently.
 
@@ -76,7 +76,7 @@ At phase completion, update `docs/phases/latest.md` with:
 Use as applicable:
 
 ```bash
-python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/rate_limit.py backend/superadmin_routes.py backend/encryption.py backend/wsgi.py backend/pagination.py backend/middleware.py backend/upload_service.py backend/celery_app.py backend/tasks.py backend/api_key.py backend/api_key_routes.py backend/fhir.py backend/fhir_routes.py backend/notifications.py backend/payments_stripe.py backend/telemedicine_routes.py backend/usage.py backend/usage_analytics.py backend/webhook.py backend/webhook_routes.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
 ```
 
 ```bash

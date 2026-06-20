@@ -42,8 +42,8 @@ export default function RescheduleModal({
                 <button key={s} type="button" onClick={() => setRescheduleSlot(s)}
                   style={{
                     padding: '0.5rem', borderRadius: '4px',
-                    border: rescheduleSlot === s ? '2px solid var(--primary)' : '1px solid #ccc',
-                    background: rescheduleSlot === s ? 'var(--primary-light)' : 'white',
+                    border: rescheduleSlot === s ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                    background: rescheduleSlot === s ? 'var(--primary-light)' : 'var(--card-bg)',
                     fontWeight: rescheduleSlot === s ? 700 : 400,
                     cursor: 'pointer', fontSize: '0.85rem'
                   }}>

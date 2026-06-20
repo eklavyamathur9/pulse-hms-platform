@@ -18,6 +18,47 @@
   --spacing-lg: 1rem;
   --spacing-xl: 1.5rem;
   --spacing-2xl: 2rem;
+  --bg-main: #ffffff;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+  --success-bg: #f0fdf4;
+  --warning-bg: #fffbeb;
+  --danger-bg: #fef2f2;
+  --primary-opacity: rgba(37,99,235,0.1);
+  --chart-1: #6366f1;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #ef4444;
+  --chart-5: #8b5cf6;
+  --chart-6: #06b6d4;
+  --role-doctor: #059669;
+  --role-doctor-bg: #ecfdf5;
+  --role-staff: #d97706;
+  --role-staff-bg: #fffbeb;
+  --role-admin: #dc2626;
+  --role-admin-bg: #fef2f2;
+  --role-patient: #6366f1;
+  --role-patient-bg: #eef2ff;
+  --role-superadmin: #7c3aed;
+  --role-superadmin-bg: #f3e8ff;
+  --role-undefined: #374151;
+  --role-undefined-bg: #f3f4f6;
+  --status-active: #059669;
+  --status-inactive: #dc2626;
+  --dt-track-bg: #e5e7eb;
+  --dt-fill-bg: #7c3aed;
+  --plan-trial-color: #9ca3af;
+  --plan-basic-color: #3b82f6;
+  --plan-pro-color: #7c3aed;
+  --plan-enterprise-color: #059669;
+  --plan-trial-bg: #f3f4f6;
+  --plan-basic-bg: #eff6ff;
+  --plan-pro-bg: #f3e8ff;
+  --plan-enterprise-bg: #ecfdf5;
 }
 
 body.dark {
@@ -34,6 +75,12 @@ body.dark {
   --input-border: #475569;
   --hover-bg: #334155;
   --hover-shadow: rgba(0,0,0,0.3);
+  --bg-main: #1e293b;
+  --success-bg: #052e16;
+  --warning-bg: #451a03;
+  --danger-bg: #450a0a;
+  --primary-opacity: rgba(96,165,250,0.1);
+  --dt-track-bg: #374151;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }

@@ -16,13 +16,14 @@ import StatCard from './common/StatCard';
 import { DashboardSkeleton } from './common/Skeleton';
 
 const PLANS = ['trial', 'basic', 'pro', 'enterprise'];
-const PLAN_COLORS: Record<string, string> = { trial: '#9ca3af', basic: '#3b82f6', pro: '#7c3aed', enterprise: '#059669' };
+const PLAN_COLORS: Record<string, string> = { trial: 'var(--plan-trial-color)', basic: 'var(--plan-basic-color)', pro: 'var(--plan-pro-color)', enterprise: 'var(--plan-enterprise-color)' };
+const PLAN_BGS: Record<string, string> = { trial: 'var(--plan-trial-bg)', basic: 'var(--plan-basic-bg)', pro: 'var(--plan-pro-bg)', enterprise: 'var(--plan-enterprise-bg)' };
 const ROLE_OPTIONS = ['doctor', 'staff', 'admin', 'patient'];
 const ROLE_COLORS: Record<string, string> = {
-  doctor: '#059669', staff: '#d97706', admin: '#dc2626', patient: '#6366f1', superadmin: '#7c3aed',
+  doctor: 'var(--role-doctor)', staff: 'var(--role-staff)', admin: 'var(--role-admin)', patient: 'var(--role-patient)', superadmin: 'var(--role-superadmin)',
 };
 const ROLE_BGS: Record<string, string> = {
-  doctor: '#ecfdf5', staff: '#fffbeb', admin: '#fef2f2', patient: '#eef2ff', superadmin: '#f3e8ff',
+  doctor: 'var(--role-doctor-bg)', staff: 'var(--role-staff-bg)', admin: 'var(--role-admin-bg)', patient: 'var(--role-patient-bg)', superadmin: 'var(--role-superadmin-bg)',
 };
 
 
@@ -35,28 +36,28 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: 'var(--spacing-xl)' }}>
-        <StatCard icon={<Building />} label="Total Hospitals" value={stats.hospitals.total} color="#7c3aed" bg="#f3e8ff" />
-        <StatCard icon={<CheckCircle />} label="Active Tenants" value={stats.hospitals.active} color="#059669" bg="#ecfdf5" />
-        <StatCard icon={<Users />} label="Total Users" value={stats.users.total} color="#6366f1" bg="#eef2ff" />
-        <StatCard icon={<BarChart3 />} label="Appointments" value={stats.appointments.total} color="#f59e0b" bg="#fffbeb" />
-        <StatCard icon={<DollarSign />} label="Total Revenue" value={`$${stats.revenue.total.toLocaleString()}`} color="#16a34a" bg="#f0fdf4" />
-        <StatCard icon={<CreditCard />} label="Paid Invoices" value={`${stats.revenue.paid_invoices}/${stats.revenue.total_invoices}`} color="#8b5cf6" bg="#faf5ff" />
+        <StatCard icon={<Building />} label="Total Hospitals" value={stats.hospitals.total} color="var(--role-superadmin)" bg="var(--role-superadmin-bg)" />
+        <StatCard icon={<CheckCircle />} label="Active Tenants" value={stats.hospitals.active} color="var(--role-doctor)" bg="var(--role-doctor-bg)" />
+        <StatCard icon={<Users />} label="Total Users" value={stats.users.total} color="var(--role-patient)" bg="var(--role-patient-bg)" />
+        <StatCard icon={<BarChart3 />} label="Appointments" value={stats.appointments.total} color="var(--chart-3)" bg="var(--warning-bg)" />
+        <StatCard icon={<DollarSign />} label="Total Revenue" value={`$${stats.revenue.total.toLocaleString()}`} color="var(--chart-2)" bg="var(--success-bg)" />
+        <StatCard icon={<CreditCard />} label="Paid Invoices" value={`${stats.revenue.paid_invoices}/${stats.revenue.total_invoices}`} color="var(--chart-5)" bg="var(--role-superadmin-bg)" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xl)' }}>
         <Card className="glass-panel" padding={false}>
           <div style={{ padding: 'var(--spacing-xl)' }}>
-          <h3 style={{ marginBottom: '1rem' }}><Users size={18} color="#7c3aed" /> Users by Role</h3>
+          <h3 style={{ marginBottom: '1rem' }}><Users size={18} color="var(--role-superadmin)" /> Users by Role</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {Object.entries(stats.users).filter(([k]) => k !== 'total').map(([role, count]) => (
               <div key={role} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>{role}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, marginLeft: '1rem' }}>
-                  <div style={{ flex: 1, height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${stats.users.total > 0 ? ((count as number) / stats.users.total) * 100 : 0}%`, height: '100%', background: ROLE_COLORS[role] || '#7c3aed', borderRadius: '4px' }} />
+                  <div style={{ flex: 1, height: '8px', background: 'var(--dt-track-bg)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${stats.users.total > 0 ? ((count as number) / stats.users.total) * 100 : 0}%`, height: '100%', background: ROLE_COLORS[role] || 'var(--role-superadmin)', borderRadius: '4px' }} />
                   </div>
                 </div>
-                <span style={{ fontWeight: 700, color: ROLE_COLORS[role] || '#7c3aed' }}>{count as number}</span>
+                <span style={{ fontWeight: 700, color: ROLE_COLORS[role] || 'var(--role-superadmin)' }}>{count as number}</span>
               </div>
             ))}
           </div>
@@ -65,7 +66,7 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
 
         <Card className="glass-panel" padding={false}>
           <div style={{ padding: 'var(--spacing-xl)' }}>
-          <h3 style={{ marginBottom: '1rem' }}><Building size={18} color="#7c3aed" /> Hospitals by Plan</h3>
+          <h3 style={{ marginBottom: '1rem' }}><Building size={18} color="var(--role-superadmin)" /> Hospitals by Plan</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {PLANS.map(plan => {
               const count = hospitals.filter(h => h.plan === plan).length;
@@ -74,7 +75,7 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
                 <div key={plan} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>{plan}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, marginLeft: '1rem' }}>
-                    <div style={{ flex: 1, height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ flex: 1, height: '8px', background: 'var(--dt-track-bg)', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{ width: `${pct}%`, height: '100%', background: PLAN_COLORS[plan], borderRadius: '4px' }} />
                     </div>
                   </div>
@@ -89,7 +90,7 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
 
       <Card className="glass-panel" padding={false}>
         <div style={{ padding: 'var(--spacing-xl)', marginTop: 'var(--spacing-xl)' }}>
-        <h3 style={{ marginBottom: '1rem' }}><Activity size={18} color="#7c3aed" /> Platform Activity</h3>
+        <h3 style={{ marginBottom: '1rem' }}><Activity size={18} color="var(--role-superadmin)" /> Platform Activity</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
           <div>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Active Rate</div>
@@ -142,20 +143,20 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 'var(--spacing-lg)' }}>
         <Button variant="secondary" size="sm" onClick={onBack}><ArrowLeft size={16} /></Button>
         <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Building size={20} color="#7c3aed" /> {hospital.name}
-          <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', background: `${PLAN_COLORS[hospital.plan]}20`, color: PLAN_COLORS[hospital.plan] }}>{hospital.plan}</span>
+          <Building size={20} color="var(--role-superadmin)" /> {hospital.name}
+          <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', background: PLAN_BGS[hospital.plan], color: PLAN_COLORS[hospital.plan] }}>{hospital.plan}</span>
         </h2>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: 'var(--spacing-xl)' }}>
-        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Doctors</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#059669' }}>{hospital.stats?.doctors || 0}</div></div></Card>
-        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Patients</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#6366f1' }}>{hospital.stats?.patients || 0}</div></div></Card>
-        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Appointments</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b' }}>{hospital.stats?.appointments || 0}</div></div></Card>
-        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Revenue</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a' }}>${(hospital.stats?.revenue || 0).toFixed(0)}</div></div></Card>
+        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Doctors</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--role-doctor)' }}>{hospital.stats?.doctors || 0}</div></div></Card>
+        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Patients</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--role-patient)' }}>{hospital.stats?.patients || 0}</div></div></Card>
+        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Appointments</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--chart-3)' }}>{hospital.stats?.appointments || 0}</div></div></Card>
+        <Card className="text-center" padding={false}><div style={{ padding: '1rem' }}><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Revenue</div><div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--chart-2)' }}>${(hospital.stats?.revenue || 0).toFixed(0)}</div></div></Card>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-        <h3><Users size={18} color="#7c3aed" /> Users ({users.length})</h3>
+        <h3><Users size={18} color="var(--role-superadmin)" /> Users ({users.length})</h3>
         <Button variant="primary" onClick={() => setShowCreate(!showCreate)}>
           <UserPlus size={16} /> {showCreate ? 'Cancel' : 'Create User'}
         </Button>
@@ -164,7 +165,7 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
       {showCreate && (
         <form onSubmit={createUser} className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <Input placeholder="Name" required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
-          <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
+          <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
             {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
           <Input type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
@@ -191,9 +192,9 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
               <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
                 <td>#{u.id}</td>
                 <td style={{ fontWeight: 600 }}>{u.name}{u.specialization ? ` (${u.specialization})` : ''}</td>
-                <td><span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', background: ROLE_BGS[u.role] || '#f3f4f6', color: ROLE_COLORS[u.role] || '#374151' }}>{u.role}</span></td>
+                <td><span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', background: ROLE_BGS[u.role] || 'var(--role-undefined-bg)', color: ROLE_COLORS[u.role] || 'var(--role-undefined)' }}>{u.role}</span></td>
                 <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{u.email || u.contact || '—'}</td>
-                <td>{u.is_active ? <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.85rem' }}>Active</span> : <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.85rem' }}>Inactive</span>}</td>
+                <td>{u.is_active ? <span style={{ color: 'var(--status-active)', fontWeight: 600, fontSize: '0.85rem' }}>Active</span> : <span style={{ color: 'var(--status-inactive)', fontWeight: 600, fontSize: '0.85rem' }}>Inactive</span>}</td>
               </tr>
             ))}
           </tbody>
@@ -311,16 +312,16 @@ export default function SuperAdminDashboard() {
 
       <div style={{ marginBottom: 'var(--spacing-lg)' }}>
         <h1 style={{ fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' } as React.CSSProperties}>
-          <Shield color="#7c3aed" /> SaaS Super Admin Platform
+          <Shield color="var(--role-superadmin)" /> SaaS Super Admin Platform
         </h1>
         <p style={{ color: 'var(--text-muted)' }}>Multi-tenant platform management and monitoring</p>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid #e2e8f0' } as React.CSSProperties}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid var(--border-color)' } as React.CSSProperties}>
         {['overview', 'hospitals', 'users'].map(t => (
           <button key={t} className="btn" style={{
             padding: '0.5rem 1rem', background: 'none',
-            borderBottom: tab === t ? '3px solid #7c3aed' : '3px solid transparent',
+            borderBottom: tab === t ? '3px solid var(--role-superadmin)' : '3px solid transparent',
             borderRadius: 0, fontWeight: tab === t ? 700 : 500, textTransform: 'capitalize',
           } as React.CSSProperties} onClick={() => setTab(t)}>{t}</button>
         ))}
@@ -341,10 +342,10 @@ export default function SuperAdminDashboard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1 }}>
               <div style={{ position: 'relative', flex: 1, maxWidth: '300px' }}>
-                <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' } as React.CSSProperties} />
+                <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--plan-trial-color)' } as React.CSSProperties} />
                 <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search hospitals..." style={{ width: '100%', padding: '0.6rem', paddingLeft: '2rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} />
               </div>
-              <select value={planFilter} onChange={e => setPlanFilter(e.target.value)} style={{ width: '140px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
+              <select value={planFilter} onChange={e => setPlanFilter(e.target.value)} style={{ width: '140px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
                 <option value="">All Plans</option>
                 {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -364,7 +365,7 @@ export default function SuperAdminDashboard() {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Plan</label>
-                <select value={newHospital.plan} onChange={e => setNewHospital({...newHospital, plan: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
+                <select value={newHospital.plan} onChange={e => setNewHospital({...newHospital, plan: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
                   {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
@@ -401,20 +402,20 @@ export default function SuperAdminDashboard() {
                       <td>
                         {editingPlan === h.id ? (
                           <select value={h.plan} onChange={e => changePlan(h.id, e.target.value)}
-                            onBlur={() => setEditingPlan(null)} style={{ width: '120px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }} autoFocus>
+                            onBlur={() => setEditingPlan(null)} style={{ width: '120px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }} autoFocus>
                             {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
                         ) : (
-                          <span onClick={() => setEditingPlan(h.id)} style={{ cursor: 'pointer', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', background: `${PLAN_COLORS[h.plan]}20`, color: PLAN_COLORS[h.plan] }}>
+                          <span onClick={() => setEditingPlan(h.id)} style={{ cursor: 'pointer', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', background: PLAN_BGS[h.plan], color: PLAN_COLORS[h.plan] }}>
                             {h.plan} <Edit2 size={12} style={{ marginLeft: '0.25rem', opacity: 0.5 }} />
                           </span>
                         )}
                       </td>
                       <td>
                         {h.is_active ? (
-                          <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' } as React.CSSProperties}><CheckCircle size={14} /> Active</span>
+                          <span style={{ color: 'var(--status-active)', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' } as React.CSSProperties}><CheckCircle size={14} /> Active</span>
                         ) : (
-                          <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' } as React.CSSProperties}><XCircle size={14} /> Suspended</span>
+                          <span style={{ color: 'var(--status-inactive)', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.25rem' } as React.CSSProperties}><XCircle size={14} /> Suspended</span>
                         )}
                       </td>
                       <td style={{ fontSize: '0.85rem' }}>{h.stats?.total_users || 0}</td>
@@ -464,8 +465,8 @@ export default function SuperAdminDashboard() {
                   <Button variant="secondary" size="sm" onClick={() => { setSelectedHospital(null); setHospitalUsers([]); }}>
                     <ArrowLeft size={16} />
                   </Button>
-                  <h2 style={{ margin: 0 }}><Building size={20} color="#7c3aed" /> {selectedHospital.name}</h2>
-                  <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', background: `${PLAN_COLORS[selectedHospital.plan]}20`, color: PLAN_COLORS[selectedHospital.plan] }}>{selectedHospital.plan}</span>
+                  <h2 style={{ margin: 0 }}><Building size={20} color="var(--role-superadmin)" /> {selectedHospital.name}</h2>
+                  <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', background: PLAN_BGS[selectedHospital.plan], color: PLAN_COLORS[selectedHospital.plan] }}>{selectedHospital.plan}</span>
                 </div>
                 <Button variant="primary" onClick={() => setShowCreateUser(true)}>
                   <UserPlus size={16} /> Create User
@@ -479,7 +480,7 @@ export default function SuperAdminDashboard() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
-                    <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
+                    <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
                       {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
@@ -514,10 +515,10 @@ export default function SuperAdminDashboard() {
                         <td>#{u.id}</td>
                         <td style={{ fontWeight: 600 }}>{u.name}{u.specialization ? ` (${u.specialization})` : ''}</td>
                         <td>
-                          <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', background: ROLE_BGS[u.role] || '#f3f4f6', color: ROLE_COLORS[u.role] || '#374151' }}>{u.role}</span>
+                          <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', background: ROLE_BGS[u.role] || 'var(--role-undefined-bg)', color: ROLE_COLORS[u.role] || 'var(--role-undefined)' }}>{u.role}</span>
                         </td>
                         <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{u.email || u.contact || '—'}</td>
-                        <td>{u.is_active ? <span style={{ color: '#059669', fontWeight: 600, fontSize: '0.85rem' }}>Active</span> : <span style={{ color: '#dc2626', fontWeight: 600, fontSize: '0.85rem' }}>Inactive</span>}</td>
+                        <td>{u.is_active ? <span style={{ color: 'var(--status-active)', fontWeight: 600, fontSize: '0.85rem' }}>Active</span> : <span style={{ color: 'var(--status-inactive)', fontWeight: 600, fontSize: '0.85rem' }}>Inactive</span>}</td>
                       </tr>
                     ))}
                   </tbody>

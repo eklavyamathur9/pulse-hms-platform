@@ -76,7 +76,7 @@ Last reviewed: 2026-06-20
 ### Code Quality & Infrastructure
 - ESLint: 0 errors, 129 warnings (pre-existing `any` types — acceptable)
 - Ruff: clean throughout backend codebase
-- Backend: 54 pytest tests (7 API + 6 socket + 16 workflow + 25 integration)
+- Backend: 54 pytest tests (7 API + 5 socket + 17 workflow + 25 integration)
 - Frontend: 47 tests (useNotificationStore, StatCard, Button, Modal, Card, Input, utils)
 - GitHub Actions CI: 4 focused workflows (lint-format, test, security-scan, docker-build)
 - Alembic migrations (baseline `58e5f1bc23af`, latest `f9e8d7c6b5a4` for account lockout)
@@ -106,7 +106,7 @@ Last reviewed: 2026-06-20
 - `docs/database.md` — schema documentation, ER diagram, migration management
 - `docs/deployment.md` — Docker, environment variables, CI/CD, production gaps
 - `docs/current-status.md` — this file
-- `docs/enterprise-roadmap.md` — phased plan through Phase 15
+- `docs/enterprise-roadmap.md` — phased plan through Phase 18
 - `docs/coding-standards.md` — current conventions
 - `docs/ai-bootstrap.md` — AI session bootstrap process
 - `docs/architectural-weaknesses.md` — catalog of known gaps with severity and impact
@@ -172,7 +172,7 @@ Phase 17 (Security Hardening) is complete: account lockout, API key rotation, CS
 
 ## Phase 18 (Current) — SQLAlchemy Relationships & N+1 Fix
 
-SQLAlchemy relationship properties added to Hospital, User, Appointment, and Invoice models. N+1 query patterns fixed in 6 hospital_routes endpoints and 1 patient_routes endpoint using joinedload/selectinload.
+SQLAlchemy relationship properties added to Hospital, User, Appointment, and Invoice models. N+1 query patterns fixed in 6 hospital_routes endpoints (get_hospital_queue, get_doctor_queue, get_doctor_stats, get_lab_queue, get_pharmacy_queue, get_patient_invoices), admin_search, and 1 patient_routes endpoint (get_patient_prescriptions).
 
 Remaining after Phase 18:
 - CSS variable migration (~70 hardcoded hex colors)

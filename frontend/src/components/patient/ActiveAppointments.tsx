@@ -115,7 +115,7 @@ export default function ActiveAppointments({
                       }}>
                         <div style={{
                           width: '34px', height: '34px', borderRadius: '50%',
-                          background: isPassed ? 'var(--primary)' : 'white',
+                          background: isPassed ? 'var(--primary)' : 'var(--card-bg)',
                           border: isPassed ? '4px solid var(--bg-surface)' : '4px solid var(--border-color)',
                           boxShadow: isActive ? '0 0 0 4px var(--primary-opacity)' : 'none',
                           transition: 'all 0.3s ease'
@@ -140,7 +140,7 @@ export default function ActiveAppointments({
                 )}
               </div>
 
-              <hr style={{ border: 0, height: '1px', background: '#E2E8F0', margin: 'var(--spacing-lg) 0' }} />
+              <hr style={{ border: 0, height: '1px', background: 'var(--border-color)', margin: 'var(--spacing-lg) 0' }} />
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
                 <div style={{

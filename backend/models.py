@@ -11,6 +11,7 @@ def backref(name, **kwargs):
 
 # ── Status Constants ──────────────────────────────────────────────
 
+
 class AppointmentStatus:
     SCHEDULED = "Scheduled"
     ARRIVED = "Arrived"
@@ -160,9 +161,7 @@ class User(db.Model):
     ratings_as_doctor = db.relationship(
         "Rating", foreign_keys="Rating.doctor_id", backref="doctor_rating", lazy="select"
     )
-    documents = db.relationship(
-        "Document", foreign_keys="Document.patient_id", backref="patient_docs", lazy="select"
-    )
+    documents = db.relationship("Document", foreign_keys="Document.patient_id", backref="patient_docs", lazy="select")
     uploaded_documents = db.relationship(
         "Document", foreign_keys="Document.uploaded_by", backref="uploader", lazy="select"
     )

@@ -111,7 +111,8 @@ npm run build
 npm run lint
 ```
 
-Current lint status: 0 errors, 127 warnings (any types remain in dashboards, acceptable).
+Current lint status: 0 errors, 125 warnings (any types remain in dashboards, acceptable).
+CSS variable system: 23 custom properties in `index.css` cover layout, roles, charts, status, plans, and notification colors with light/dark mode overrides.
 Current test status: 11 frontend tests, 29 backend tests.
 Phase 11 (Production Hardening) complete: gunicorn, nginx, docker-compose.prod.yml, Redis socket support.
 Phase 3 follow-up complete: error_response()/success_response() helpers in validation.py, encryption.py with Fernet-backed EncryptedField.

@@ -364,6 +364,7 @@ def test_usage_analytics_requires_auth(client, seeded):
 
 def test_jitsi_domain_configurable(monkeypatch, client, seeded):
     from config import Config
+
     monkeypatch.setattr(Config, "JITSI_DOMAIN", "meet.example.com")
     admin_token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
 
@@ -382,7 +383,6 @@ def test_jitsi_domain_configurable(monkeypatch, client, seeded):
 
 def test_document_download_tenant_isolation(client, seeded):
     from config import Config
-    import io
 
     admin_token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
 
@@ -410,7 +410,7 @@ def test_document_download_tenant_isolation(client, seeded):
     assert response.status_code == 200
 
     # Different tenant — should 404
-    other_token = login(client, "staff@one.test", "staffpass", seeded["hospital_one_id"])
+    login(client, "staff@one.test", "staffpass", seeded["hospital_one_id"])
     doc2 = Document(
         hospital_id=seeded["hospital_two_id"],
         patient_id=seeded["other_patient_id"],
@@ -455,11 +455,9 @@ def test_lab_test_documents_tenant_isolation(client, seeded):
 
 
 def test_safe_commit_propagates_exception(client, seeded):
-    from validation import safe_commit
     import pytest
-
-    # Force a commit failure by violating a constraint
     from sqlalchemy.exc import IntegrityError
+    from validation import safe_commit
 
     with pytest.raises(IntegrityError):
         with app.app_context():

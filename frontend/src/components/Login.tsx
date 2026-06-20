@@ -167,7 +167,7 @@ export default function Login() {
               </button>
             </div>
 
-            <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: '#94A3B8', background: '#F8FAFC', padding: '0.75rem', borderRadius: '8px' }}>
+            <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', background: 'var(--bg-main)', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }}>
               <b>Demo Hints:</b><br />
               Patient: +1 555-0100 / patient_pass<br />
               Admin: admin@pulse.com / admin<br />

@@ -181,8 +181,8 @@ export function BookingForm({
                     <button key={slot} type="button" onClick={() => setSelectedSlot(slot)}
                       style={{
                         padding: '0.6rem', borderRadius: '6px',
-                        border: selectedSlot === slot ? '2px solid var(--primary)' : '1px solid #ccc',
-                        background: selectedSlot === slot ? 'var(--primary-light)' : 'white',
+                        border: selectedSlot === slot ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                        background: selectedSlot === slot ? 'var(--primary-light)' : 'var(--card-bg)',
                         fontWeight: selectedSlot === slot ? 700 : 500,
                         cursor: 'pointer', fontSize: '0.85rem',
                         color: selectedSlot === slot ? 'var(--primary)' : 'var(--text-dark)'

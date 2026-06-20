@@ -1,6 +1,6 @@
 from auth_utils import current_hospital_id, current_user, forbidden, require_hospital_context, require_roles
 from flask import Blueprint, jsonify
-from models import Appointment, User, db
+from models import Appointment, User
 from pagination import get_pagination_params, paginate, paginated_response
 from sqlalchemy.orm import joinedload
 from validation import int_field, json_body, safe_commit
@@ -55,7 +55,7 @@ def get_patient_appointments(patient_id):
 @patient_bp.route("/<int:patient_id>/prescriptions", methods=["GET"])
 @require_roles("patient", "admin", "staff", "doctor", "superadmin")
 def get_patient_prescriptions(patient_id):
-    from models import Prescription, User
+    from models import Prescription
 
     hospital_id, error, status = require_hospital_context()
     if error:

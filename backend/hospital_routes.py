@@ -135,9 +135,11 @@ def get_hospital_queue():
     # Admin/Staff can see everyone Arrived but not Consult_Done
     # For now, let's just fetch Scheduled, Arrived, Vitals_Taken
     page, per_page = get_pagination_params()
-    query = Appointment.query.filter_by(hospital_id=hospital_id).filter(
-        Appointment.status.in_(["Scheduled", "Arrived", "Vitals_Taken"])
-    ).options(joinedload(Appointment.patient), joinedload(Appointment.doctor))
+    query = (
+        Appointment.query.filter_by(hospital_id=hospital_id)
+        .filter(Appointment.status.in_(["Scheduled", "Arrived", "Vitals_Taken"]))
+        .options(joinedload(Appointment.patient), joinedload(Appointment.doctor))
+    )
     appts, total, p, pp, pages = paginate(query, page, per_page)
 
     result = []
@@ -171,12 +173,14 @@ def get_doctor_queue(doc_id):
         return jsonify({"error": "Doctor not found"}), 404
     # Doctor sees patients ready, arrived, or returning from lab
     page, per_page = get_pagination_params()
-    query = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).filter(
-        Appointment.status.in_(["Arrived", "Vitals_Taken", "Lab_Pending", "Consult_Pending_Review"])
-    ).options(
-        joinedload(Appointment.patient),
-        selectinload(Appointment.vitals_rel),
-        selectinload(Appointment.lab_tests_rel),
+    query = (
+        Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id)
+        .filter(Appointment.status.in_(["Arrived", "Vitals_Taken", "Lab_Pending", "Consult_Pending_Review"]))
+        .options(
+            joinedload(Appointment.patient),
+            selectinload(Appointment.vitals_rel),
+            selectinload(Appointment.lab_tests_rel),
+        )
     )
     appts, total, p, pp, pages = paginate(query, page, per_page)
 
@@ -220,7 +224,7 @@ def get_doctor_queue(doc_id):
 def get_doctor_stats(doc_id):
     from datetime import datetime
 
-    from models import Appointment, Invoice, Rating, User, db
+    from models import Appointment, Rating, User, db
 
     hospital_id, error, status = require_hospital_context()
     if error:
@@ -239,9 +243,11 @@ def get_doctor_stats(doc_id):
     ).count()
 
     # Total revenue from this doctor's appointments (Consultation + Paid Labs)
-    appts = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).options(
-        selectinload(Appointment.invoice_rel)
-    ).all()
+    appts = (
+        Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id)
+        .options(selectinload(Appointment.invoice_rel))
+        .all()
+    )
     revenue = 0
     for a in appts:
         inv = a.invoice_rel
@@ -941,7 +947,7 @@ def download_lab_report(doc_id):
     if not hospital_id:
         return jsonify({"error": "hospital_id is required"}), 400
 
-    doc = (Document.query if is_superadmin() else Document.query.filter_by(hospital_id=hospital_id))
+    doc = Document.query if is_superadmin() else Document.query.filter_by(hospital_id=hospital_id)
     doc = doc.filter_by(id=doc_id).first()
     if not doc:
         return jsonify({"error": "Document not found"}), 404
@@ -964,7 +970,7 @@ def list_lab_documents(test_id):
     if not hospital_id:
         return jsonify({"error": "hospital_id is required"}), 400
 
-    lab_test = (LabTest.query if is_superadmin() else LabTest.query.filter_by(hospital_id=hospital_id))
+    lab_test = LabTest.query if is_superadmin() else LabTest.query.filter_by(hospital_id=hospital_id)
     lab_test = lab_test.filter_by(id=test_id).first()
     if not lab_test:
         return jsonify({"error": "Lab test not found"}), 404

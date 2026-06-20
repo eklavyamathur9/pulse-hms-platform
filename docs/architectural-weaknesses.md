@@ -1,6 +1,6 @@
 # Architectural Weaknesses
 
-Last reviewed: 2026-06-19
+Last reviewed: 2026-06-20
 
 This file centralizes current architectural weaknesses. Items with strikethrough have been resolved. It documents remaining risks only; it does not implement fixes.
 
@@ -13,13 +13,13 @@ This file centralizes current architectural weaknesses. Items with strikethrough
 | Coupling | Dashboards mix UI, fetching, state, PDF logic | Medium | DoctorDashboard, AdminDashboard, StaffDashboard | Hard to maintain and safely modify | Extract hooks/components incrementally | Medium |
 | ~~Missing abstraction~~ | ~~No service layer~~ | ~~High~~ | ~~route modules, socket handlers~~ | ~~REST and sockets can diverge in behavior~~ | ~~Added services/ for workflows~~ | ~~Medium~~ |
 | Missing abstraction | No request validation schemas | High | all POST/PUT/socket handlers | Runtime errors and inconsistent validation | Add schema validation per endpoint | Medium |
-| Duplication | Manual related-record lookups | Medium | hospital_routes.py, patient_routes.py | Repeated code and potential N+1 queries | Add SQLAlchemy relationships | Medium |
+| ~~Duplication~~ | ~~Manual related-record lookups~~ | ~~Medium~~ | ~~hospital_routes.py, patient_routes.py~~ | ~~Repeated code and potential N+1 queries~~ | ~~Add SQLAlchemy relationships~~ | ~~Medium~~ |
 | Fragility | String workflow statuses | Medium | models, routes, dashboards | Typos can create invalid states | Centralize constants/enums | Low |
 | ~~Fragility~~ | ~~`db.create_all()` on startup~~ | ~~High~~ | ~~app.py~~ | ~~Schema drift, unsafe production~~ | ~~Controlled by AUTO_CREATE_TABLES toggle~~ | ~~Medium~~ |
 | Fragility | `seed.py` drops all tables | Medium | seed.py | Accidental data loss if run in wrong env | Add environment guard | Low |
 | Performance | Analytics performs simple aggregate queries | Medium | hospital_routes.py | Slow dashboard under growth | Add indexes/cache later | Medium |
 | Performance | No caching layer | Low | all app layers | Repeated API calls, no query caching | Consider server-state library later (Flask-Caching added for analytics) | Medium |
-| Performance | 10 N+1 query patterns | Medium | hospital_routes.py, auth_routes.py, patient_routes.py, superadmin_routes.py | Slow queue/list pages under growth | Add eager-loading or batch queries | Medium |
+| ~~Performance~~ | ~~10 N+1 query patterns~~ | ~~Medium~~ | ~~hospital_routes.py, patient_routes.py~~ | ~~Slow queue/list pages under growth~~ | ~~Add eager-loading (Phase 18)~~ | ~~Medium~~ |
 | Security | JWT stored in localStorage | Medium | AuthContext, api.ts | XSS can expose token | Consider httpOnly cookies or stronger XSS controls | Medium |
 | Security | No rate limiting | Medium | auth routes | Brute force and abuse risk (rated added in Phase 7) | Add rate limiter | Low |
 | Security | Secrets have dev defaults | Medium | app.py, Compose | Production may run with weak secrets (guarded by Config.validate()) | Fail startup in production without strong secrets | Low |
@@ -40,7 +40,7 @@ Resolved items:
 - ~~Socket workflow logic in app.py~~ → `backend/services/` modules (Phase 3)
 - ~~No service layer~~ → `backend/services/` directory (Phase 3)
 - ~~No audit logs~~ → AuditLog model + audit.py (Phase 4)
-- ~~No tests~~ → 49 pytest tests + 11 frontend tests (Phase 1+)
+- ~~No tests~~ → 54 pytest tests + 47 frontend tests (Phase 1+)
 - ~~No CI/CD~~ → 4 GitHub Actions workflows (Phase 1 + 3.5)
 - ~~`db.create_all()` on startup~~ → Controlled by AUTO_CREATE_TABLES toggle (Phase 2)
 - ~~No API versioning~~ → `/api/v1/` prefix with 301 redirects (Phase 14)
@@ -50,3 +50,13 @@ Resolved items:
 - ~~Mock superadmin data~~ → Real platform APIs (Phase 6)
 - ~~No caching~~ → Flask-Caching (Phase 13)
 - ~~Superadmin dashboard mock~~ → Real API integration (Phase 6)
+- ~~Missing JWT decorator on admin/usage~~ → Added @jwt_required() (Phase 15)
+- ~~Hardcoded Jitsi URL~~ → Configurable via JITSI_DOMAIN (Phase 15)
+- ~~db.session.commit() not wrapped~~ → safe_commit() helper (Phase 15)
+- ~~No dashboard error states~~ → Added to all 5 dashboards (Phase 15)
+- ~~Manual related-record lookups~~ → SQLAlchemy relationships added (Phase 18)
+- ~~10 N+1 query patterns~~ → Fixed via joinedload/selectinload (Phase 18)
+- ~~Account lockout~~ → Added to login route (Phase 17)
+- ~~No CSP headers~~ → Added to after_request (Phase 17)
+- ~~No API key rotation~~ → POST /admin/api-keys/:id/rotate (Phase 17)
+- ~~Frontend tests sparse~~ → Expanded to 47 tests across 7 files (Phase 15-16)

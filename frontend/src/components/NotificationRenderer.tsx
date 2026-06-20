@@ -7,10 +7,10 @@ interface Notification {
 }
 
 const colorMap: Record<string, { bg: string; border: string; color: string; icon: string }> = {
-  success: { bg: '#f0fdf4', border: '#22c55e', color: '#15803d', icon: '✓' },
-  error:   { bg: '#fef2f2', border: '#ef4444', color: '#b91c1c', icon: '✕' },
-  info:    { bg: '#eff6ff', border: '#3b82f6', color: '#1d4ed8', icon: 'ℹ' },
-  warning: { bg: '#fffbeb', border: '#f59e0b', color: '#b45309', icon: '⚠' },
+  success: { bg: 'var(--success-bg)', border: 'var(--chart-2)', color: 'var(--status-active)', icon: '✓' },
+  error:   { bg: 'var(--danger-bg)', border: 'var(--chart-4)', color: 'var(--status-inactive)', icon: '✕' },
+  info:    { bg: 'var(--role-patient-bg)', border: 'var(--chart-1)', color: 'var(--chart-1)', icon: 'ℹ' },
+  warning: { bg: 'var(--warning-bg)', border: 'var(--chart-3)', color: 'var(--chart-3)', icon: '⚠' },
 };
 
 interface ToastProps {
@@ -30,7 +30,7 @@ function Toast({ notification, onDismiss }: ToastProps) {
         color: c.color,
         padding: '1rem 1.25rem',
         borderRadius: '0.75rem',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+        boxShadow: 'var(--shadow-lg)',
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
