@@ -1,6 +1,6 @@
 # Database Documentation
 
-Last reviewed: 2026-06-19
+Last reviewed: 2026-06-20
 
 This document describes the current SQLAlchemy model layer in `backend/models.py`.
 
@@ -47,9 +47,7 @@ erDiagram
   LabTest ||--o{ Document : lab_test
 ```
 
-Important note: the code declares foreign keys but does not define SQLAlchemy relationship properties. Route code manually queries related records.
-
-_Update: As of Phase 18, SQLAlchemy relationship properties have been added to Hospital, User, Appointment, and Invoice models. Most route N+1 query patterns have been fixed with joinedload/selectinload._
+Important note: the code declares foreign keys and SQLAlchemy relationship properties (Hospital, User, Appointment, Invoice — added in Phase 18). Route code uses eager loading (`joinedload`/`selectinload`) for most list endpoints to avoid N+1 queries.
 
 ## Tables
 

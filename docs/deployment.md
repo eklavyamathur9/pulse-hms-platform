@@ -1,6 +1,6 @@
 # Deployment Documentation
 
-Last reviewed: 2026-06-19
+Last reviewed: 2026-06-20
 
 This document describes the current deployment and runtime setup. Both development and production Docker Compose configurations are available.
 
@@ -66,7 +66,7 @@ Frontend service:
 
 ## Production Docker Compose
 
-`docker-compose.prod.yml` defines six services:
+`docker-compose.prod.yml` defines eight services:
 
 ```mermaid
 flowchart LR
@@ -92,6 +92,8 @@ flowchart LR
 | `db` | `postgres:16-alpine` | `5432` | Production database |
 | `redis` | `redis:7-alpine` | `6379` | Celery broker, cache, rate limiting, socket message queue |
 | `celery-worker` | `backend/` → celery | — | Background job processing |
+| `prometheus` | `prom/prometheus:v2.55.0` | `9090` | Metrics collection |
+| `grafana` | `grafana/grafana:11.2.0` | `3000` | Monitoring dashboards |
 
 Production-specific configuration:
 
@@ -177,11 +179,11 @@ Current state:
 
 - GitHub Actions CI with 4 focused workflows on push/PR to main:
   - `lint-format.yml` — ruff check + ESLint
-  - `test.yml` — pytest (49 tests) + frontend build
+  - `test.yml` — pytest (54 tests) + frontend build
   - `security-scan.yml` — ruff security rules + pip-audit + Trivy
   - `docker-build.yml` — multi-stage Docker image build validation
-- Backend: `py_compile` all Python files, `pytest` test suite (49 tests across 4 modules)
-- Frontend: `npm run build` and `npm run lint` (0 errors, 129 warnings)
+- Backend: `py_compile` all Python files, `pytest` test suite (54 tests across 5 modules)
+- Frontend: `npm run build` and `npm run lint` (0 errors, ~125 warnings)
 - Migration check: `flask --app backend/app.py db -d backend/migrations check` (manual, not in CI)
 
 ## Production Readiness Gaps
