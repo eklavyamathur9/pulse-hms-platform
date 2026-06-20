@@ -18,6 +18,7 @@ from middleware import query_timeout
 from models import Appointment, Document, Invoice, LabTest, Payment, Prescription, Rating, User, Vitals, db
 from pagination import get_pagination_params, paginate, paginated_response
 from rate_limit import limiter, tenant_key
+from sqlalchemy.orm import joinedload, selectinload
 from upload_service import save_upload
 from validation import int_field, json_body, require_fields
 
@@ -136,18 +137,16 @@ def get_hospital_queue():
     page, per_page = get_pagination_params()
     query = Appointment.query.filter_by(hospital_id=hospital_id).filter(
         Appointment.status.in_(["Scheduled", "Arrived", "Vitals_Taken"])
-    )
+    ).options(joinedload(Appointment.patient), joinedload(Appointment.doctor))
     appts, total, p, pp, pages = paginate(query, page, per_page)
 
     result = []
     for a in appts:
-        patient = User.query.get(a.patient_id)
-        doctor = User.query.get(a.doctor_id)
         result.append(
             {
                 "id": a.id,
-                "patient_name": patient.name if patient else "Unknown",
-                "doctor_name": doctor.name if doctor else "Unknown",
+                "patient_name": a.patient.name if a.patient else "Unknown",
+                "doctor_name": a.doctor.name if a.doctor else "Unknown",
                 "date": a.date_str,
                 "time": a.time_str,
                 "status": a.status,
@@ -174,23 +173,26 @@ def get_doctor_queue(doc_id):
     page, per_page = get_pagination_params()
     query = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).filter(
         Appointment.status.in_(["Arrived", "Vitals_Taken", "Lab_Pending", "Consult_Pending_Review"])
+    ).options(
+        joinedload(Appointment.patient),
+        selectinload(Appointment.vitals_rel),
+        selectinload(Appointment.lab_tests_rel),
     )
     appts, total, p, pp, pages = paginate(query, page, per_page)
 
     result = []
     for a in appts:
-        patient = User.query.get(a.patient_id)
-        # Fetch vitals if they exist
-        vitals_entry = Vitals.query.filter_by(hospital_id=hospital_id, appointment_id=a.id).first()
+        p = a.patient
+        vitals_entry = a.vitals_rel
         result.append(
             {
                 "id": a.id,
-                "patient_id": patient.id,
-                "patient_name": patient.name if patient else "Unknown",
-                "patient_age": patient.age if patient else "N/A",
-                "patient_height": patient.height if patient else "N/A",
-                "patient_weight_baseline": patient.weight_baseline if patient else "N/A",
-                "patient_allergies": patient.allergies if patient else "None reported",
+                "patient_id": p.id,
+                "patient_name": p.name if p else "Unknown",
+                "patient_age": p.age if p else "N/A",
+                "patient_height": p.height if p else "N/A",
+                "patient_weight_baseline": p.weight_baseline if p else "N/A",
+                "patient_allergies": p.allergies if p else "None reported",
                 "symptoms": a.symptoms,
                 "pain_level": a.pain_level,
                 "date": a.date_str,
@@ -206,7 +208,7 @@ def get_doctor_queue(doc_id):
                 else None,
                 "lab_tests": [
                     {"test_name": t.test_name, "status": t.status, "result_text": t.result_text}
-                    for t in LabTest.query.filter_by(hospital_id=a.hospital_id, appointment_id=a.id).all()
+                    for t in a.lab_tests_rel
                 ],
             }
         )
@@ -237,11 +239,13 @@ def get_doctor_stats(doc_id):
     ).count()
 
     # Total revenue from this doctor's appointments (Consultation + Paid Labs)
-    appts = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).all()
+    appts = Appointment.query.filter_by(hospital_id=hospital_id, doctor_id=doc_id).options(
+        selectinload(Appointment.invoice_rel)
+    ).all()
     revenue = 0
     for a in appts:
-        inv = Invoice.query.filter_by(hospital_id=hospital_id, appointment_id=a.id, status="Paid").first()
-        if inv:
+        inv = a.invoice_rel
+        if inv and inv.status == "Paid":
             revenue += inv.total
 
     # Avg rating
@@ -263,15 +267,16 @@ def get_lab_queue():
         return error, status
     # Staff sees tests that are Paid - Needs Sample
     page, per_page = get_pagination_params()
-    query = LabTest.query.filter_by(hospital_id=hospital_id, status="Paid - Needs Sample")
+    query = LabTest.query.filter_by(hospital_id=hospital_id, status="Paid - Needs Sample").options(
+        joinedload(LabTest.patient_labs)
+    )
     tests, total, p, pp, pages = paginate(query, page, per_page)
     result = []
     for t in tests:
-        patient = User.query.get(t.patient_id)
         result.append(
             {
                 "id": t.id,
-                "patient_name": patient.name if patient else "Unknown",
+                "patient_name": t.patient_labs.name if t.patient_labs else "Unknown",
                 "test_name": t.test_name,
                 "status": t.status,
                 "ordered_at": t.ordered_at,
@@ -305,26 +310,24 @@ def get_patient_tests(patient_id):
 @hospital_bp.route("/pharmacy/queue", methods=["GET"])
 @require_roles("staff", "admin", "superadmin")
 def get_pharmacy_queue():
-    from models import Prescription, User
-
     hospital_id, error, status = require_hospital_context()
     if error:
         return error, status
     page, per_page = get_pagination_params()
-    query = Prescription.query.filter_by(hospital_id=hospital_id, status="Pending Dispense")
+    query = Prescription.query.filter_by(hospital_id=hospital_id, status="Pending Dispense").options(
+        joinedload(Prescription.patient_rx), joinedload(Prescription.doctor_rx)
+    )
     prescriptions, total, p, pp, pages = paginate(query, page, per_page)
     result = []
-    for p_list in prescriptions:
-        patient = User.query.get(p_list.patient_id)
-        doctor = User.query.get(p_list.doctor_id)
+    for rx in prescriptions:
         result.append(
             {
-                "id": p_list.id,
-                "patient_name": patient.name if patient else "Unknown",
-                "doctor_name": doctor.name if doctor else "Unknown",
-                "medication": p_list.medication,
-                "status": p_list.status,
-                "created_at": str(p_list.created_at),
+                "id": rx.id,
+                "patient_name": rx.patient_rx.name if rx.patient_rx else "Unknown",
+                "doctor_name": rx.doctor_rx.name if rx.doctor_rx else "Unknown",
+                "medication": rx.medication,
+                "status": rx.status,
+                "created_at": str(rx.created_at),
             }
         )
     return paginated_response(result, total, p, pp, pages)
@@ -544,12 +547,14 @@ def get_patient_invoices(patient_id):
     if user.role == "patient" and user.id != patient_id:
         return forbidden("Patients can only access their own invoices")
     page, per_page = get_pagination_params()
-    query = Invoice.query.filter_by(hospital_id=hospital_id, patient_id=patient_id)
+    query = Invoice.query.filter_by(hospital_id=hospital_id, patient_id=patient_id).options(
+        joinedload(Invoice.appointment_inv)
+    )
     invoices, total, p, pp, pages = paginate(query, page, per_page)
     result = []
     for inv in invoices:
-        appt = Appointment.query.get(inv.appointment_id)
-        doctor = User.query.get(appt.doctor_id) if appt else None
+        appt = inv.appointment_inv
+        doctor = appt.doctor if appt else None
 
         # Dynamically recalculate lab charges from actual lab tests
         lab_tests = LabTest.query.filter_by(hospital_id=inv.hospital_id, appointment_id=inv.appointment_id).all()
@@ -833,7 +838,9 @@ def admin_search():
         )
 
     # Search appointments
-    appts_q = Appointment.query.filter_by(hospital_id=hospital_id)
+    appts_q = Appointment.query.filter_by(hospital_id=hospital_id).options(
+        joinedload(Appointment.patient), joinedload(Appointment.doctor)
+    )
     if date_from:
         appts_q = appts_q.filter(Appointment.date_str >= date_from)
     if date_to:
@@ -841,19 +848,15 @@ def admin_search():
     appts_q = appts_q.order_by(Appointment.date_str.desc())
     appts, appt_total, ap, app, apages = paginate(appts_q, page, per_page)
     for a in appts:
-        patient = User.query.get(a.patient_id)
-        doctor = User.query.get(a.doctor_id)
-        if (
-            query
-            and query not in (patient.name if patient else "").lower()
-            and query not in (doctor.name if doctor else "").lower()
-        ):
+        patient_name = a.patient.name if a.patient else ""
+        doctor_name = a.doctor.name if a.doctor else ""
+        if query and query not in patient_name.lower() and query not in doctor_name.lower():
             continue
         results["appointments"].append(
             {
                 "id": a.id,
-                "patient_name": patient.name if patient else "Unknown",
-                "doctor_name": doctor.name if doctor else "Unknown",
+                "patient_name": a.patient.name if a.patient else "Unknown",
+                "doctor_name": a.doctor.name if a.doctor else "Unknown",
                 "date": a.date_str,
                 "time": a.time_str,
                 "status": a.status,

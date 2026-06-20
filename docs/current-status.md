@@ -1,6 +1,6 @@
 # Current Status
 
-Last reviewed: 2026-06-19
+Last reviewed: 2026-06-20
 
 ## Completed Systems And Features
 
@@ -12,12 +12,14 @@ Last reviewed: 2026-06-19
 - JWT authentication with role and tenant claims
 - Refresh token rotation (auto-rotation on refresh, revocation on logout)
 - Password policy enforcement (register, change-password, admin-create)
+- Account lockout after 5 failed login attempts (30-minute lockout)
 - Rate limiting on auth endpoints (login: 20/min, register: 5/hr, register-hospital: 3/hr)
+- API key rotation endpoint
 - Tenant-scoped backend helper utilities (`auth_utils.py`)
 - Role/tenant-guarded REST routes for all operational data
 - Socket.IO authenticated tenant-room workflow events
 - Light/dark theme toggle persisted in localStorage
-- Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, Cache-Control)
+- Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, Cache-Control, CSP)
 
 ### Clinical Workflows
 - Patient appointment booking with doctor/slot selection
@@ -74,10 +76,10 @@ Last reviewed: 2026-06-19
 ### Code Quality & Infrastructure
 - ESLint: 0 errors, 129 warnings (pre-existing `any` types — acceptable)
 - Ruff: clean throughout backend codebase
-- Backend: 49 pytest tests (7 API + 6 socket + 16 workflow + 20 integration)
-- Frontend: 11 tests (useNotificationStore + StatCard)
+- Backend: 54 pytest tests (7 API + 6 socket + 16 workflow + 25 integration)
+- Frontend: 47 tests (useNotificationStore, StatCard, Button, Modal, Card, Input, utils)
 - GitHub Actions CI: 4 focused workflows (lint-format, test, security-scan, docker-build)
-- Alembic migrations (baseline `58e5f1bc23af`, latest `e3f4a5b6c7d8` for teleconsultation)
+- Alembic migrations (baseline `58e5f1bc23af`, latest `f9e8d7c6b5a4` for account lockout)
 - Multi-stage Dockerfiles with non-root user
 - Development Docker Compose with optional PostgreSQL service
 - Production Docker Compose (nginx, gunicorn, PostgreSQL, Redis, Celery, Prometheus, Grafana)
@@ -93,6 +95,8 @@ Last reviewed: 2026-06-19
 - Grafana dashboard with auto-provisioned datasource
 - gunicorn JSON access logs
 - Load testing with k6
+- SQLAlchemy relationship properties added to Hospital, User, Appointment, Invoice
+- N+1 query patterns fixed in hospital_routes (6 queue/list endpoints) and patient_routes
 
 ### Documentation
 - `docs/architecture.md` — system design, data flow diagrams, component boundaries
@@ -162,9 +166,19 @@ Last reviewed: 2026-06-19
 - React Query integration for server-state caching.
 - Shared UI component library (Button, Input, Card, Modal).
 
-## Phase 14 Completion
+## Phase 17 Completion
 
-Phase 14 (External Integrations & Ecosystem) is complete. See `docs/phases/latest.md` for handoff details and `docs/phase-14-testing.md` for live testing guide.
+Phase 17 (Security Hardening) is complete: account lockout, API key rotation, CSP headers merged via PR #22.
+
+## Phase 18 (Current) — SQLAlchemy Relationships & N+1 Fix
+
+SQLAlchemy relationship properties added to Hospital, User, Appointment, and Invoice models. N+1 query patterns fixed in 6 hospital_routes endpoints and 1 patient_routes endpoint using joinedload/selectinload.
+
+Remaining after Phase 18:
+- CSS variable migration (~70 hardcoded hex colors)
+- TypeScript `any` cleanup (~31 files)
+- Accessibility (ARIA + keyboard handlers)
+- OpenTelemetry / distributed tracing
 
 ## Known Issues
 
@@ -173,18 +187,11 @@ Phase 14 (External Integrations & Ecosystem) is complete. See `docs/phases/lates
 - Auth token stored in `localStorage` (XSS risk).
 - Role route guard has no loading/expired-token validation state.
 - String statuses (not enums) throughout workflow models.
-- No SQLAlchemy relationship properties — manual lookups and N+1 patterns in routes.
 - PostgreSQL service in Docker Compose is optional; CI does not test against PostgreSQL.
 - No pre-commit hooks installed locally (pre-commit config exists but is not activated).
 - `emit()` from flask_socketio used in HTTP routes (pay_invoice, confirm_online_payment) may not work in multi-worker gunicorn deployments.
 - `encryption.py` has hardcoded PBKDF2 salt — weakens encryption if source is known.
 - Webhook delivery uses `urlopen` without explicit URL allowlisting (SSRF risk for self-hosted).
-- 10 N+1 query patterns across hospital_routes for queue/list endpoints.
-- `db.session.commit()` not wrapped in try/except in 7 route files.
-- Jitsi Meet URL hardcoded in telemedicine_routes.py (not configurable).
-- `/api/v1/admin/usage` route missing `@jwt_required()` — crashes on unauthenticated request.
-- `usage_analytics.py` route `admin_usage()` missing `@jwt_required()` — crashes without valid JWT.
-- Frontend error states missing in all 5 dashboards — network failures silently show empty UI.
 - ~70 hardcoded hex colors bypassing CSS variable theme system (dashboards + CSS files).
 - 31 frontend files with excessive `any` types (precludes strict TS mode).
 - No ARIA attributes or keyboard handlers on clickable elements across 10+ files.
@@ -197,14 +204,4 @@ Phase 14 (External Integrations & Ecosystem) is complete. See `docs/phases/lates
 - Production deployment risk due to dev servers and SQLite.
 - Compliance risk due to limited audit breadth and absence of formal security controls.
 
-## Next Priority: Phase 15 — Quality & Bug Fix
-
-See `docs/enterprise-roadmap.md` for full scope. Focus areas:
-1. Fix 2 HIGH-priority backend bugs (missing JWT decorator, hardcoded Jitsi URL)
-2. Wrap all `db.session.commit()` in try/except across all route files
-3. Fix post-fetch tenant checks to use query-time filtering
-4. Add error states to all dashboards
-5. Extract shared utilities (sortQueue)
-6. Define status constants/enums
-7. Update stale docs
-8. Add frontend tests
+## Next Priority: CSS Variable Migration
