@@ -1,8 +1,9 @@
 import { User, Activity } from 'lucide-react';
 import { Card } from '../ui/Card';
+import type { DoctorStats } from '../../types/api';
 
 interface DoctorStatsCardsProps {
-  stats: any;
+  stats: DoctorStats;
 }
 
 export default function DoctorStatsCards({ stats }: DoctorStatsCardsProps) {

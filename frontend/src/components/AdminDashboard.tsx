@@ -12,17 +12,18 @@ import AdminUserManagement from './admin/AdminUserManagement';
 import AdminSearchPanel from './admin/AdminSearchPanel';
 import AdminDeveloperPortal from './admin/AdminDeveloperPortal';
 import { DashboardSkeleton } from './common/Skeleton';
+import type { AdminAnalytics, AdminUser, AdminSearchResults, CreateUserPayload } from '../types/api';
 
 export default function AdminDashboard() {
   const socket = useSocket();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string>('analytics');
-  const [searchResults, setSearchResults] = useState<any>(null);
+  const [searchResults, setSearchResults] = useState<AdminSearchResults | null>(null);
 
-  const { data: analytics, isLoading, error: analyticsError } = useApiQuery<Record<string, any>>('admin-analytics', '/hospital/admin/analytics', {
+  const { data: analytics, isLoading, error: analyticsError } = useApiQuery<AdminAnalytics>('admin-analytics', '/hospital/admin/analytics', {
     refetchInterval: 30_000,
   });
-  const { data: allUsers = [], error: usersError } = useApiQuery<any[]>('admin-users', '/auth/admin/users');
+  const { data: allUsers = [], error: usersError } = useApiQuery<AdminUser[]>('admin-users', '/auth/admin/users');
 
   const fetchError = analyticsError || usersError;
 
@@ -35,7 +36,7 @@ export default function AdminDashboard() {
     invalidateKeys: ['admin-users'],
   });
 
-  const toggleActive = async (userId: any) => {
+  const toggleActive = async (userId: number) => {
     try {
       await apiFetch(`/auth/admin/users/${userId}/deactivate`, { method: 'PUT' });
       notify.info('User status toggled.');
@@ -80,7 +81,7 @@ export default function AdminDashboard() {
       {tab === 'users' && (
         <AdminUserManagement
           users={allUsers}
-          onCreateUser={(userData: any) => createUserMutation.mutate(userData)}
+          onCreateUser={(userData: CreateUserPayload) => createUserMutation.mutate(userData)}
           onToggleActive={toggleActive}
         />
       )}

@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { clearTokens, setTokens, setUnauthorizedHandler } from '../lib/api';
 
-interface User {
+export interface User {
   id: number;
   name: string;
   role: string;

@@ -3,12 +3,13 @@ import { Activity, Clipboard, CheckCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
+import type { QueueEntry } from '../../types/api';
 
 interface VitalsPanelProps {
-  queue: any[];
-  vitalsForm: any;
+  queue: QueueEntry[];
+  vitalsForm: number | null;
   vitalsData: Record<string, string>;
-  onVitalsFormChange: (id: any) => void;
+  onVitalsFormChange: (id: number) => void;
   onVitalsDataChange: (data: Record<string, string>) => void;
   onSubmitVitals: (e: React.FormEvent<HTMLFormElement>) => void;
   onCancelVitals: () => void;

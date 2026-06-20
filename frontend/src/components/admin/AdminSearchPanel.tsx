@@ -1,3 +1,4 @@
+import type { AdminSearchResults } from '../../types/api';
 import { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -5,7 +6,7 @@ import { Card } from '../ui/Card';
 
 interface AdminSearchPanelProps {
   onSearch: (params: URLSearchParams) => void;
-  results: any;
+  results: AdminSearchResults | null;
 }
 
 export default function AdminSearchPanel({ onSearch, results }: AdminSearchPanelProps) {
@@ -59,7 +60,7 @@ export default function AdminSearchPanel({ onSearch, results }: AdminSearchPanel
                 <table>
                   <thead style={{ background: 'var(--bg-main)' }}><tr><th>ID</th><th>Name</th><th>Role</th><th>Contact</th></tr></thead>
                   <tbody>
-                    {results.users.map((u: any) => (
+                    {results.users.map((u: { id: number; name: string; role: string; email?: string; contact?: string }) => (
                       <tr key={u.id}><td>#{u.id}</td><td style={{ fontWeight: 600 }}>{u.name}</td><td>{u.role}</td><td style={{ color: 'var(--text-muted)' }}>{u.email || u.contact || '—'}</td></tr>
                     ))}
                   </tbody>
@@ -74,7 +75,7 @@ export default function AdminSearchPanel({ onSearch, results }: AdminSearchPanel
                 <table>
                   <thead style={{ background: 'var(--bg-main)' }}><tr><th>ID</th><th>Patient</th><th>Doctor</th><th>Date</th><th>Time</th><th>Status</th></tr></thead>
                   <tbody>
-                    {results.appointments.map((a: any) => (
+                    {results.appointments.map((a: { id: number; patient_name: string; doctor_name: string; date: string; time: string; status: string }) => (
                       <tr key={a.id}><td>#{a.id}</td><td>{a.patient_name}</td><td>{a.doctor_name}</td><td>{a.date}</td><td>{a.time}</td><td>{a.status}</td></tr>
                     ))}
                   </tbody>

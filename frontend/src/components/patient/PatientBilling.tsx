@@ -2,13 +2,23 @@ import React from 'react';
 import { downloadInvoicePDF } from '../../lib/pdf';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import { apiFetch } from '../../lib/api';
+import type { User } from '../../context/AuthContext';
+import type { PatientInvoice } from '../../types/api';
+
+type NotifyFn = {
+  success: (msg: string) => void;
+  error: (msg: string) => void;
+  info: (msg: string) => void;
+  warning: (msg: string) => void;
+};
 
 interface PatientBillingProps {
-  invoices: any[];
+  invoices: PatientInvoice[];
   fetchInvoices: () => void;
-  user: any;
-  notify: any;
-  apiFetch: any;
+  user: User;
+  notify: NotifyFn;
+  apiFetch: typeof apiFetch;
 }
 
 export default function PatientBilling({ invoices, fetchInvoices, user, notify, apiFetch }: PatientBillingProps): React.ReactElement {
@@ -31,7 +41,7 @@ export default function PatientBilling({ invoices, fetchInvoices, user, notify, 
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv: any) => (
+              {invoices.map((inv: PatientInvoice) => (
                 <tr key={inv.id}>
                   <td style={{ fontWeight: 600 }}>#{inv.id}</td>
                   <td>{inv.doctor_name}</td>

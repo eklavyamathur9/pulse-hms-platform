@@ -2,10 +2,11 @@ import React from 'react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
+import type { DoctorInfo } from '../../types/api';
 
 interface DoctorBookingListProps {
-  allDoctors: any[];
-  onSelectDoctor: (doctor: any) => void;
+  allDoctors: DoctorInfo[];
+  onSelectDoctor: (doctor: DoctorInfo) => void;
   onBack: () => void;
 }
 
@@ -31,7 +32,7 @@ export function DoctorBookingList({ allDoctors, onSelectDoctor, onBack }: Doctor
             </div>
           </Card>
         )}
-        {available.map((d: any) => (
+        {available.map((d: DoctorInfo) => (
           <Card key={d.id} className="glass-panel flex flex-col" padding={false}
             style={{ opacity: d.is_available ? 1 : 0.6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: '0.75rem' }}>
@@ -97,7 +98,7 @@ export function DoctorBookingList({ allDoctors, onSelectDoctor, onBack }: Doctor
 }
 
 interface BookingFormProps {
-  doctor: any;
+  doctor: DoctorInfo;
   onBack: () => void;
   bookingDate: string;
   setBookingDate: (date: string) => void;

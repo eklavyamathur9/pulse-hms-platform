@@ -8,21 +8,22 @@ import PharmacyPanel from './staff/PharmacyPanel';
 import VitalsPanel from './staff/VitalsPanel';
 import { sortQueue } from '../lib/utils';
 import { DashboardSkeleton } from './common/Skeleton';
+import type { QueueEntry, LabQueueEntry, PharmacyQueueEntry } from '../types/api';
 
 export default function StaffDashboard() {
   const socket = useSocket();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string>('vitals');
-  const [vitalsForm, setVitalsForm] = useState<any>(null);
+  const [vitalsForm, setVitalsForm] = useState<number | null>(null);
   const [vitalsData, setVitalsData] = useState<Record<string, string>>({ weight: '', hr: '', bp: '', temp: '' });
-  const [labUploadForm, setLabUploadForm] = useState<any>(null);
+  const [labUploadForm, setLabUploadForm] = useState<number | null>(null);
   const [labResult, setLabResult] = useState('');
 
-  const { data: queue = [], isLoading, error: queueError } = useApiQuery<any[]>('staff-queue', '/hospital/queue', {
+  const { data: queue = [], isLoading, error: queueError } = useApiQuery<QueueEntry[]>('staff-queue', '/hospital/queue', {
     transform: sortQueue, refetchInterval: 15_000,
   });
-  const { data: labQueue = [], error: labError } = useApiQuery<any[]>('staff-lab-queue', '/hospital/lab/queue');
-  const { data: pharmacyQueue = [], error: pharmError } = useApiQuery<any[]>('staff-pharmacy-queue', '/hospital/pharmacy/queue');
+  const { data: labQueue = [], error: labError } = useApiQuery<LabQueueEntry[]>('staff-lab-queue', '/hospital/lab/queue');
+  const { data: pharmacyQueue = [], error: pharmError } = useApiQuery<PharmacyQueueEntry[]>('staff-pharmacy-queue', '/hospital/pharmacy/queue');
 
   const fetchError = queueError || labError || pharmError;
 
@@ -56,7 +57,7 @@ export default function StaffDashboard() {
     }
   };
 
-  const dispenseMeds = (rxId: any) => {
+  const dispenseMeds = (rxId: number) => {
     if (socket) socket.emit('action_dispense_meds', { prescriptionId: rxId });
   };
 

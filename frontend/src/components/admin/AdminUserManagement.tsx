@@ -1,3 +1,4 @@
+import type { AdminUser, CreateUserPayload } from '../../types/api';
 import React, { useState } from 'react';
 import { Users, UserPlus, XCircle, CheckCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -5,9 +6,9 @@ import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
 
 interface AdminUserManagementProps {
-  users: any[];
-  onCreateUser: (userData: any) => void;
-  onToggleActive: (userId: any) => void;
+  users: AdminUser[];
+  onCreateUser: (userData: CreateUserPayload) => void;
+  onToggleActive: (userId: number) => void;
 }
 
 export default function AdminUserManagement({ users, onCreateUser, onToggleActive }: AdminUserManagementProps) {
@@ -70,7 +71,7 @@ export default function AdminUserManagement({ users, onCreateUser, onToggleActiv
             </tr>
           </thead>
           <tbody>
-            {users.map((u: any) => (
+            {users.map((u: AdminUser) => (
               <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
                 <td>#{u.id}</td>
                 <td style={{ fontWeight: 600 }}>{u.name}{u.specialization ? ` (${u.specialization})` : ''}</td>

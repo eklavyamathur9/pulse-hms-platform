@@ -1,4 +1,5 @@
-export const sortQueue = (data: unknown): any[] =>
-  (data as any[]).sort((a: any, b: any) =>
-    (b.pain_level >= 8 ? 1 : 0) - (a.pain_level >= 8 ? 1 : 0)
+export function sortQueue<T extends { pain_level?: number }>(data: T[]): T[] {
+  return data.sort((a: T, b: T) =>
+    ((b.pain_level ?? 0) >= 8 ? 1 : 0) - ((a.pain_level ?? 0) >= 8 ? 1 : 0)
   );
+}

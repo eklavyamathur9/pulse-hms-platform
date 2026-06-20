@@ -2,16 +2,18 @@ import React from 'react';
 import { CalendarPlus, MapPin } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import type { Socket } from 'socket.io-client';
+import type { PatientAppointment, DoctorInfo } from '../../types/api';
 
 interface ActiveAppointmentsProps {
-  activeAppointments: any[];
-  historyAppointments: any[];
-  allDoctors: any[];
-  socket: any;
+  activeAppointments: PatientAppointment[];
+  historyAppointments: PatientAppointment[];
+  allDoctors: DoctorInfo[];
+  socket: Socket;
   cancelAppointment: (id: number) => void;
   downloadDischargeSummary: (apptId: number) => void;
   onBrowseDoctors: () => void;
-  setRescheduleAppt: (appt: any) => void;
+  setRescheduleAppt: (appt: PatientAppointment | null) => void;
   setRescheduleDate: (date: string) => void;
   setRescheduleSlots: (slots: string[]) => void;
   setRescheduleSlot: (slot: string) => void;
@@ -169,10 +171,10 @@ export default function ActiveAppointments({
         );
       })}
 
-      {historyAppointments.filter((a: any) => a.status === 'Completed').length > 0 && (
+      {historyAppointments.filter((a: PatientAppointment) => a.status === 'Completed').length > 0 && (
         <div style={{ marginBottom: 'var(--spacing-xl)' }}>
           <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.3rem' }}>Visit Summaries</h2>
-          {historyAppointments.filter((a: any) => a.status === 'Completed').map(a => {
+          {historyAppointments.filter((a: PatientAppointment) => a.status === 'Completed').map(a => {
             const doctor = allDoctors.find(d => d.id === a.doctor_id);
             return (
               <Card key={`summary-${a.id}`} className="glass-panel"
