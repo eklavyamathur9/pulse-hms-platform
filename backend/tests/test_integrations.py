@@ -364,6 +364,7 @@ def test_usage_analytics_requires_auth(client, seeded):
 
 def test_jitsi_domain_configurable(monkeypatch, client, seeded):
     from config import Config
+
     monkeypatch.setattr(Config, "JITSI_DOMAIN", "meet.example.com")
     admin_token = login(client, "admin@one.test", "adminpass", seeded["hospital_one_id"])
 
