@@ -1,6 +1,6 @@
 # Backend Architecture
 
-Last reviewed: 2026-06-19
+Last reviewed: 2026-06-20
 
 The backend is a Flask application with REST endpoints, Flask-SocketIO real-time events, SQLAlchemy models, JWT-based role/tenant authorization, and optional API key authentication for programmatic access.
 
@@ -73,8 +73,8 @@ backend/
     lab.py              # Lab test prescribing, payment, reporting
     pharmacy.py         # Prescription and dispensing
   migrations/           # Flask-Migrate/Alembic migration repository
-  tests/                # Pytest test suite (4 modules)
-  pulse_hms.db          # Local SQLite database file
+   tests/                # Pytest test suite (5 modules)
+   pulse_hms.db          # Local SQLite database file
   .env.example          # Environment template
   requirements.txt
   Dockerfile
@@ -122,7 +122,7 @@ Configuration is loaded through `backend/config.py`.
 | `SENDGRID_FROM_EMAIL` | `None` | SendGrid sender address |
 | `STRIPE_SECRET_KEY` | `None` | Stripe secret key (mock mode when unset) |
 | `STRIPE_PUBLISHABLE_KEY` | `None` | Stripe publishable key for frontend |
-| `JITSI_DOMAIN` | Hardcoded as `meet.jit.si` | Telemedicine provider domain (not yet configurable via env) |
+| `JITSI_DOMAIN` | `meet.jit.si` | Telemedicine provider domain (configurable via env) |
 
 ## Blueprint Boundaries
 
@@ -819,14 +819,15 @@ Backend Dockerfile:
 Current backend state:
 
 - Pytest is configured in `pytest.ini`.
-- Backend tests live in `backend/tests/` — 49 tests across 4 modules:
+- Backend tests live in `backend/tests/` — 54 tests across 5 modules:
   - `test_api.py` — 7 API tests (auth, tenant, validation, invoice, rating)
   - `test_socket.py` — 5 socket event tests (workflow mutations)
   - `test_workflow.py` — 17 workflow integration tests (end-to-end appointment/lab/pharmacy)
-  - `test_integrations.py` — 20 integration tests (expanded role coverage, edge cases)
+  - `test_integrations.py` — 25 integration tests (expanded role coverage, edge cases, safe_commit, tenant isolation, Jitsi config)
+  - `conftest.py` — fixtures and app factory
 - GitHub Actions CI runs on push/PR to `main`:
   - `lint-format.yml` — ruff check + ESLint
-  - `test.yml` — pytest (49 tests) + frontend build + typecheck
+  - `test.yml` — pytest (54 tests) + frontend build + typecheck
   - `security-scan.yml` — ruff security rules + pip-audit + Trivy
   - `docker-build.yml` — multi-stage Docker image build validation
 - Migration checks run with `flask --app backend/app.py db -d backend/migrations check`.
@@ -844,14 +845,14 @@ Backend-specific highlights:
 - ~~Audit logging is absent for clinical and billing actions~~ — **Done**
 - ~~No standardized error response shape across all endpoints~~ — **Done, `error_response()`/`success_response()` in validation.py**
 - ~~Request validation is a small local helper module, not a full schema library~~ — **Partially addressed with zod-adjacent validation helpers**
-- ~~Backend tests exist (29) but are still narrow~~ — **Expanded to 49 tests across 4 modules**
+- ~~Backend tests exist (29) but are still narrow~~ — **Expanded to 54 tests across 5 modules**
 - SQLite is used as the active database (PostgreSQL available in production Docker Compose).
-- Models use foreign keys but no SQLAlchemy relationship properties.
+- ~~Models use foreign keys but no SQLAlchemy relationship properties~~ — **Phase 18 added relationships + fixed N+1 queries**
 - Socket sessions are in memory, so multi-process scaling would need Redis-backed session store.
-- Telemedicine provider domain (`JITSI_DOMAIN`) is hardcoded, not configurable via env var.
+- ~~Telemedicine provider domain (JITSI_DOMAIN) is hardcoded, not configurable via env var~~ — **Now configurable via JITSI_DOMAIN env**
 - No webhook replay capability — failed deliveries require manual retry.
 - No rate limit alerting or automatic IP ban for abuse.
-- API usage tracker (`usage.py`) is in-memory only — resets on process restart.
+- API usage tracker (usage.py) is in-memory only — resets on process restart.
 
 ## Suggested Backend Improvements
 
@@ -860,7 +861,7 @@ Backend-specific highlights:
 - Add request schemas with Marshmallow, Pydantic, or similar.
 - ~~Add structured logging and audit logs~~ — **Done**
 - Replace SQLite with PostgreSQL for production.
-- Add relationship properties and continue refining constraints/indexes as workflows mature.
+- ~~Add relationship properties and continue refining constraints/indexes as workflows mature~~ — **Done (Phase 18)**
 - Replace string statuses with enums/constants.
 - Add Redis-backed socket session store before scaling Socket.IO horizontally.
 - Add standardized error response helper (Partially done — shared helpers exist in validation.py).

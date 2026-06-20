@@ -1,6 +1,6 @@
 # Pulse HMS Architecture
 
-Last reviewed: 2026-06-19
+Last reviewed: 2026-06-20
 
 This document describes the architecture that exists in the current implementation. It does not describe a target architecture unless explicitly marked as an improvement.
 
@@ -97,12 +97,12 @@ pulse-hms-platform/
       lab.py                # Lab test prescribing, payment, reporting
       pharmacy.py           # Prescription and dispensing
     migrations/             # Alembic migration repository (10+ migrations)
-    tests/                  # Pytest test suite (49 tests)
+    tests/                  # Pytest test suite (54 tests)
       conftest.py           # Fixtures and app factory
       test_api.py           # 7 API tests
-      test_socket.py        # 6 socket event tests
-      test_workflow.py      # 16 workflow tests
-      test_integrations.py  # 20 integration tests
+      test_socket.py        # 5 socket event tests
+      test_workflow.py      # 17 workflow tests
+      test_integrations.py  # 25 integration tests
     pulse_hms.db            # Local SQLite database file
     requirements.txt
     Dockerfile
@@ -609,7 +609,7 @@ erDiagram
   LabTest ||--o{ Document : has
 ```
 
-SQLAlchemy models currently define foreign keys but not full relationship properties. Most route code fetches related rows manually with `User.query.get(...)`, `Appointment.query.get(...)`, or filtered queries. This is a known weakness with N+1 query patterns.
+SQLAlchemy models define foreign keys and relationship properties (added in Phase 18). Route code uses eager loading (`joinedload`/`selectinload`) for most list endpoints to avoid N+1 queries.
 
 ## Important Patterns
 
@@ -742,12 +742,12 @@ Current implementation:
 
 - 4 GitHub Actions workflows on push/PR to `main`:
   - `lint-format.yml`: ruff check + ESLint
-  - `test.yml`: `pytest -q` (49 tests) + `npm run build`
+  - `test.yml`: `pytest -q` (54 tests) + `npm run build`
   - `security-scan.yml`: ruff security rules + pip-audit + Trivy
   - `docker-build.yml`: multi-stage Docker image build validation
-- Backend test suite: 49 tests (7 API + 6 socket + 16 workflow + 20 integration).
-- Frontend validation: `npm run build` + `npm run lint` (0 errors, 129 warnings — pre-existing `any` types).
-- Frontend tests: 11 tests (useNotificationStore + StatCard).
+- Backend test suite: 54 tests (7 API + 5 socket + 17 workflow + 25 integration).
+- Frontend validation: `npm run build` + `npm run lint` (0 errors, ~125 warnings — pre-existing `any` types).
+- Frontend tests: 47 tests across 7 files (StatCard, useNotificationStore, Button, Modal, Card, Input, utils).
 - Migration check: `flask --app backend/app.py db -d backend/migrations check`.
 
 ## Architectural Weaknesses
@@ -756,22 +756,22 @@ Canonical detailed list: `docs/architectural-weaknesses.md`.
 
 Highest-impact current weaknesses:
 
-- No refresh token rotation or rate limiting (resolved).
-- No payment gateway integration (resolved via Stripe).
+- ~~No refresh token rotation or rate limiting~~ (resolved).
+- ~~No payment gateway integration~~ (resolved via Stripe).
 - No request validation library (inline helpers only).
-- No standardized error response shape (resolved via `validation.py`).
+- ~~No standardized error response shape~~ (resolved via `validation.py`).
 - Team still uses SQLite in CI (no PostgreSQL).
 - Socket sessions are in-memory (not horizontally scalable).
-- Superadmin dashboard uses mock data (resolved with real platform APIs).
-- No monitoring, alerting, or backup flows (resolved via Sentry + Prometheus + Grafana).
-- Frontend tests are minimal (11 tests vs 49 backend tests).
+- ~~Superadmin dashboard uses mock data~~ (resolved with real platform APIs).
+- ~~No monitoring, alerting, or backup flows~~ (resolved via Sentry + Prometheus + Grafana).
+- Frontend tests are minimal (47 tests vs 54 backend tests).
 - String statuses (not enums) throughout workflow models.
-- No SQLAlchemy relationship properties — manual lookups and N+1 patterns in routes.
+- ~~No SQLAlchemy relationship properties~~ (added in Phase 18; N+1 queries fixed).
 - `encryption.py` has hardcoded PBKDF2 salt.
 - Webhook delivery uses `urlopen` without explicit URL allowlisting (SSRF risk).
-- Hardcoded Jitsi Meet URL in telemedicine_routes.py.
-- Missing JWT decorator on `/api/v1/admin/usage` and `admin_usage()` routes.
-- 10 N+1 query patterns across `hospital_routes`.
+- ~~Hardcoded Jitsi Meet URL~~ (now configurable via JITSI_DOMAIN env).
+- ~~Missing JWT decorator on /api/v1/admin/usage~~ (fixed).
+- ~~10 N+1 query patterns across hospital_routes~~ (fixed in Phase 18).
 - 70+ hardcoded hex colors bypassing CSS variable theme system.
 - 31 frontend files with excessive `any` types.
 - No ARIA attributes or keyboard handlers on clickable elements.
@@ -788,13 +788,13 @@ These are recommendations only; they are not implemented in this documentation p
 - Add Sentry or similar error monitoring (resolved).
 - Add API versioning, request validation (Pydantic/marshmallow), and consistent error responses (partially resolved).
 - Add frontend tests (component + workflow).
-- Introduce SQLAlchemy relationship properties to eliminate N+1 queries.
+- ~~Introduce SQLAlchemy relationship properties to eliminate N+1 queries~~ (Done, Phase 18).
 - Add PostgreSQL to CI.
 - Add database backup/restore flow.
 - Add enum types for status fields.
 - Add integration tests for Stripe/Twilio/SendGrid webhook flows.
 - Add rate limiting per endpoint.
 - Add URL allowlisting for webhook dispatch.
-- Migrate Jitsi URL to configuration.
+- ~~Migrate Jitsi URL to configuration~~ (Done, Phase 15).
 - Add AWS S3 or similar cloud storage for file uploads.
 - Add end-to-end tests with Playwright/Cypress.

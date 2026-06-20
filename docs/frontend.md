@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-Last reviewed: 2026-06-19
+Last reviewed: 2026-06-20
 
 The frontend is a React + Vite single-page app with role-specific dashboards, TanStack React Query caching, Zod form validation, Zustand client stores, React Context providers (auth/socket), and Socket.IO client integration.
 
@@ -17,7 +17,7 @@ The frontend is a React + Vite single-page app with role-specific dashboards, Ta
 - Lucide React icons
 - Recharts
 - jsPDF
-- ESLint (0 errors, ~127 warnings — all `@typescript-eslint/no-explicit-any`)
+- ESLint (0 errors, ~125 warnings — all `@typescript-eslint/no-explicit-any`)
 - Vitest + @testing-library/react (test framework)
 
 ## Folder Structure
@@ -95,6 +95,11 @@ frontend/
       setup.js                     # Vitest setup
       StatCard.test.jsx            # StatCard component tests
       useNotificationStore.test.ts # Notification store tests
+      Button.test.tsx              # Button component tests
+      Modal.test.tsx               # Modal component tests
+      Card.test.tsx                # Card component tests
+      Input.test.tsx               # Input component tests
+      utils.test.ts                # sortQueue utility tests
   public/
   package.json
   vite.config.ts
@@ -367,7 +372,7 @@ Scripts (from `frontend/`):
 
 - `npm run dev`: starts Vite dev server.
 - `npm run build`: builds static assets to `dist/`.
-- `npm run lint`: runs ESLint (0 errors, ~127 warnings — `@typescript-eslint/no-explicit-any`).
+- `npm run lint`: runs ESLint (0 errors, ~125 warnings — `@typescript-eslint/no-explicit-any`).
 - `npm run typecheck`: runs `tsc --noEmit`.
 - `npm run test`: runs Vitest test suite.
 - `npm run preview`: previews built assets.
@@ -391,11 +396,16 @@ The current container flow is development-oriented. It does not serve `dist/` th
 
 Frontend test suite:
 
-- 11 tests across 2 files.
+- 47 tests across 7 files.
 - Vitest configured with `@testing-library/react`.
 - `src/test/setup.js` — test environment setup.
 - `src/test/StatCard.test.jsx` — StatCard component tests.
 - `src/test/useNotificationStore.test.ts` — notification store tests.
+- `src/test/Button.test.tsx` — Button component tests.
+- `src/test/Modal.test.tsx` — Modal component tests.
+- `src/test/Card.test.tsx` — Card component tests.
+- `src/test/Input.test.tsx` — Input component tests.
+- `src/test/utils.test.ts` — sortQueue utility tests.
 
 Testing gap: dashboards, forms, socket interactions, and API flows lack coverage. Testing priority is tenant isolation, role authorization, and workflow mutations.
 
@@ -419,14 +429,14 @@ Testing gap: dashboards, forms, socket interactions, and API flows lack coverage
 Canonical detailed list: `docs/architectural-weaknesses.md`.
 
 - `AdminDashboard.tsx`, `DoctorDashboard.tsx`, and `StaffDashboard.tsx` still mix data fetching, UI, and workflow logic.
-- Excessive `any` types remain in dashboard components (127 ESLint warnings).
+- Excessive `any` types remain in dashboard components (125 ESLint warnings).
 - Auth token stored in `localStorage` (XSS vector — accept for dev).
 - Role route guard has no loading/expired-token validation state.
 - Production Docker flow still uses Vite dev server.
 - Hardcoded color values in many components instead of CSS variables.
 - Missing error states and empty-state UI in several components.
 - Accessibility gaps — missing aria labels, keyboard navigation incomplete.
-- Frontend test coverage is sparse (11 tests, dashboards untested).
+- Frontend test coverage is sparse (47 tests, dashboards untested).
 
 ## Suggested Frontend Improvements
 
