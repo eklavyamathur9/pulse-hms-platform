@@ -5,6 +5,10 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+def backref(name, **kwargs):
+    return db.backref(name, lazy="select", **kwargs)
+
+
 # ── Status Constants ──────────────────────────────────────────────
 
 class AppointmentStatus:
@@ -95,6 +99,8 @@ class Hospital(db.Model):
     feature_flags = db.Column(db.JSON, default=dict)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    users = db.relationship("User", backref="hospital", lazy="select")
+
 
 class User(db.Model):
     __table_args__ = (
@@ -131,6 +137,43 @@ class User(db.Model):
     password_changed_at = db.Column(db.DateTime, nullable=True)
     failed_login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime, nullable=True)
+
+    appointments_as_patient = db.relationship(
+        "Appointment", foreign_keys="Appointment.patient_id", backref="patient", lazy="select"
+    )
+    appointments_as_doctor = db.relationship(
+        "Appointment", foreign_keys="Appointment.doctor_id", backref="doctor", lazy="select"
+    )
+    vitals = db.relationship("Vitals", backref="patient_vitals", lazy="select")
+    lab_tests = db.relationship("LabTest", backref="patient_labs", lazy="select")
+    prescriptions_as_patient = db.relationship(
+        "Prescription", foreign_keys="Prescription.patient_id", backref="patient_rx", lazy="select"
+    )
+    prescriptions_as_doctor = db.relationship(
+        "Prescription", foreign_keys="Prescription.doctor_id", backref="doctor_rx", lazy="select"
+    )
+    invoices = db.relationship("Invoice", backref="patient_inv", lazy="select")
+    payments = db.relationship("Payment", backref="patient_pay", lazy="select")
+    ratings_as_patient = db.relationship(
+        "Rating", foreign_keys="Rating.patient_id", backref="patient_rating", lazy="select"
+    )
+    ratings_as_doctor = db.relationship(
+        "Rating", foreign_keys="Rating.doctor_id", backref="doctor_rating", lazy="select"
+    )
+    documents = db.relationship(
+        "Document", foreign_keys="Document.patient_id", backref="patient_docs", lazy="select"
+    )
+    uploaded_documents = db.relationship(
+        "Document", foreign_keys="Document.uploaded_by", backref="uploader", lazy="select"
+    )
+    refresh_tokens = db.relationship("RefreshToken", backref="user", lazy="select")
+    api_keys = db.relationship("ApiKey", backref="user", lazy="select")
+    teleconsultations_as_doctor = db.relationship(
+        "Teleconsultation", foreign_keys="Teleconsultation.doctor_id", backref="doctor_tc", lazy="select"
+    )
+    teleconsultations_as_patient = db.relationship(
+        "Teleconsultation", foreign_keys="Teleconsultation.patient_id", backref="patient_tc", lazy="select"
+    )
 
 
 class RefreshToken(db.Model):
@@ -170,6 +213,13 @@ class Appointment(db.Model):
     pain_level = db.Column(db.Integer, nullable=True)
     followup_days = db.Column(db.Integer, nullable=True)  # doctor recommends follow-up
     clinical_notes = db.Column(db.Text, nullable=True)  # private doctor notes
+
+    vitals_rel = db.relationship("Vitals", backref="appointment_vitals", lazy="select", uselist=False)
+    lab_tests_rel = db.relationship("LabTest", backref="appointment_tests", lazy="select")
+    prescriptions_rel = db.relationship("Prescription", backref="appointment_rx", lazy="select")
+    invoice_rel = db.relationship("Invoice", backref="appointment_inv", lazy="select", uselist=False)
+    ratings_rel = db.relationship("Rating", backref="appointment_rating", lazy="select", uselist=False)
+    teleconsultations_rel = db.relationship("Teleconsultation", backref="appointment_tc", lazy="select")
 
 
 class Vitals(db.Model):
@@ -258,6 +308,8 @@ class Invoice(db.Model):
     total = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(30), default="Unpaid")  # Unpaid, Paid
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    payments_rel = db.relationship("Payment", backref="invoice_pay", lazy="select")
 
 
 class Payment(db.Model):

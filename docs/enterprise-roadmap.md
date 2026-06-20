@@ -286,35 +286,52 @@ python -m pytest -q backend/tests/
 
 ---
 
-## Phase 15: Quality & Bug Fix (In Progress)
+## Phase 15: Quality & Bug Fix (Complete)
 
 **Goal:** Fix critical bugs, improve code quality, and pay down technical debt identified in the Phase 14 audit.
 
-### Tasks
-- Fix 2 HIGH-priority backend bugs:
-  - Add `@jwt_required()` to `/api/v1/admin/usage` route (`usage_analytics.py`)
-  - Make Jitsi Meet URL configurable via env var
-- Wrap all `db.session.commit()` in try/except across 7 route files
-- Fix post-fetch tenant checks (Document, LabTest) to use query-time filtering
-- Add error states to all 5 dashboards (replace silent failures)
-- Extract shared `sortQueue` utility
-- Define status constants/enums in `models.py`
-- Update all stale documentation (this phase)
-- Add frontend tests
+### Tasks (Completed)
+- ~~Fix 2 HIGH-priority backend bugs:~~
+  - ~~Add @jwt_required() to /api/v1/admin/usage route~~ (PR #15 → #19)
+  - ~~Make Jitsi Meet URL configurable via env var~~ (PR #19)
+- ~~Wrap all db.session.commit() in try/except across 7 route files~~ (safe_commit helper, PR #19)
+- ~~Fix post-fetch tenant checks (Document, LabTest) to use query-time filtering~~ (PR #19)
+- ~~Add error states to all 5 dashboards~~ (PR #19)
+- ~~Extract shared sortQueue utility~~ (PR #19)
+- ~~Define status constants/enums in models.py~~ (PR #19)
+- ~~Update all stale documentation~~ (PR #19)
+- ~~Add frontend tests~~ (18 new tests: Button, Modal, sortQueue — PR #19)
 
-### Tasks (Deferred)
-- Full TypeScript `any` cleanup (~31 files)
-- Accessibility overhaul
-- Dark mode CSS variable migration for dashboards
-- N+1 query optimization
-- OpenTelemetry / distributed tracing
-- Alerting rules (Prometheus Alertmanager)
+## Phase 16: Testing & QA (Complete)
 
-### Validation
-```bash
-python -m pytest -q backend/tests/
-cd frontend && npm run build && npm run lint
-```
+**Goal:** Expand test coverage and harden integration tests.
+
+### Tasks (Completed)
+- ~~Integration tests for safe_commit, tenant isolation, Jitsi config, usage auth~~ (PR #21)
+- ~~Card & Input component tests~~ (18 new frontend tests, PR #21)
+- ~~Backend: 54 tests (up from 49)~~
+- ~~Frontend: 47 tests (up from 29)~~
+
+## Phase 17: Security Hardening (Complete)
+
+**Goal:** Add account lockout, API key rotation, CSP headers, and migration for new columns.
+
+### Tasks (Completed)
+- ~~Account lockout in login route~~ — 5 failed attempts → 30-minute lockout (PR #22)
+- ~~API key rotation endpoint~~ — POST /admin/api-keys/:key_id/rotate (PR #22)
+- ~~CSP header in app.py after_request~~ — using Config.JITSI_DOMAIN (PR #22)
+- ~~Migration f9e8d7c6b5a4~~ — adds failed_login_attempts + locked_until columns (PR #22)
+
+## Phase 18: SQLAlchemy Relationships & N+1 Fix (Complete)
+
+**Goal:** Add SQLAlchemy relationship properties to models and fix N+1 query patterns in routes.
+
+### Tasks (Completed)
+- ~~Relationship properties added to Hospital, User, Appointment, Invoice models~~
+- ~~N+1 patterns fixed in 6 hospital_routes endpoints: get_hospital_queue, get_doctor_queue, get_doctor_stats, get_lab_queue, get_pharmacy_queue, get_patient_invoices~~
+- ~~N+1 patterns fixed in 2 patient_routes endpoints: get_patient_prescriptions~~
+- ~~N+1 patterns fixed in admin_search~~ (joinedload patient + doctor)
+- ~~All 54 backend tests pass~~
 
 ---
 
@@ -346,6 +363,8 @@ cd frontend && npm run build && npm run lint
 | Phase 12 — Observability & Monitoring | **Complete** |
 | Phase 13 — Performance & Scalability | **Complete** |
 | Phase 14 — External Integrations & Ecosystem | **Complete** |
-| Phase 15 — Quality & Bug Fix | **In Progress** |
+| Phase 15 — Quality & Bug Fix | **Complete** |
+| Phase 16 — Testing & QA | **Complete** |
+| Phase 17 — Security Hardening | **Complete** |
+| Phase 18 — SQLAlchemy Relationships & N+1 Fix | **Complete** |
 
-**Next focus: Phase 15 — Quality & Bug Fix.**

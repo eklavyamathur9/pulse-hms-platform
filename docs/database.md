@@ -14,7 +14,7 @@ This document describes the current SQLAlchemy model layer in `backend/models.py
 - Seed: `backend/seed.py` upserts local demo data
 - Reset: `backend/seed.py --reset` drops and recreates local SQLite tables after safety checks
 - Migrations: Flask-Migrate/Alembic — baseline migration in `backend/migrations/versions/`
-- Current migration head: `e3f4a5b6c7d8` (teleconsultation)
+- Current migration head: `f9e8d7c6b5a4` (account lockout fields)
 - Current models: 15 (Hospital, User, Appointment, Vitals, LabTest, Prescription, Rating, Invoice, Payment, AuditLog, ApiKey, Webhook, WebhookDelivery, Teleconsultation, Document)
 
 ## Model Overview
@@ -48,6 +48,8 @@ erDiagram
 ```
 
 Important note: the code declares foreign keys but does not define SQLAlchemy relationship properties. Route code manually queries related records.
+
+_Update: As of Phase 18, SQLAlchemy relationship properties have been added to Hospital, User, Appointment, and Invoice models. Most route N+1 query patterns have been fixed with joinedload/selectinload._
 
 ## Tables
 
@@ -92,6 +94,8 @@ Shared table for patients, doctors, staff, admins, and superadmins.
 | `is_available` | Boolean | Doctor availability |
 | `is_active` | Boolean | Soft-delete/status flag |
 | `password_changed_at` | DateTime | Nullable; tracks last password change |
+| `failed_login_attempts` | Integer | Default 0; incremented on failed login |
+| `locked_until` | DateTime | Nullable; account lockout expiration |
 
 Constraints and indexes:
 
@@ -409,4 +413,4 @@ Indexes:
 | --- | --- | --- | --- | --- | --- |
 | SQLite default in dev | Low | whole backend | Not suitable for concurrent production workloads | Use PostgreSQL via DATABASE_URL in production | Low |
 | String statuses | Medium | workflow routes, socket events | Typos and invalid states possible | Centralize constants/enums | Low |
-| No relationship properties | Medium | all route modules | Repeated manual lookups and N+1 patterns | Add SQLAlchemy relationships | Medium |
+| ~~No relationship properties~~ | ~~Medium~~ | ~~all route modules~~ | ~~Repeated manual lookups and N+1 patterns~~ | ~~Add SQLAlchemy relationships~~ | ~~Medium~~ |

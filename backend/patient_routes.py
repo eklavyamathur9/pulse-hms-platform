@@ -2,6 +2,7 @@ from auth_utils import current_hospital_id, current_user, forbidden, require_hos
 from flask import Blueprint, jsonify
 from models import Appointment, User, db
 from pagination import get_pagination_params, paginate, paginated_response
+from sqlalchemy.orm import joinedload
 from validation import int_field, json_body, safe_commit
 
 patient_bp = Blueprint("patient", __name__)
@@ -61,7 +62,9 @@ def get_patient_prescriptions(patient_id):
         return error, status
     if not can_access_patient(patient_id):
         return forbidden("You can only access your own prescriptions")
-    query = Prescription.query.filter_by(patient_id=patient_id, hospital_id=hospital_id)
+    query = Prescription.query.filter_by(patient_id=patient_id, hospital_id=hospital_id).options(
+        joinedload(Prescription.doctor_rx)
+    )
     user = current_user()
     if user.role == "doctor":
         query = query.filter_by(doctor_id=user.id)
@@ -69,7 +72,7 @@ def get_patient_prescriptions(patient_id):
     prescriptions, total, p, pp, pages = paginate(query.order_by(Prescription.id.desc()), page, per_page)
     result = []
     for rx in prescriptions:
-        doc = User.query.get(rx.doctor_id)
+        doc = rx.doctor_rx
         result.append(
             {
                 "id": rx.id,
