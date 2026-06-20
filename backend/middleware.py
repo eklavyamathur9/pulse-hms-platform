@@ -1,6 +1,7 @@
 import functools
 import logging
 import signal
+import threading
 import time
 
 from flask import jsonify
@@ -8,6 +9,7 @@ from flask import jsonify
 logger = logging.getLogger(__name__)
 
 _SIGALRM_AVAILABLE = hasattr(signal, "SIGALRM")
+_IS_MAIN_THREAD = threading.current_thread() is threading.main_thread()
 
 
 def query_timeout(seconds=5):
@@ -22,7 +24,7 @@ def query_timeout(seconds=5):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
             start = time.time()
-            if _SIGALRM_AVAILABLE:
+            if _SIGALRM_AVAILABLE and _IS_MAIN_THREAD:
                 try:
                     signal.signal(signal.SIGALRM, _timeout_handler)
                     signal.alarm(seconds)
