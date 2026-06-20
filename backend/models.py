@@ -129,6 +129,8 @@ class User(db.Model):
     is_available = db.Column(db.Boolean, default=True)
     is_active = db.Column(db.Boolean, default=True)  # soft-delete
     password_changed_at = db.Column(db.DateTime, nullable=True)
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    locked_until = db.Column(db.DateTime, nullable=True)
 
 
 class RefreshToken(db.Model):
