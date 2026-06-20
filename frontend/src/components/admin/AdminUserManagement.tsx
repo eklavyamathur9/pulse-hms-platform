@@ -39,7 +39,7 @@ export default function AdminUserManagement({ users, onCreateUser, onToggleActiv
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
-            <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'white' }}>
+            <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
               <option value="doctor">Doctor</option>
               <option value="staff">Staff</option>
               <option value="admin">Admin</option>
@@ -76,8 +76,8 @@ export default function AdminUserManagement({ users, onCreateUser, onToggleActiv
                 <td style={{ fontWeight: 600 }}>{u.name}{u.specialization ? ` (${u.specialization})` : ''}</td>
                 <td>
                   <span style={{ padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase',
-                    background: u.role === 'doctor' ? '#ecfdf5' : u.role === 'admin' ? '#fef2f2' : u.role === 'patient' ? '#eef2ff' : '#fffbeb',
-                    color: u.role === 'doctor' ? '#059669' : u.role === 'admin' ? '#dc2626' : u.role === 'patient' ? '#6366f1' : '#d97706'
+                    background: u.role === 'doctor' ? 'var(--role-doctor-bg)' : u.role === 'admin' ? 'var(--role-admin-bg)' : u.role === 'patient' ? 'var(--role-patient-bg)' : 'var(--role-staff-bg)',
+                    color: u.role === 'doctor' ? 'var(--role-doctor)' : u.role === 'admin' ? 'var(--role-admin)' : u.role === 'patient' ? 'var(--role-patient)' : 'var(--role-staff)'
                   }}>{u.role}</span>
                 </td>
                 <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{u.email || u.contact || '—'}</td>

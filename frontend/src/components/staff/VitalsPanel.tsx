@@ -45,7 +45,7 @@ export default function VitalsPanel({ queue, vitalsForm, vitalsData, onVitalsFor
           </thead>
           <tbody>
             {queue.map(q => (
-              <tr key={q.id} style={{ background: q.pain_level >= 8 ? '#fef2f2' : 'transparent', borderLeft: q.pain_level >= 8 ? '4px solid var(--danger)' : 'none' }}>
+              <tr key={q.id} style={{ background: q.pain_level >= 8 ? 'var(--danger-bg)' : 'transparent', borderLeft: q.pain_level >= 8 ? '4px solid var(--danger)' : 'none' }}>
                 <td>#{q.id}</td>
                 <td style={{ fontWeight: 500, color: q.pain_level >= 8 ? 'var(--danger)' : 'inherit' }}>
                   {q.patient_name}

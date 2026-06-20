@@ -34,7 +34,7 @@ export default function DoctorQueuePanel({ queue, activePatient, onSelectPatient
             <Card key={q.id} className="glass-panel cursor-pointer" padding={false}
               style={{
                 border: activePatient?.id === q.id ? '2px solid var(--primary)' : q.pain_level >= 8 ? '2px solid var(--danger)' : '2px solid transparent',
-                background: q.pain_level >= 8 ? '#fef2f2' : 'white',
+                background: q.pain_level >= 8 ? 'var(--danger-bg)' : 'var(--card-bg)',
                 transition: 'all 0.2s ease'
               }}
               onClick={() => onSelectPatient(q)}>

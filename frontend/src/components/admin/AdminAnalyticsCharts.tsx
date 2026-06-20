@@ -2,7 +2,7 @@ import { Activity, TrendingUp } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+const CHART_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)'];
 
 interface AdminAnalyticsChartsProps {
   analytics: any;
@@ -10,9 +10,9 @@ interface AdminAnalyticsChartsProps {
 
 export default function AdminAnalyticsCharts({ analytics }: AdminAnalyticsChartsProps) {
   const barData = [
-    { name: 'Active', value: analytics.appointments.active, fill: '#6366f1' },
-    { name: 'Completed', value: analytics.appointments.completed, fill: '#22c55e' },
-    { name: 'Cancelled', value: analytics.appointments.cancelled, fill: '#ef4444' },
+    { name: 'Active', value: analytics.appointments.active, fill: 'var(--chart-1)' },
+    { name: 'Completed', value: analytics.appointments.completed, fill: 'var(--chart-2)' },
+    { name: 'Cancelled', value: analytics.appointments.cancelled, fill: 'var(--chart-4)' },
   ];
 
   return (

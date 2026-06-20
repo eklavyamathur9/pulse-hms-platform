@@ -185,12 +185,12 @@ export default function AdminDeveloperPortal() {
           </div>
 
           {newKey && (
-            <div style={{ ...cardStyle, background: 'var(--success-bg, #e8f5e9)', borderColor: '#4caf50' }}>
+            <div style={{ ...cardStyle, background: 'var(--success-bg)', borderColor: 'var(--chart-2)' }}>
               <strong>API key created — copy it now. You won't see it again!</strong>
-              <div style={{ fontFamily: 'monospace', fontSize: '13px', padding: '8px', background: '#fff', borderRadius: '4px', marginTop: '8px', wordBreak: 'break-all' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: '13px', padding: '8px', background: 'var(--card-bg)', borderRadius: 'var(--radius-sm)', marginTop: '8px', wordBreak: 'break-all' }}>
                 {newKey}
               </div>
-              <button onClick={() => setNewKey(null)} style={{ ...btnStyle, marginTop: '8px', background: '#4caf50' }}>Dismiss</button>
+              <button onClick={() => setNewKey(null)} style={{ ...btnStyle, marginTop: '8px', background: 'var(--chart-2)' }}>Dismiss</button>
             </div>
           )}
 
@@ -223,17 +223,17 @@ export default function AdminDeveloperPortal() {
                     padding: '2px 6px',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: k.is_active ? 'var(--success-bg, #e8f5e9)' : '#ffebee',
-                    color: k.is_active ? '#2e7d32' : '#c62828',
+                    background: k.is_active ? 'var(--success-bg)' : 'var(--danger-bg)',
+                    color: k.is_active ? 'var(--status-active)' : 'var(--status-inactive)',
                   }}>
                     {k.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => handleToggleKey(k.id, k.is_active)} style={{ ...btnStyle, background: k.is_active ? '#ff9800' : '#4caf50' }}>
+                  <button onClick={() => handleToggleKey(k.id, k.is_active)} style={{ ...btnStyle, background: k.is_active ? 'var(--chart-3)' : 'var(--chart-2)' }}>
                     {k.is_active ? 'Deactivate' : 'Activate'}
                   </button>
-                  <button onClick={() => handleDeleteKey(k.id)} style={{ ...btnStyle, background: '#f44336' }}>Delete</button>
+                  <button onClick={() => handleDeleteKey(k.id)} style={{ ...btnStyle, background: 'var(--chart-4)' }}>Delete</button>
                 </div>
               </div>
               {k.last_used_at && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Last used: {new Date(k.last_used_at).toLocaleString()}</div>}
@@ -283,13 +283,13 @@ export default function AdminDeveloperPortal() {
                     padding: '2px 6px',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: w.is_active ? 'var(--success-bg, #e8f5e9)' : '#ffebee',
-                    color: w.is_active ? '#2e7d32' : '#c62828',
+                    background: w.is_active ? 'var(--success-bg)' : 'var(--danger-bg)',
+                    color: w.is_active ? 'var(--status-active)' : 'var(--status-inactive)',
                   }}>
                     {w.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
-                <button onClick={() => handleDeleteWebhook(w.id)} style={{ ...btnStyle, background: '#f44336' }}>Delete</button>
+                <button onClick={() => handleDeleteWebhook(w.id)} style={{ ...btnStyle, background: 'var(--chart-4)' }}>Delete</button>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                 {w.events.map(ev => (
