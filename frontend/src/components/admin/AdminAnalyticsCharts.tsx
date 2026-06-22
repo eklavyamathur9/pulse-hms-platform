@@ -1,3 +1,4 @@
+import type { AdminAnalytics } from '../../types/api';
 import { Activity, TrendingUp } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -5,7 +6,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 const CHART_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)'];
 
 interface AdminAnalyticsChartsProps {
-  analytics: any;
+  analytics: AdminAnalytics;
 }
 
 export default function AdminAnalyticsCharts({ analytics }: AdminAnalyticsChartsProps) {
@@ -23,8 +24,8 @@ export default function AdminAnalyticsCharts({ analytics }: AdminAnalyticsCharts
         {analytics.status_breakdown.length > 0 ? (
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
-              <Pie data={analytics.status_breakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({name, percent}: any) => `${name} ${(percent*100).toFixed(0)}%`}>
-                {analytics.status_breakdown.map((_: any, idx: number) => (<Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />))}
+              <Pie data={analytics.status_breakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({name, percent}: { name: string; percent: number }) => `${name} ${(percent*100).toFixed(0)}%`}>
+                {analytics.status_breakdown.map((_: { name: string; value: number }, idx: number) => (<Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />))}
               </Pie>
               <Tooltip />
             </PieChart>

@@ -11,23 +11,24 @@ import DoctorStatsCards from './doctor/DoctorStatsCards';
 import DoctorQueuePanel from './doctor/DoctorQueuePanel';
 import DoctorActivePatientPanel from './doctor/DoctorActivePatientPanel';
 import { DashboardSkeleton } from './common/Skeleton';
+import type { DoctorQueueEntry, DoctorStats, AdminUser } from '../types/api';
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
   const socket = useSocket();
   const queryClient = useQueryClient();
-  const [activePatient, setActivePatient] = useState<any>(null);
+  const [activePatient, setActivePatient] = useState<DoctorQueueEntry | null>(null);
   const [testName, setTestName] = useState('');
   const [prescriptionText, setPrescriptionText] = useState('');
   const [followupDays, setFollowupDays] = useState<number>(0);
   const [isAvailable, setIsAvailable] = useState(true);
 
-  const { data: queue = [], isLoading, error: queueError } = useApiQuery<any[]>(
+  const { data: queue = [], isLoading, error: queueError } = useApiQuery<DoctorQueueEntry[]>(
     ['doctor-queue', user!.id],
     `/hospital/doctor/${user!.id}/queue`,
     { transform: sortQueue, refetchInterval: 15_000 }
   );
-  const { data: stats = { patients_today: 0, revenue: 0, rating: 0 }, error: statsError } = useApiQuery<Record<string, any>>(
+  const { data: stats = { patients_today: 0, revenue: 0, rating: 0 }, error: statsError } = useApiQuery<DoctorStats>(
     ['doctor-stats', user!.id],
     `/hospital/doctor/${user!.id}/stats`
   );
@@ -38,7 +39,7 @@ export default function DoctorDashboard() {
     try {
       const res = await apiFetch('/auth/admin/users');
       const users = await res.json();
-      const me = (users as any[]).find((u: any) => u.id === user!.id);
+      const me = (users as AdminUser[]).find((u: AdminUser) => u.id === user!.id);
       if (me) setIsAvailable(me.is_available);
     } catch (e) { console.error(e); }
   }, [user!.id]);

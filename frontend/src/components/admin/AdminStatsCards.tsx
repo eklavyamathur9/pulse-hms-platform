@@ -1,8 +1,9 @@
+import type { AdminAnalytics } from '../../types/api';
 import { Activity, Users, Stethoscope, Star, Pill } from 'lucide-react';
 import StatCard from '../common/StatCard';
 
 interface AdminStatsCardsProps {
-  analytics: any;
+  analytics: AdminAnalytics;
 }
 
 export default function AdminStatsCards({ analytics }: AdminStatsCardsProps) {

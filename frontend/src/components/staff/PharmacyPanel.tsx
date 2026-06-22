@@ -1,10 +1,11 @@
 import { Activity, CheckCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import type { PharmacyQueueEntry } from '../../types/api';
 
 interface PharmacyPanelProps {
-  pharmacyQueue: any[];
-  onDispense: (id: any) => void;
+  pharmacyQueue: PharmacyQueueEntry[];
+  onDispense: (id: number) => void;
 }
 
 export default function PharmacyPanel({ pharmacyQueue, onDispense }: PharmacyPanelProps) {

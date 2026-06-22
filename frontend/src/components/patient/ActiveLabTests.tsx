@@ -1,20 +1,21 @@
 import React from 'react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import type { PatientLabTest } from '../../types/api';
 
 interface ActiveLabTestsProps {
-  labTests: any[];
+  labTests: PatientLabTest[];
   payForTest: (testId: number) => void;
 }
 
 export default function ActiveLabTests({ labTests, payForTest }: ActiveLabTestsProps): React.ReactElement | null {
-  const activeTests = labTests.filter((t: any) => t.status !== 'Completed');
+  const activeTests = labTests.filter((t: PatientLabTest) => t.status !== 'Completed');
   if (activeTests.length === 0) return null;
 
   return (
     <div style={{ marginTop: 'var(--spacing-xl)' }}>
       <h2 style={{ marginBottom: 'var(--spacing-md)' }}>Active Laboratory Needs</h2>
-      {activeTests.map((test: any) => (
+      {activeTests.map((test: PatientLabTest) => (
         <Card key={test.id} className="mb-4" padding={false}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem' }}>
             <div>

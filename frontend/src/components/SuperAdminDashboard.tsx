@@ -14,6 +14,7 @@ import { Input } from './ui/Input';
 import { Card } from './ui/Card';
 import StatCard from './common/StatCard';
 import { DashboardSkeleton } from './common/Skeleton';
+import type { SuperAdminStats, SuperAdminHospital, SuperAdminUser, UpdateHospitalPayload } from '../types/api';
 
 const PLANS = ['trial', 'basic', 'pro', 'enterprise'];
 const PLAN_COLORS: Record<string, string> = { trial: 'var(--plan-trial-color)', basic: 'var(--plan-basic-color)', pro: 'var(--plan-pro-color)', enterprise: 'var(--plan-enterprise-color)' };
@@ -28,8 +29,8 @@ const ROLE_BGS: Record<string, string> = {
 
 
 interface OverviewTabProps {
-  stats: Record<string, any>;
-  hospitals: any[];
+  stats: SuperAdminStats;
+  hospitals: SuperAdminHospital[];
 }
 
 function OverviewTab({ stats, hospitals }: OverviewTabProps) {
@@ -112,8 +113,8 @@ function OverviewTab({ stats, hospitals }: OverviewTabProps) {
 }
 
 interface HospitalDetailTabProps {
-  hospital: any;
-  users: any[];
+  hospital: SuperAdminHospital;
+  users: SuperAdminUser[];
   onBack: () => void;
   onUserCreated: () => void;
 }
@@ -135,7 +136,7 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
       setShowCreate(false);
       setNewUser({ name: '', email: '', contact: '', password: 'changeme', role: 'doctor', specialization: '' });
       onUserCreated();
-    } catch (err: any) { notify.error(err.message); }
+    } catch (err: unknown) { notify.error((err as Error).message); }
   };
 
   return (
@@ -188,7 +189,7 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
           <tbody>
             {users.length === 0 ? (
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No users in this hospital.</td></tr>
-            ) : users.map((u: any) => (
+            ) : users.map((u: SuperAdminUser) => (
               <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
                 <td>#{u.id}</td>
                 <td style={{ fontWeight: 600 }}>{u.name}{u.specialization ? ` (${u.specialization})` : ''}</td>
@@ -207,11 +208,11 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
 export default function SuperAdminDashboard() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string>('overview');
-  const [selectedHospital, setSelectedHospital] = useState<any>(null);
-  const [hospitalUsers, setHospitalUsers] = useState<any[]>([]);
+  const [selectedHospital, setSelectedHospital] = useState<SuperAdminHospital | null>(null);
+  const [hospitalUsers, setHospitalUsers] = useState<SuperAdminUser[]>([]);
   const [showCreateHospital, setShowCreateHospital] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<any>(null);
+  const [editingPlan, setEditingPlan] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [planFilter, setPlanFilter] = useState('');
 
@@ -222,8 +223,8 @@ export default function SuperAdminDashboard() {
     name: '', email: '', contact: '', password: 'changeme', role: 'doctor', specialization: '', hospital_id: '',
   });
 
-  const { data: stats, isLoading, error: statsError } = useApiQuery<Record<string, any>>('superadmin-stats', '/superadmin/stats');
-  const { data: hospitals = [], error: hospitalsError } = useApiQuery<any[]>('superadmin-hospitals', '/superadmin/hospitals');
+  const { data: stats, isLoading, error: statsError } = useApiQuery<SuperAdminStats>('superadmin-stats', '/superadmin/stats');
+  const { data: hospitals = [], error: hospitalsError } = useApiQuery<SuperAdminHospital[]>('superadmin-hospitals', '/superadmin/hospitals');
 
   const fetchError = statsError || hospitalsError;
 
@@ -234,7 +235,7 @@ export default function SuperAdminDashboard() {
   const fetchHospitalUsers = async (hospitalId: number) => {
     try {
       const res = await apiFetch(`/superadmin/hospitals/${hospitalId}/users`);
-      return await res.json() as any[];
+      return await res.json() as SuperAdminUser[];
     } catch { return []; }
   };
 
@@ -249,7 +250,7 @@ export default function SuperAdminDashboard() {
     });
   };
 
-  const updateHospital = async (id: number, updates: Record<string, any>) => {
+  const updateHospital = async (id: number, updates: Partial<UpdateHospitalPayload>) => {
     try {
       const res = await apiFetch(`/superadmin/hospitals/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -260,7 +261,7 @@ export default function SuperAdminDashboard() {
       notify.success('Hospital updated');
       queryClient.invalidateQueries({ queryKey: ['superadmin-hospitals'] });
       queryClient.invalidateQueries({ queryKey: ['superadmin-stats'] });
-    } catch (err: any) { notify.error(err.message); }
+    } catch (err: unknown) { notify.error((err as Error).message); }
   };
 
   const toggleHospitalStatus = async (id: number, currentStatus: boolean) => {
@@ -272,7 +273,7 @@ export default function SuperAdminDashboard() {
     setEditingPlan(null);
   };
 
-  const viewHospitalUsers = async (hospital: any) => {
+  const viewHospitalUsers = async (hospital: SuperAdminHospital) => {
     setSelectedHospital(hospital);
     const users = await fetchHospitalUsers(hospital.id);
     setHospitalUsers(users);
@@ -292,12 +293,12 @@ export default function SuperAdminDashboard() {
       notify.success(`User "${newUser.name}" created`);
       setShowCreateUser(false);
       setNewUser({ name: '', email: '', contact: '', password: 'changeme', role: 'doctor', specialization: '', hospital_id: '' });
-      const users = await fetchHospitalUsers(selectedHospital.id);
+      const users = await fetchHospitalUsers(selectedHospital!.id);
       setHospitalUsers(users);
-    } catch (err: any) { notify.error(err.message); }
+    } catch (err: unknown) { notify.error((err as Error).message); }
   };
 
-  const filteredHospitals = hospitals.filter((h: any) => {
+  const filteredHospitals = hospitals.filter((h: SuperAdminHospital) => {
     if (searchQuery && !h.name.toLowerCase().includes(searchQuery.toLowerCase()) && !h.subdomain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (planFilter && h.plan !== planFilter) return false;
     return true;
@@ -395,7 +396,7 @@ export default function SuperAdminDashboard() {
               <tbody>
                 {filteredHospitals.length === 0 ? (
                   <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No hospitals found.</td></tr>
-                ) : filteredHospitals.map((h: any) => (
+                ) : filteredHospitals.map((h: SuperAdminHospital) => (
                   <tr key={h.id} style={{ opacity: h.is_active ? 1 : 0.5 }}>
                       <td style={{ fontWeight: 600 }}>{h.name}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{h.subdomain}.pulsehms.com</td>
@@ -445,7 +446,7 @@ export default function SuperAdminDashboard() {
             <div>
               <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--spacing-lg)' }}>Select a hospital to view and manage its users.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                {hospitals.filter((h: any) => h.is_active).map((h: any) => (
+                {hospitals.filter((h: SuperAdminHospital) => h.is_active).map((h: SuperAdminHospital) => (
                   <Card key={h.id} style={{ cursor: 'pointer' }}
                     onClick={() => viewHospitalUsers(h)}>
                     <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>{h.name}</div>
@@ -510,7 +511,7 @@ export default function SuperAdminDashboard() {
                   <tbody>
                     {hospitalUsers.length === 0 ? (
                       <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No users in this hospital.</td></tr>
-                    ) : hospitalUsers.map((u: any) => (
+                    ) : hospitalUsers.map((u: SuperAdminUser) => (
                       <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}>
                         <td>#{u.id}</td>
                         <td style={{ fontWeight: 600 }}>{u.name}{u.specialization ? ` (${u.specialization})` : ''}</td>

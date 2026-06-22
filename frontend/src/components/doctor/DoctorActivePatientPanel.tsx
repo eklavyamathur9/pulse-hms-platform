@@ -2,9 +2,10 @@ import React from 'react';
 import { Activity, User, FileText, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import type { DoctorQueueEntry } from '../../types/api';
 
 interface DoctorActivePatientPanelProps {
-  patient: any;
+  patient: DoctorQueueEntry;
   onClose: () => void;
   testName: string;
   onTestNameChange: (val: string) => void;
@@ -76,7 +77,7 @@ export default function DoctorActivePatientPanel({ patient, onClose, testName, o
       {patient.lab_tests?.length > 0 && (
         <div style={{ marginBottom: 'var(--spacing-xl)' }}>
           <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FileText size={18} color="var(--primary)" /> Laboratory Tests</h3>
-          {patient.lab_tests.map((test: any, idx: number) => (
+          {patient.lab_tests.map((test: { test_name: string; status: string; result_text?: string }, idx: number) => (
             <div key={idx} style={{ background: 'var(--success-bg)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '0.5rem' }}>
               <div style={{ fontWeight: 600, color: 'var(--success)', marginBottom: '0.2rem' }}>{test.test_name}</div>
               {test.status === 'Completed' ? (

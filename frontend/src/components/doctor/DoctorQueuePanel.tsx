@@ -1,11 +1,12 @@
 import { User, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import type { DoctorQueueEntry } from '../../types/api';
 
 interface DoctorQueuePanelProps {
-  queue: any[];
-  activePatient: any;
-  onSelectPatient: (patient: any) => void;
+  queue: DoctorQueueEntry[];
+  activePatient: DoctorQueueEntry | null;
+  onSelectPatient: (patient: DoctorQueueEntry) => void;
   isAvailable: boolean;
   onToggleAvailability: () => void;
 }

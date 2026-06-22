@@ -2,10 +2,11 @@ import React from 'react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
+import type { PatientAppointment } from '../../types/api';
 
 interface RescheduleModalProps {
-  rescheduleAppt: any;
-  setRescheduleAppt: (a: any) => void;
+  rescheduleAppt: PatientAppointment | null;
+  setRescheduleAppt: (a: PatientAppointment | null) => void;
   rescheduleDate: string;
   setRescheduleDate: (s: string) => void;
   rescheduleSlots: string[];

@@ -3,10 +3,11 @@ import { User as UserIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
+import type { PatientProfileForm } from '../../types/api';
 
 interface PatientProfileProps {
-  profileForm: any;
-  setProfileForm: (f: any) => void;
+  profileForm: PatientProfileForm;
+  setProfileForm: (f: PatientProfileForm) => void;
   profileSaving: boolean;
   saveProfile: (e: React.FormEvent) => void;
 }

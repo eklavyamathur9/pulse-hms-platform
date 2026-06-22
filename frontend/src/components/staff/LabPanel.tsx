@@ -3,12 +3,13 @@ import { Activity, CheckCircle, Upload } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { apiFetch } from '../../lib/api';
+import type { LabQueueEntry } from '../../types/api';
 
 interface LabPanelProps {
-  labQueue: any[];
-  labUploadForm: any;
+  labQueue: LabQueueEntry[];
+  labUploadForm: number | null;
   labResult: string;
-  onLabUploadFormChange: (id: any) => void;
+  onLabUploadFormChange: (id: number) => void;
   onLabResultChange: (val: string) => void;
   onSubmitLabReport: (e: React.FormEvent<HTMLFormElement>) => void;
   onCancelLabUpload: () => void;
@@ -23,7 +24,7 @@ export default function LabPanel({ labQueue, labUploadForm, labResult, onLabUplo
       const formData = new FormData();
       formData.append('file', file);
       formData.append('lab_test_id', String(testId));
-      const entry = labQueue.find((t: any) => t.id === testId);
+      const entry = labQueue.find((t: LabQueueEntry) => t.id === testId);
       if (entry?.patient_id) {
         formData.append('patient_id', String(entry.patient_id));
       }
@@ -74,7 +75,7 @@ export default function LabPanel({ labQueue, labUploadForm, labResult, onLabUplo
             </tr>
           </thead>
           <tbody>
-            {labQueue.map((t: any) => (
+            {labQueue.map((t: LabQueueEntry) => (
               <tr key={t.id}>
                 <td>#{t.id}</td>
                 <td style={{ fontWeight: 500 }}>{t.patient_name}</td>

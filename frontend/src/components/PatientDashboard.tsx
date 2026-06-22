@@ -15,13 +15,14 @@ import PatientProfile from './patient/PatientProfile';
 import RescheduleModal from './patient/RescheduleModal';
 import { DoctorBookingList, BookingForm } from './patient/PatientBookingPanel';
 import { DashboardSkeleton } from './common/Skeleton';
+import type { DoctorInfo, PatientAppointment, PatientLabTest, PatientPrescription, PatientInvoice, PatientProfileForm } from '../types/api';
 
 export default function PatientDashboard() {
   const { user } = useAuth();
   const socket = useSocket();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string>('dashboard');
-  const [activeBookingDoctor, setActiveBookingDoctor] = useState<any>(null);
+  const [activeBookingDoctor, setActiveBookingDoctor] = useState<DoctorInfo | null>(null);
   const [symptoms, setSymptoms] = useState('');
   const [painLevel, setPainLevel] = useState<number>(5);
   const [bookingDate, setBookingDate] = useState('');
@@ -29,21 +30,21 @@ export default function PatientDashboard() {
   const [selectedSlot, setSelectedSlot] = useState('');
   const [slotsLoading, setSlotsLoading] = useState(false);
 
-  const { data: rawAppointments, isLoading, error: appointmentsError } = useApiQuery<any[]>(
+  const { data: rawAppointments, isLoading, error: appointmentsError } = useApiQuery<PatientAppointment[]>(
     ['patient-appointments', user!.id],
     `/patients/${user!.id}/appointments`
   );
-  const { data: labTests = [], error: labTestsError } = useApiQuery<any[]>(
+  const { data: labTests = [], error: labTestsError } = useApiQuery<PatientLabTest[]>(
     ['patient-lab-tests', user!.id],
     `/hospital/patient/${user!.id}/tests`
   );
-  const { data: prescriptions = [], error: prescriptionsError } = useApiQuery<any[]>(
+  const { data: prescriptions = [], error: prescriptionsError } = useApiQuery<PatientPrescription[]>(
     ['patient-prescriptions', user!.id],
     `/patients/${user!.id}/prescriptions`
   );
-  const { data: doctors = [], error: doctorsError } = useApiQuery<any[]>('patient-doctors', '/auth/doctors');
-  const { data: allDoctors = [], error: allDoctorsError } = useApiQuery<any[]>('patient-doctors-all', '/auth/doctors/all');
-  const { data: invoices = [], error: invoicesError } = useApiQuery<any[]>(
+  const { data: doctors = [], error: doctorsError } = useApiQuery<DoctorInfo[]>('patient-doctors', '/auth/doctors');
+  const { data: allDoctors = [], error: allDoctorsError } = useApiQuery<DoctorInfo[]>('patient-doctors-all', '/auth/doctors/all');
+  const { data: invoices = [], error: invoicesError } = useApiQuery<PatientInvoice[]>(
     ['patient-invoices', user!.id],
     `/hospital/patient/${user!.id}/invoices`,
     { enabled: false }
@@ -52,13 +53,13 @@ export default function PatientDashboard() {
   const fetchError = appointmentsError || labTestsError || prescriptionsError || doctorsError || allDoctorsError || invoicesError;
 
   const activeAppointments = useMemo(() =>
-    (rawAppointments as any[])?.filter((a: any) => !['Completed', 'Cancelled'].includes(a.status)) ?? [],
+    (rawAppointments as PatientAppointment[])?.filter((a: PatientAppointment) => !['Completed', 'Cancelled'].includes(a.status)) ?? [],
   [rawAppointments]);
   const historyAppointments = useMemo(() =>
-    (rawAppointments as any[])?.filter((a: any) => ['Completed', 'Cancelled'].includes(a.status)) ?? [],
+    (rawAppointments as PatientAppointment[])?.filter((a: PatientAppointment) => ['Completed', 'Cancelled'].includes(a.status)) ?? [],
   [rawAppointments]);
 
-  const [profileForm, setProfileForm] = useState<Record<string, any>>({
+  const [profileForm, setProfileForm] = useState<PatientProfileForm>({
     name: user?.name || '',
     contact: user?.contact || '',
     age: user?.age || '',
@@ -70,7 +71,7 @@ export default function PatientDashboard() {
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [ratedAppointments, setRatedAppointments] = useState<number[]>([]);
-  const [rescheduleAppt, setRescheduleAppt] = useState<any>(null);
+  const [rescheduleAppt, setRescheduleAppt] = useState<PatientAppointment | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleSlots, setRescheduleSlots] = useState<string[]>([]);
   const [rescheduleSlot, setRescheduleSlot] = useState('');
@@ -84,7 +85,7 @@ export default function PatientDashboard() {
   }, [queryClient, user!.id]);
 
   useSocketRefresh(socket, ['appointment_booked', 'queue_updated'], useCallback((...args: unknown[]) => {
-    const data = args[0] as any;
+    const data = args[0] as { patient_id?: number };
     if (data && data.patient_id && data.patient_id !== user!.id) return;
     refreshPatientData();
   }, [refreshPatientData, user!.id]));

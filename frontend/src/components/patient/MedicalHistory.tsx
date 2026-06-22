@@ -5,15 +5,18 @@ import { downloadPrescriptionPDF } from '../../lib/pdf';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
+import type { User } from '../../context/AuthContext';
+import type { notify as NotifyFn } from '../../stores/useNotificationStore';
+import type { PatientAppointment, DoctorInfo, PatientPrescription, PatientLabTest } from '../../types/api';
 
 interface MedicalHistoryProps {
-  historyAppointments: any[];
-  allDoctors: any[];
-  doctors: any[];
-  prescriptions: any[];
-  labTests: any[];
-  user: any;
-  notify: any;
+  historyAppointments: PatientAppointment[];
+  allDoctors: DoctorInfo[];
+  doctors: DoctorInfo[];
+  prescriptions: PatientPrescription[];
+  labTests: PatientLabTest[];
+  user: User;
+  notify: typeof NotifyFn;
   ratingStars: number;
   setRatingStars: (n: number) => void;
   ratingComment: string;
@@ -31,7 +34,7 @@ export default function MedicalHistory({
   ratedAppointments, setRatedAppointments,
   onBrowseDoctors
 }: MedicalHistoryProps): React.ReactElement {
-  const completedLabs = labTests.filter((t: any) => t.status === 'Completed');
+  const completedLabs = labTests.filter((t: PatientLabTest) => t.status === 'Completed');
 
   return (
     <>
@@ -46,8 +49,8 @@ export default function MedicalHistory({
         <Card className="text-center">No history found.</Card>
       )}
 
-      {historyAppointments.filter((a: any) => a.followup_days && a.followup_days > 0).map(a => {
-        const doctor = allDoctors.find((d: any) => d.id === a.doctor_id);
+      {historyAppointments.filter((a: PatientAppointment) => a.followup_days && a.followup_days > 0).map(a => {
+        const doctor = allDoctors.find((d: DoctorInfo) => d.id === a.doctor_id);
         return (
           <Card key={`fu-${a.id}`}
             className="mb-4 border-l-4"
@@ -68,8 +71,8 @@ export default function MedicalHistory({
         );
       })}
 
-      {historyAppointments.filter((a: any) => a.status === 'Completed' && !ratedAppointments.includes(a.id)).map(a => {
-        const doctor = doctors.find((d: any) => d.id === a.doctor_id);
+      {historyAppointments.filter((a: PatientAppointment) => a.status === 'Completed' && !ratedAppointments.includes(a.id)).map(a => {
+        const doctor = doctors.find((d: DoctorInfo) => d.id === a.doctor_id);
         return (
           <Card key={`rate-${a.id}`} className="glass-panel" padding={false}>
             <div style={{ padding: '1.5rem' }}>
@@ -121,7 +124,7 @@ export default function MedicalHistory({
       {prescriptions.length > 0 && (
         <div style={{ marginBottom: 'var(--spacing-xl)' }}>
           <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.3rem' }}>E-Prescriptions</h2>
-          {prescriptions.map((rx: any) => (
+          {prescriptions.map((rx: PatientPrescription) => (
             <Card key={rx.id} className="glass-panel mb-4"
               style={{ borderLeft: '4px solid var(--success)' }}>
               <div style={{ marginBottom: '1rem' }}>
@@ -159,7 +162,7 @@ export default function MedicalHistory({
       {completedLabs.length > 0 && (
         <div style={{ marginBottom: 'var(--spacing-xl)' }}>
           <h2 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.3rem' }}>Completed Lab Reports</h2>
-          {completedLabs.map((test: any) => (
+          {completedLabs.map((test: PatientLabTest) => (
             <Card key={test.id} className="mb-4">
               <h3 style={{ margin: 0, color: 'var(--text-dark)' }}>{test.test_name}</h3>
               <div style={{
