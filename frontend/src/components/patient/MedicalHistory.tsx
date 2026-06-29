@@ -81,7 +81,9 @@ export default function MedicalHistory({
               </h3>
               <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.75rem' }}>
                 {[1, 2, 3, 4, 5].map(star => (
-                  <span key={star} onClick={() => setRatingStars(star)}
+                  <span key={star} role="button" tabIndex={0}
+                    onClick={() => setRatingStars(star)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRatingStars(star); } }}
                     style={{ cursor: 'pointer', fontSize: '1.8rem', color: star <= ratingStars ? 'var(--warning)' : 'var(--border-color)', transition: 'color 0.15s' }}>
                     ★
                   </span>

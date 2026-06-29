@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApiQuery } from '../hooks/useApi';
@@ -14,6 +14,12 @@ export default function StaffDashboard() {
   const socket = useSocket();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string>('vitals');
+
+  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
+    const tabs = ['vitals', 'labs', 'pharmacy'];
+    if (e.key === 'ArrowRight') { e.preventDefault(); const next = (idx + 1) % tabs.length; setTab(tabs[next]); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); const prev = (idx - 1 + tabs.length) % tabs.length; setTab(tabs[prev]); }
+  }, []);
   const [vitalsForm, setVitalsForm] = useState<number | null>(null);
   const [vitalsData, setVitalsData] = useState<Record<string, string>>({ weight: '', hr: '', bp: '', temp: '' });
   const [labUploadForm, setLabUploadForm] = useState<number | null>(null);
@@ -61,15 +67,19 @@ export default function StaffDashboard() {
     if (socket) socket.emit('action_dispense_meds', { prescriptionId: rxId });
   };
 
-  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
+  if (fetchError) return <div role="alert" style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) return <DashboardSkeleton rows={3} />;
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: '1000px', margin: '0 auto' } as React.CSSProperties}>
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid var(--border-color)' } as React.CSSProperties}>
-        <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'vitals' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'vitals' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('vitals')}>Vitals Pipeline</button>
-        <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'labs' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'labs' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('labs')}>Laboratory Pipeline</button>
-        <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'pharmacy' ? '3px solid var(--success)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'pharmacy' ? 700 : 500, color: tab === 'pharmacy' ? 'var(--success)' : 'inherit' } as React.CSSProperties} onClick={() => setTab('pharmacy')}>Pharmacy Desk</button>
+      <div role="tablist" aria-label="Staff pipeline sections" style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid var(--border-color)' } as React.CSSProperties}>
+        {['vitals', 'labs', 'pharmacy'].map((t, idx) => (
+          <button key={t} role="tab" aria-selected={tab === t} tabIndex={tab === t ? 0 : -1}
+            className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === t ? `3px solid ${t === 'pharmacy' ? 'var(--success)' : 'var(--primary)'}` : '3px solid transparent', borderRadius: 0, fontWeight: tab === t ? 700 : 500, color: tab === t && t === 'pharmacy' ? 'var(--success)' : 'inherit' } as React.CSSProperties}
+            onClick={() => setTab(t)} onKeyDown={(e) => handleTabKeyDown(e, idx)}>
+            {t === 'vitals' ? 'Vitals Pipeline' : t === 'labs' ? 'Laboratory Pipeline' : 'Pharmacy Desk'}
+          </button>
+        ))}
       </div>
 
       {tab === 'vitals' && (

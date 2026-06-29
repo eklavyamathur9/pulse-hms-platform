@@ -39,8 +39,8 @@ export default function AdminUserManagement({ users, onCreateUser, onToggleActiv
             <Input label="Full Name *" required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
-            <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
+            <label htmlFor="user-role-select" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
+            <select id="user-role-select" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
               <option value="doctor">Doctor</option>
               <option value="staff">Staff</option>
               <option value="admin">Admin</option>

@@ -98,7 +98,7 @@ export default function DoctorDashboard() {
     } catch(err) { console.error(err); }
   };
 
-  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
+  if (fetchError) return <div role="alert" style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) return <DashboardSkeleton rows={3} />;
 
   return (

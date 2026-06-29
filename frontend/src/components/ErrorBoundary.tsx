@@ -26,7 +26,7 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <div role="alert" style={{ padding: '2rem', textAlign: 'center' }}>
           <h2 style={{ color: 'var(--danger)' }}>Something went wrong</h2>
           <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
             {this.state.error?.message || 'An unexpected error occurred.'}

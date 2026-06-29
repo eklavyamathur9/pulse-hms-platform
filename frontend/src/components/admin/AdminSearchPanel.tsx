@@ -33,8 +33,8 @@ export default function AdminSearchPanel({ onSearch, results }: AdminSearchPanel
             <Input label="Search" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Name, email, contact..." />
           </div>
           <div style={{ flex: '1', minWidth: '120px' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role</label>
-            <select value={searchRole} onChange={e => setSearchRole(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
+            <label htmlFor="search-role" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role</label>
+            <select id="search-role" value={searchRole} onChange={e => setSearchRole(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
               <option value="">All</option>
               <option value="patient">Patient</option>
               <option value="doctor">Doctor</option>
