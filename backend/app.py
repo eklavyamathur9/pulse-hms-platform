@@ -143,7 +143,10 @@ def after_request(response):
     span = trace.get_current_span()
     span_context = span.get_span_context()
     if span_context.is_valid:
-        response.headers["traceresponse"] = f"00-{span_context.trace_id:032x}-{span_context.span_id:016x}-{format(span_context.trace_flags, '02x')}"
+        trace_id = f"{span_context.trace_id:032x}"
+        span_id = f"{span_context.span_id:016x}"
+        flags = format(span_context.trace_flags, '02x')
+        response.headers["traceresponse"] = f"00-{trace_id}-{span_id}-{flags}"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "0"

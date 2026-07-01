@@ -55,13 +55,27 @@ def hospital_stats(hospital):
     row = db.session.execute(
         db.text("""
             SELECT
-                (SELECT COUNT(*) FROM "user" WHERE hospital_id = :h1 AND role = 'doctor' AND is_active = 1) AS doctors,
-                (SELECT COUNT(*) FROM "user" WHERE hospital_id = :h2 AND role = 'patient' AND is_active = 1) AS patients,
-                (SELECT COUNT(*) FROM "user" WHERE hospital_id = :h3 AND role = 'staff' AND is_active = 1) AS staff,
-                (SELECT COUNT(*) FROM "user" WHERE hospital_id = :h4 AND is_active = 1) AS total_users,
-                (SELECT COUNT(*) FROM appointment WHERE hospital_id = :h5) AS appointments,
-                (SELECT COUNT(*) FROM invoice WHERE hospital_id = :h6 AND status = 'Paid') AS paid_invoices,
-                (SELECT COALESCE(SUM(amount), 0) FROM payment WHERE hospital_id = :h7 AND status = 'completed') AS revenue
+                (SELECT COUNT(*) FROM "user"
+                    WHERE hospital_id = :h1 AND role = 'doctor' AND is_active = 1
+                ) AS doctors,
+                (SELECT COUNT(*) FROM "user"
+                    WHERE hospital_id = :h2 AND role = 'patient' AND is_active = 1
+                ) AS patients,
+                (SELECT COUNT(*) FROM "user"
+                    WHERE hospital_id = :h3 AND role = 'staff' AND is_active = 1
+                ) AS staff,
+                (SELECT COUNT(*) FROM "user"
+                    WHERE hospital_id = :h4 AND is_active = 1
+                ) AS total_users,
+                (SELECT COUNT(*) FROM appointment
+                    WHERE hospital_id = :h5
+                ) AS appointments,
+                (SELECT COUNT(*) FROM invoice
+                    WHERE hospital_id = :h6 AND status = 'Paid'
+                ) AS paid_invoices,
+                (SELECT COALESCE(SUM(amount), 0) FROM payment
+                    WHERE hospital_id = :h7 AND status = 'completed'
+                ) AS revenue
         """),
         {"h1": hid, "h2": hid, "h3": hid, "h4": hid, "h5": hid, "h6": hid, "h7": hid},
     ).one()
@@ -98,21 +112,32 @@ def batch_hospital_stats(hospital_ids):
     app_counts = {
         r.hospital_id: r.cnt
         for r in db.session.execute(
-            db.text("SELECT hospital_id, COUNT(*) AS cnt FROM appointment WHERE hospital_id IN :hids GROUP BY hospital_id"),
+            db.text(
+                "SELECT hospital_id, COUNT(*) AS cnt"
+                " FROM appointment WHERE hospital_id IN :hids GROUP BY hospital_id"
+            ),
             {"hids": tuple(hospital_ids)},
         ).fetchall()
     }
     inv_counts = {
         r.hospital_id: r.cnt
         for r in db.session.execute(
-            db.text("SELECT hospital_id, COUNT(*) AS cnt FROM invoice WHERE hospital_id IN :hids AND status = 'Paid' GROUP BY hospital_id"),
+            db.text(
+                "SELECT hospital_id, COUNT(*) AS cnt"
+                " FROM invoice WHERE hospital_id IN :hids"
+                " AND status = 'Paid' GROUP BY hospital_id"
+            ),
             {"hids": tuple(hospital_ids)},
         ).fetchall()
     }
     pay_sums = {
         r.hospital_id: float(r.revenue)
         for r in db.session.execute(
-            db.text("SELECT hospital_id, COALESCE(SUM(amount), 0) AS revenue FROM payment WHERE hospital_id IN :hids AND status = 'completed' GROUP BY hospital_id"),
+            db.text(
+                "SELECT hospital_id, COALESCE(SUM(amount), 0) AS revenue"
+                " FROM payment WHERE hospital_id IN :hids"
+                " AND status = 'completed' GROUP BY hospital_id"
+            ),
             {"hids": tuple(hospital_ids)},
         ).fetchall()
     }
