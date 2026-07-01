@@ -42,7 +42,9 @@ def tenant_prescription(rx_id, hospital_id):
 
 
 def handle_connect(auth=None):
-    token = (auth or {}).get("token")
+    token = request.cookies.get("access_token_cookie")
+    if not token:
+        token = (auth or {}).get("token")
     if not token:
         return False
     try:

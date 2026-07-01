@@ -10,44 +10,39 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler;
 }
 
-export function getAuthToken(): string | null {
-  return localStorage.getItem('pulse_token');
+function getCookie(name: string): string | null {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length >= 2) return parts.pop()?.split(';').shift() || null;
+  return null;
 }
 
-export function getRefreshToken(): string | null {
-  return localStorage.getItem('pulse_refresh_token');
+function getCsrfToken(): string | null {
+  return getCookie('csrf_access_token');
 }
 
-export function setTokens(accessToken?: string | null, refreshToken?: string | null): void {
-  if (accessToken) localStorage.setItem('pulse_token', accessToken);
-  if (refreshToken) localStorage.setItem('pulse_refresh_token', refreshToken);
-}
-
-export function clearTokens(): void {
-  localStorage.removeItem('pulse_token');
-  localStorage.removeItem('pulse_refresh_token');
+function getCsrfRefreshToken(): string | null {
+  return getCookie('csrf_refresh_token');
 }
 
 async function tryRefresh(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
   if (refreshing) return refreshing;
   refreshing = (async () => {
     try {
+      const headers: Record<string, string> = {};
+      const csrf = getCsrfRefreshToken();
+      if (csrf) headers['X-CSRF-TOKEN-REFRESH'] = csrf;
+
       const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${refreshToken}` },
+        headers,
+        credentials: 'include',
       });
       if (response.ok) {
-        const data: { token?: string; refresh_token?: string } = await response.json();
-        setTokens(data.token, data.refresh_token);
         return true;
       }
-      clearTokens();
       return false;
     } catch {
-      clearTokens();
       return false;
     } finally {
       refreshing = null;
@@ -63,33 +58,33 @@ export function apiUrl(path: string): string {
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers || {});
-  const token = getAuthToken();
-
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
 
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const csrf = getCsrfToken();
+    if (csrf) headers.set('X-CSRF-TOKEN', csrf);
+  }
+
   let response = await fetch(apiUrl(path), {
     ...options,
     headers,
+    credentials: 'include',
   });
 
-  if (response.status === 401 && getRefreshToken()) {
+  if (response.status === 401) {
     const refreshed = await tryRefresh();
     if (refreshed) {
-      headers.set('Authorization', `Bearer ${getAuthToken()}`);
-      response = await fetch(apiUrl(path), { ...options, headers });
-    } else if (unauthorizedHandler) {
+      const csrf = getCsrfToken();
+      if (csrf) headers.set('X-CSRF-TOKEN', csrf);
+      response = await fetch(apiUrl(path), { ...options, headers, credentials: 'include' });
+    }
+    if (!response.ok && unauthorizedHandler) {
       unauthorizedHandler();
     }
-  }
-
-  if (response.status === 401 && !getRefreshToken() && unauthorizedHandler) {
-    unauthorizedHandler();
   }
 
   return response;

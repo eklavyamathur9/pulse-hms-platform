@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
-import { SOCKET_URL, getAuthToken } from '../lib/api';
+import { SOCKET_URL } from '../lib/api';
 
 const SocketContext = createContext<Socket | null>(null);
 
@@ -15,7 +15,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (user) {
       const newSocket = io(SOCKET_URL, {
-        auth: { token: getAuthToken() },
+        withCredentials: true,
       });
       setSocket(newSocket);
 

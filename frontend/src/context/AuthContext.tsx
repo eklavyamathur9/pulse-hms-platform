@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { clearTokens, setTokens, setUnauthorizedHandler } from '../lib/api';
+import { setUnauthorizedHandler, apiJson } from '../lib/api';
 
 export interface User {
   id: number;
@@ -21,8 +21,8 @@ export interface User {
 
 interface AuthContextValue {
   user: User | null;
-  token: string | null;
-  login: (userData: User, jwtToken: string, refreshToken?: string) => void;
+  loading: boolean;
+  login: (userData: User) => void;
   logout: () => void;
 }
 
@@ -35,26 +35,33 @@ export const useAuth = (): AuthContextValue => {
 };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(() => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
     const saved = localStorage.getItem('pulse_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+    if (saved) {
+      apiJson<{ user: User }>('/auth/me')
+        .then((data) => setUser(data.user))
+        .catch(() => {
+          localStorage.removeItem('pulse_user');
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('pulse_token') || null;
-  });
-
-  const login = (userData: User, jwtToken: string, refreshToken?: string): void => {
+  const login = (userData: User): void => {
     setUser(userData);
-    setToken(jwtToken);
     localStorage.setItem('pulse_user', JSON.stringify(userData));
-    setTokens(jwtToken, refreshToken);
   };
 
   const logout = useCallback(() => {
+    apiJson('/auth/logout', { method: 'POST' }).catch(() => {});
     setUser(null);
-    setToken(null);
-    clearTokens();
+    localStorage.removeItem('pulse_user');
   }, []);
 
   useEffect(() => {
@@ -63,7 +70,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [logout]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

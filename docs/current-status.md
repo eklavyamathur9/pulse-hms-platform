@@ -1,6 +1,6 @@
 # Current Status
 
-Last reviewed: 2026-06-20
+Last reviewed: 2026-06-29
 
 ## Completed Systems And Features
 
@@ -74,7 +74,7 @@ Last reviewed: 2026-06-20
 - Developer Portal UI (React tab in AdminDashboard)
 
 ### Code Quality & Infrastructure
-- ESLint: 0 errors, 129 warnings (pre-existing `any` types — acceptable)
+- ESLint: 0 errors, 6 warnings (all `react-hooks/exhaustive-deps`)
 - Ruff: clean throughout backend codebase
 - Backend: 54 pytest tests (7 API + 5 socket + 17 workflow + 25 integration)
 - Frontend: 47 tests (useNotificationStore, StatCard, Button, Modal, Card, Input, utils)
@@ -93,10 +93,14 @@ Last reviewed: 2026-06-20
 - Sentry error tracking (backend + frontend)
 - Prometheus metrics endpoint at `/metrics`
 - Grafana dashboard with auto-provisioned datasource
+- OpenTelemetry distributed tracing (backend Flask/SQLAlchemy/Celery + frontend fetch/XHR)
 - gunicorn JSON access logs
 - Load testing with k6
 - SQLAlchemy relationship properties added to Hospital, User, Appointment, Invoice
 - N+1 query patterns fixed in hospital_routes (6 queue/list endpoints) and patient_routes
+- CSS variable theme system (23+ custom properties for roles, charts, status, plans)
+- TypeScript API interfaces (`frontend/src/types/api.ts`: 17 typed interfaces)
+- Shared UI component library with ARIA roles, keyboard handlers, focus management
 
 ### Documentation
 - `docs/architecture.md` — system design, data flow diagrams, component boundaries
@@ -170,31 +174,42 @@ Last reviewed: 2026-06-20
 
 Phase 17 (Security Hardening) is complete: account lockout, API key rotation, CSP headers merged via PR #22.
 
-## Phase 18 (Current) — SQLAlchemy Relationships & N+1 Fix
+## Phase 18 Completion — SQLAlchemy Relationships & N+1 Fix
 
 SQLAlchemy relationship properties added to Hospital, User, Appointment, and Invoice models. N+1 query patterns fixed in 6 hospital_routes endpoints (get_hospital_queue, get_doctor_queue, get_doctor_stats, get_lab_queue, get_pharmacy_queue, get_patient_invoices), admin_search, and 1 patient_routes endpoint (get_patient_prescriptions).
 
-Remaining after Phase 18:
-- CSS variable migration (~70 hardcoded hex colors)
-- TypeScript `any` cleanup (~31 files)
-- Accessibility (ARIA + keyboard handlers)
-- OpenTelemetry / distributed tracing
+## Phase 19 Completion — CSS Variable Migration
+
+~116 hardcoded hex colors replaced with CSS custom properties across 14 components. 23+ CSS variables in `index.css` with light/dark mode overrides for layout, roles, charts, status, plans, notifications. Merged via PR #24.
+
+## Phase 20 Completion — TypeScript `any` Cleanup
+
+125→0 `no-explicit-any` warnings across 22 files. `frontend/src/types/api.ts` with 17 typed API interfaces. `User` exported from AuthContext. Merged via PR #25.
+
+## Phase 21 Completion — Accessibility
+
+ARIA roles, keyboard navigation, focus management across 21 files. Focus traps in Modal, `role=tablist`/`aria-selected` on 5 dashboard tab bars, `role=alert` on all error messages, `role=radio` on slot pickers, `role=slider` on pain level, `htmlFor`/`id` associations on 6 select elements, `role=button` on clickable cards/spans. PR #26 open.
+
+## Phase 22 (Current) — OpenTelemetry Distributed Tracing
+
+Backend: OpenTelemetry SDK with Flask/SQLAlchemy/Celery/requests instrumentation, OTLP HTTP exporter, `traceresponse` header propagation. Frontend: `@opentelemetry/sdk-trace-web` with fetch/XHR instrumentation, `traceparent` header propagation. Traces connect frontend API calls → backend endpoints → SQL queries → Celery tasks. Configured via `OTEL_EXPORTER_OTLP_ENDPOINT` / `VITE_OTEL_EXPORTER_OTLP_ENDPOINT` env vars.
+
+## Phase 23 (Current) — Cookie-Based JWT Auth
+
+JWT tokens moved from `localStorage` to httpOnly cookies to eliminate XSS token theft. Flask-JWT-Extended configured for dual-mode (`JWT_TOKEN_LOCATION = ['headers', 'cookies']`): backend tests continue to use `Authorization` header, frontend uses httpOnly cookies with CSRF protection. CSRF tokens sent via `X-CSRF-TOKEN` header for mutating requests. Frontend AuthContext simplified: no token state, `/auth/me` check on mount, `loading` state for route guard. Socket.IO upgraded to `withCredentials: true` with cookie-based auth support in `handle_connect`.
 
 ## Known Issues
 
 - Flask-Migrate `check` command may report no changes when DB is already current.
 - `seed.py --reset` drops and recreates all tables (safe for dev only).
-- Auth token stored in `localStorage` (XSS risk).
-- Role route guard has no loading/expired-token validation state.
 - String statuses (not enums) throughout workflow models.
 - PostgreSQL service in Docker Compose is optional; CI does not test against PostgreSQL.
 - No pre-commit hooks installed locally (pre-commit config exists but is not activated).
 - `emit()` from flask_socketio used in HTTP routes (pay_invoice, confirm_online_payment) may not work in multi-worker gunicorn deployments.
 - `encryption.py` has hardcoded PBKDF2 salt — weakens encryption if source is known.
 - Webhook delivery uses `urlopen` without explicit URL allowlisting (SSRF risk for self-hosted).
-- ~70 hardcoded hex colors bypassing CSS variable theme system (dashboards + CSS files).
-- 31 frontend files with excessive `any` types (precludes strict TS mode).
-- No ARIA attributes or keyboard handlers on clickable elements across 10+ files.
+- OpenTelemetry requires an OTLP collector endpoint (not configured by default; set `OTEL_EXPORTER_OTLP_ENDPOINT` / `VITE_OTEL_EXPORTER_OTLP_ENDPOINT`).
+- JWT cookies with `SameSite=Lax` may need `SameSite=None` + `Secure` for cross-origin production deployments.
 
 ## Known Risks
 
@@ -204,4 +219,8 @@ Remaining after Phase 18:
 - Production deployment risk due to dev servers and SQLite.
 - Compliance risk due to limited audit breadth and absence of formal security controls.
 
-## Next Priority: CSS Variable Migration
+## Next Priority
+
+- Cookie same-site configuration for production (`SameSite=None; Secure`)
+- Phase 21 PR #26 merge (accessibility)
+- Role route guard loading/expired-token UX polish

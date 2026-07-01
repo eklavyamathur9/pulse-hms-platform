@@ -3,7 +3,15 @@ from datetime import datetime, timedelta
 from audit import log_action
 from auth_utils import current_hospital_id, current_user, require_hospital_context, require_roles, user_claims
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    get_jwt_identity,
+    jwt_required,
+    set_access_cookies,
+    set_refresh_cookies,
+    unset_jwt_cookies,
+)
 from models import Hospital, RefreshToken, User, db
 from pagination import get_pagination_params, paginate, paginated_response
 from rate_limit import limiter
@@ -33,6 +41,13 @@ def store_refresh_token(user_id, raw_token):
     )
     db.session.add(token)
     safe_commit()
+
+
+def _get_raw_refresh_token():
+    raw = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if not raw:
+        raw = request.cookies.get("refresh_token_cookie", "")
+    return raw
 
 
 def revoke_refresh_token(raw_token):
@@ -149,14 +164,18 @@ def register():
 
     access, refresh = make_tokens(new_user)
 
-    return jsonify(
+    resp = jsonify(
         {
             "message": "Registration successful",
             "token": access,
             "refresh_token": refresh,
             "user": user_json(new_user),
         }
-    ), 201
+    )
+    resp.status_code = 201
+    set_access_cookies(resp, access)
+    set_refresh_cookies(resp, refresh)
+    return resp
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -260,7 +279,7 @@ def login():
 
     access, refresh = make_tokens(user)
 
-    return jsonify(
+    response = jsonify(
         {
             "message": "Login successful",
             "token": access,
@@ -268,13 +287,16 @@ def login():
             "user": user_json(user),
         }
     )
+    set_access_cookies(response, access)
+    set_refresh_cookies(response, refresh)
+    return response
 
 
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
     user_id = int(get_jwt_identity())
-    raw_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    raw_token = _get_raw_refresh_token()
     if not raw_token:
         return jsonify({"error": "Refresh token required"}), 401
 
@@ -288,16 +310,21 @@ def refresh():
 
     access, refresh = make_tokens(user)
 
-    return jsonify({"token": access, "refresh_token": refresh})
+    response = jsonify({"token": access, "refresh_token": refresh})
+    set_access_cookies(response, access)
+    set_refresh_cookies(response, refresh)
+    return response
 
 
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required(refresh=True)
 def logout():
-    raw_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    raw_token = _get_raw_refresh_token()
     if raw_token:
         revoke_refresh_token(raw_token)
-    return jsonify({"message": "Logged out successfully"})
+    response = jsonify({"message": "Logged out successfully"})
+    unset_jwt_cookies(response)
+    return response
 
 
 @auth_bp.route("/me", methods=["GET"])

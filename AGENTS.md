@@ -2,7 +2,7 @@
 
 Persistent project memory for AI-assisted development in Pulse HMS.
 
-Last reviewed: 2026-06-16
+Last reviewed: 2026-06-29
 
 ## Project Snapshot
 
@@ -18,7 +18,7 @@ Pulse HMS is a hospital management SaaS prototype. It currently runs as:
 
 Do not assume full production maturity. The app has tenant-aware JWT/RBAC foundations, local migrations, 29 backend tests, CI, Docker Compose production stack (gunicorn + nginx + PostgreSQL + Redis), but no real payment/compliance integrations.
 
-All dashboards are split into focused sub-components and lazy-loaded with Suspense + ErrorBoundary. PDF generation extracted to `lib/pdf.ts`. All frontend source is TypeScript (`.ts`/`.tsx`). ESLint passes with 0 errors, 127 warnings (all `@typescript-eslint/no-explicit-any` — acceptable for initial TS migration).
+All dashboards are split into focused sub-components and lazy-loaded with Suspense + ErrorBoundary. PDF generation extracted to `lib/pdf.ts`. All frontend source is TypeScript (`.ts`/`.tsx`). ESLint passes with 0 errors, 6 warnings (all `react-hooks/exhaustive-deps`).
 
 - `AdminDashboard` → `admin/` (AdminStatsCards, AdminAnalyticsCharts, AdminUserManagement, AdminSearchPanel)
 - `DoctorDashboard` → `doctor/` (DoctorStatsCards, DoctorQueuePanel, DoctorActivePatientPanel)
@@ -27,6 +27,31 @@ All dashboards are split into focused sub-components and lazy-loaded with Suspen
 - `PatientDashboard` → `patient/` (7 components)
 
 Superadmin API (`backend/superadmin_routes.py`) enables hospital CRUD, plan changes, platform-wide stats. Plan-based feature flags (`PLAN_FEATURES`) gate capabilities per tier (trial/basic/pro/enterprise). The `feature_flags` JSON column on Hospital auto-syncs on plan changes.
+
+## Tech Stack
+
+Backend:
+
+- Python
+- Flask
+- Flask-SQLAlchemy
+- Flask-JWT-Extended
+- Flask-SocketIO
+- Flask-CORS
+- SQLite for current local persistence (PostgreSQL via DATABASE_URL for production)
+- OpenTelemetry (Flask/SQLAlchemy/Celery instrumentation, OTLP HTTP exporter)
+
+Frontend:
+
+- React 19 (with `React.lazy` for code splitting)
+- Vite 8
+- React Router 7
+- TypeScript (all source files converted to `.ts`/`.tsx`)
+- Socket.IO client
+- Recharts
+- Lucide React
+- jsPDF (PDF utilities in `lib/pdf.ts`)
+- OpenTelemetry (WebTracerProvider, fetch/XHR instrumentation)
 
 ## Tech Stack
 
@@ -97,7 +122,7 @@ Frontend:
 Run from repository root unless noted:
 
 ```bash
-python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/rate_limit.py backend/superadmin_routes.py backend/encryption.py backend/wsgi.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
+python -m py_compile backend/app.py backend/auth_routes.py backend/hospital_routes.py backend/models.py backend/patient_routes.py backend/seed.py backend/auth_utils.py backend/config.py backend/validation.py backend/audit.py backend/rate_limit.py backend/superadmin_routes.py backend/encryption.py backend/wsgi.py backend/otel.py backend/services/__init__.py backend/services/appointment.py backend/services/vitals.py backend/services/lab.py backend/services/pharmacy.py
 ```
 
 ```bash
@@ -114,7 +139,10 @@ npm run lint
 Current lint status: 0 errors, 6 warnings (all `react-hooks/exhaustive-deps`).  
 All `@typescript-eslint/no-explicit-any` warnings eliminated — 125→0.  
 Typed API interfaces in `frontend/src/types/api.ts` (17 interfaces).
-Current test status: 11 frontend tests, 29 backend tests.
+Current test status: 47 frontend tests, 54 backend tests.
+Phase 21 (Accessibility): PR #26 open — ARIA roles, keyboard nav, focus management across 21 files.
+Phase 22 (OpenTelemetry Tracing): complete — backend Flask/SQLAlchemy/Celery instrumentation + frontend fetch/XHR trace propagation, exports to OTLP collector when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+Phase 23 (Cookie-Based Auth): complete — JWT moved from localStorage to httpOnly cookies, CSRF protection via double-submit cookie pattern, Socket.IO uses `withCredentials: true`. No token stored in `localStorage` — eliminates XSS token theft vector.
 Phase 11 (Production Hardening) complete: gunicorn, nginx, docker-compose.prod.yml, Redis socket support.
 Phase 3 follow-up complete: error_response()/success_response() helpers in validation.py, encryption.py with Fernet-backed EncryptedField.
 Phase 8 follow-up complete: shared UI library (Button, Input, Card, Modal) in frontend/src/components/ui/.
@@ -126,10 +154,10 @@ Phase 13 (Performance & Scalability) complete: pagination (backend/pagination.py
 
 Current repository state:
 
-- Backend tests exist in `backend/tests/` (pytest suite with 29 tests: 7 API + 6 socket + 16 workflow).
-- 11 frontend tests exist (2 test files: useNotificationStore + StatCard).
+- Backend tests exist in `backend/tests/` (pytest suite with 54 tests: 7 API + 5 socket + 17 workflow + 25 integration).
+- 47 frontend tests exist (7 test files: useNotificationStore, StatCard, Button, Modal, Card, Input, utils).
 - CI split into 4 focused workflows (lint-format, test, security-scan, docker-build).
-- Alembic migrations (baseline `58e5f1bc23af`, latest `58ad529942f8`) covering 11 tables (+ RefreshToken).
+- Alembic migrations (baseline `58e5f1bc23af`, latest `f9e8d7c6b5a4`) covering 11 tables (+ RefreshToken).
 
 When expanding tests, prioritize:
 

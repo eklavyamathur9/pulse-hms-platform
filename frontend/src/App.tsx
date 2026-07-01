@@ -43,7 +43,8 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, role, toggleTheme, theme }: ProtectedRouteProps) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <DashboardSkeleton rows={3} />;
   if (!user) return <Navigate to="/login" />;
   if (role && user.role !== role) return <Navigate to="/login" />;
   return <Layout toggleTheme={toggleTheme} theme={theme}>{children}</Layout>;
@@ -55,7 +56,9 @@ interface AppRoutesProps {
 }
 
 function AppRoutes({ toggleTheme, theme }: AppRoutesProps) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) return <DashboardSkeleton rows={3} />;
 
   return (
     <Routes>
