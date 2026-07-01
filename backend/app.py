@@ -14,6 +14,8 @@ from flask_socketio import SocketIO
 from hospital_routes import hospital_bp
 from logging_config import log_request_response, request_id_middleware, setup_logging
 from models import db
+from opentelemetry import trace
+from otel import init_otel
 from patient_routes import patient_bp
 from prometheus_flask_exporter import PrometheusMetrics
 from rate_limit import limiter, tenant_key
@@ -39,7 +41,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = Config.engine_options()
 
 setup_logging(app)
 
-CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
+CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS, "supports_credentials": True}})
 
 app.config["RATELIMIT_DEFAULT"] = Config.RATELIMIT_DEFAULT
 app.config["RATELIMIT_ENABLED"] = Config.RATELIMIT_ENABLED
@@ -63,6 +65,12 @@ if Config.SENTRY_DSN:
         dsn=Config.SENTRY_DSN,
         enable_tracing=True,
         traces_sample_rate=0.2,
+    )
+
+if Config.OTEL_EXPORTER_OTLP_ENDPOINT:
+    init_otel(
+        service_name=Config.OTEL_SERVICE_NAME,
+        otlp_endpoint=Config.OTEL_EXPORTER_OTLP_ENDPOINT,
     )
 
 metrics = PrometheusMetrics(app, group_by="endpoint")
@@ -132,6 +140,13 @@ def after_request(response):
     if hasattr(g, "start_time"):
         elapsed = time.time() - g.start_time
         response.headers["X-Response-Time"] = f"{elapsed:.3f}s"
+    span = trace.get_current_span()
+    span_context = span.get_span_context()
+    if span_context.is_valid:
+        trace_id = f"{span_context.trace_id:032x}"
+        span_id = f"{span_context.span_id:016x}"
+        flags = format(span_context.trace_flags, '02x')
+        response.headers["traceresponse"] = f"00-{trace_id}-{span_id}-{flags}"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "0"

@@ -9,6 +9,13 @@ celery==5.6.3
 flasgger==0.9.7.1
 sentry-sdk==2.30.0
 prometheus-flask-exporter==0.23.1
+opentelemetry-sdk==1.32.1
+opentelemetry-api==1.32.1
+opentelemetry-instrumentation-flask==0.53b1
+opentelemetry-instrumentation-sqlalchemy==0.53b1
+opentelemetry-instrumentation-celery==0.53b1
+opentelemetry-instrumentation-requests==0.53b1
+opentelemetry-exporter-otlp-proto-http==1.32.1
 flask-cors==6.0.2
 Flask-JWT-Extended==4.7.4
 Flask-Limiter==4.1.1
