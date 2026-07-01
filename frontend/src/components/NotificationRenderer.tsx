@@ -23,6 +23,8 @@ function Toast({ notification, onDismiss }: ToastProps) {
 
   return (
     <div
+      role="alert"
+      tabIndex={0}
       style={{
         background: c.bg,
         border: `1px solid ${c.border}`,
@@ -43,6 +45,7 @@ function Toast({ notification, onDismiss }: ToastProps) {
         cursor: 'pointer'
       }}
       onClick={onDismiss}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDismiss(); } }}
     >
       <span style={{ fontSize: '1.2rem', fontWeight: 700, lineHeight: 1 }}>{c.icon}</span>
       <span style={{ flex: 1 }}>{notification.message}</span>

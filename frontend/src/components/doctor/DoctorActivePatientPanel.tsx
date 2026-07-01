@@ -113,8 +113,8 @@ export default function DoctorActivePatientPanel({ patient, onClose, testName, o
         <form onSubmit={onIssuePrescription} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <textarea required placeholder="Rx: Amoxicillin 500mg, take 1 cap twice daily for 7 days" value={prescriptionText} onChange={e => onPrescriptionTextChange(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--input-border)', minHeight: '80px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', background: 'var(--bg-surface)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-            <label style={{ fontWeight: 600, fontSize: '0.9rem', whiteSpace: 'nowrap' }}>Follow-up in:</label>
-            <select value={followupDays} onChange={e => onFollowupDaysChange(Number(e.target.value))} style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--input-border)' }}>
+            <label htmlFor="followup-days" style={{ fontWeight: 600, fontSize: '0.9rem', whiteSpace: 'nowrap' }}>Follow-up in:</label>
+            <select id="followup-days" value={followupDays} onChange={e => onFollowupDaysChange(Number(e.target.value))} style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--input-border)' }}>
               <option value={0}>No follow-up needed</option>
               <option value={3}>3 days</option>
               <option value={7}>1 week</option>

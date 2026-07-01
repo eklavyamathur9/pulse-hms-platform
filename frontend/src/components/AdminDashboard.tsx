@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { BarChart3 } from 'lucide-react';
@@ -18,6 +18,12 @@ export default function AdminDashboard() {
   const socket = useSocket();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string>('analytics');
+  const adminTabs = useMemo(() => ['analytics', 'users', 'search', 'developer'], []);
+
+  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); const next = (idx + 1) % adminTabs.length; setTab(adminTabs[next]); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); const prev = (idx - 1 + adminTabs.length) % adminTabs.length; setTab(adminTabs[prev]); }
+  }, [adminTabs]);
   const [searchResults, setSearchResults] = useState<AdminSearchResults | null>(null);
 
   const { data: analytics, isLoading, error: analyticsError } = useApiQuery<AdminAnalytics>('admin-analytics', '/hospital/admin/analytics', {
@@ -52,7 +58,7 @@ export default function AdminDashboard() {
     } catch (e) { notify.error('Search failed.'); }
   };
 
-  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
+  if (fetchError) return <div role="alert" style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) return <DashboardSkeleton />;
 
   return (
@@ -64,11 +70,14 @@ export default function AdminDashboard() {
         <p style={{ color: 'var(--text-muted)' }}>Real-time operational overview of Pulse Hospital</p>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid var(--border-color)' } as React.CSSProperties}>
-        <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'analytics' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'analytics' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('analytics')}>Analytics</button>
-        <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'users' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'users' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('users')}>User Management</button>
-        <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'search' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'search' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('search')}>Search & Filters</button>
-        <button className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === 'developer' ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === 'developer' ? 700 : 500 } as React.CSSProperties} onClick={() => setTab('developer')}>Developer</button>
+      <div role="tablist" aria-label="Admin dashboard sections" style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid var(--border-color)' } as React.CSSProperties}>
+        {adminTabs.map((t, idx) => (
+          <button key={t} role="tab" aria-selected={tab === t} tabIndex={tab === t ? 0 : -1}
+            className="btn" style={{ padding: '0.5rem 1rem', background: 'none', borderBottom: tab === t ? '3px solid var(--primary)' : '3px solid transparent', borderRadius: 0, fontWeight: tab === t ? 700 : 500 } as React.CSSProperties}
+            onClick={() => setTab(t)} onKeyDown={(e) => handleTabKeyDown(e, idx)}>
+            {t === 'developer' ? 'Developer' : t === 'search' ? 'Search & Filters' : t === 'users' ? 'User Management' : 'Analytics'}
+          </button>
+        ))}
       </div>
 
       {tab === 'analytics' && analytics && (

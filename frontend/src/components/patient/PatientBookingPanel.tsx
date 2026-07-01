@@ -166,20 +166,20 @@ export function BookingForm({
 
           {bookingDate && (
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+              <label id="slots-label" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
                 Available Slots {slotsLoading && '(loading...)'}
               </label>
               {availableSlots.length === 0 && !slotsLoading ? (
-                <div style={{
+                <div role="alert" style={{
                   padding: '1rem', background: 'var(--danger-bg)', borderRadius: '4px',
                   color: 'var(--danger)', fontSize: '0.9rem'
                 }}>
                   No slots available on this date. Try another date.
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '0.5rem' }}>
+                <div role="radiogroup" aria-labelledby="slots-label" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '0.5rem' }}>
                   {availableSlots.map(slot => (
-                    <button key={slot} type="button" onClick={() => setSelectedSlot(slot)}
+                    <button key={slot} type="button" role="radio" aria-checked={selectedSlot === slot} onClick={() => setSelectedSlot(slot)}
                       style={{
                         padding: '0.6rem', borderRadius: '6px',
                         border: selectedSlot === slot ? '2px solid var(--primary)' : '1px solid var(--border-color)',
@@ -197,21 +197,23 @@ export function BookingForm({
           )}
 
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+            <label htmlFor="symptoms" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
               Primary Symptoms & Reason for Visit
             </label>
-            <textarea required value={symptoms} onChange={e => setSymptoms(e.target.value)}
+            <textarea id="symptoms" required value={symptoms} onChange={e => setSymptoms(e.target.value)}
               placeholder="e.g. Sharp pain in lower abdomen, fever for 2 days..."
               style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--input-border)', minHeight: '80px' }} />
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+            <label htmlFor="pain-level" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
               Current Pain Level: {painLevel}/10
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--success)' }}>1 (Mild)</span>
-              <input type="range" min="1" max="10" value={painLevel}
+              <input id="pain-level" type="range" min="1" max="10" value={painLevel}
+                role="slider" aria-valuenow={painLevel} aria-valuemin={1} aria-valuemax={10}
+                aria-label="Pain level"
                 onChange={e => setPainLevel(Number(e.target.value))}
                 style={{ flex: 1, cursor: 'pointer' }} />
               <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>10 (Severe)</span>

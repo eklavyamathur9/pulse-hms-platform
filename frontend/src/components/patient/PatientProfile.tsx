@@ -37,8 +37,8 @@ export default function PatientProfile({ profileForm, setProfileForm, profileSav
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Gender</label>
-            <select value={profileForm.gender}
+            <label htmlFor="profile-gender" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Gender</label>
+            <select id="profile-gender" value={profileForm.gender}
               onChange={e => setProfileForm({ ...profileForm, gender: e.target.value })}
               style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--bg-surface)' }}>
               <option value="">Select...</option>

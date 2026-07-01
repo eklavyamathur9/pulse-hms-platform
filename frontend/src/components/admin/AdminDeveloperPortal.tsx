@@ -28,6 +28,12 @@ interface Webhook {
 export default function AdminDeveloperPortal() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('api-keys');
+
+  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
+    const dTabs = ['api-keys', 'webhooks', 'docs'];
+    if (e.key === 'ArrowRight') { e.preventDefault(); const next = (idx + 1) % dTabs.length; setTab(dTabs[next]); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); const prev = (idx - 1 + dTabs.length) % dTabs.length; setTab(dTabs[prev]); }
+  }, []);
   const [showCreateKey, setShowCreateKey] = useState(false);
   const [keyName, setKeyName] = useState('');
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -157,11 +163,15 @@ export default function AdminDeveloperPortal() {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1rem' }}>
-        {['api-keys', 'webhooks', 'docs'].map(t => (
+      <div role="tablist" aria-label="Developer portal sections" style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1rem' }}>
+        {['api-keys', 'webhooks', 'docs'].map((t, idx) => (
           <button
             key={t}
+            role="tab"
+            aria-selected={tab === t}
+            tabIndex={tab === t ? 0 : -1}
             onClick={() => setTab(t)}
+            onKeyDown={(e) => handleTabKeyDown(e, idx)}
             style={{
               padding: '8px 16px',
               border: 'none',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Activity, Building, Users, CreditCard, CheckCircle, XCircle,
   Shield, Plus, Edit2, Search,
@@ -166,9 +166,12 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
       {showCreate && (
         <form onSubmit={createUser} className="card glass-panel" style={{ padding: '1.5rem', marginBottom: 'var(--spacing-xl)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <Input placeholder="Name" required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
-          <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
-            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
+          <div>
+            <label htmlFor="create-user-role" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
+            <select id="create-user-role" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
+              {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
           <Input type="email" placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
           <Input placeholder="Contact" value={newUser.contact} onChange={e => setNewUser({...newUser, contact: e.target.value})} />
           {newUser.role === 'doctor' && (
@@ -208,6 +211,12 @@ function HospitalDetailTab({ hospital, users, onBack, onUserCreated }: HospitalD
 export default function SuperAdminDashboard() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<string>('overview');
+
+  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
+    const supTabs = ['overview', 'hospitals', 'users'];
+    if (e.key === 'ArrowRight') { e.preventDefault(); const next = (idx + 1) % supTabs.length; setTab(supTabs[next]); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); const prev = (idx - 1 + supTabs.length) % supTabs.length; setTab(supTabs[prev]); }
+  }, []);
   const [selectedHospital, setSelectedHospital] = useState<SuperAdminHospital | null>(null);
   const [hospitalUsers, setHospitalUsers] = useState<SuperAdminUser[]>([]);
   const [showCreateHospital, setShowCreateHospital] = useState(false);
@@ -304,7 +313,7 @@ export default function SuperAdminDashboard() {
     return true;
   });
 
-  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
+  if (fetchError) return <div role="alert" style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) return <DashboardSkeleton />;
   if (!stats) return null;
 
@@ -318,13 +327,15 @@ export default function SuperAdminDashboard() {
         <p style={{ color: 'var(--text-muted)' }}>Multi-tenant platform management and monitoring</p>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid var(--border-color)' } as React.CSSProperties}>
-        {['overview', 'hospitals', 'users'].map(t => (
-          <button key={t} className="btn" style={{
+      <div role="tablist" aria-label="Super admin sections" style={{ display: 'flex', gap: '1rem', marginBottom: 'var(--spacing-xl)', borderBottom: '1px solid var(--border-color)' } as React.CSSProperties}>
+        {['overview', 'hospitals', 'users'].map((t, idx) => (
+          <button key={t} role="tab" aria-selected={tab === t} tabIndex={tab === t ? 0 : -1}
+            className="btn" style={{
             padding: '0.5rem 1rem', background: 'none',
             borderBottom: tab === t ? '3px solid var(--role-superadmin)' : '3px solid transparent',
             borderRadius: 0, fontWeight: tab === t ? 700 : 500, textTransform: 'capitalize',
-          } as React.CSSProperties} onClick={() => setTab(t)}>{t}</button>
+          } as React.CSSProperties} onClick={() => setTab(t)}
+          onKeyDown={(e) => handleTabKeyDown(e, idx)}>{t}</button>
         ))}
       </div>
 
@@ -346,7 +357,7 @@ export default function SuperAdminDashboard() {
                 <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--plan-trial-color)' } as React.CSSProperties} />
                 <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search hospitals..." style={{ width: '100%', padding: '0.6rem', paddingLeft: '2rem', borderRadius: '4px', border: '1px solid var(--input-border)' }} />
               </div>
-              <select value={planFilter} onChange={e => setPlanFilter(e.target.value)} style={{ width: '140px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
+              <select id="plan-filter" value={planFilter} onChange={e => setPlanFilter(e.target.value)} aria-label="Filter by plan" style={{ width: '140px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
                 <option value="">All Plans</option>
                 {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -365,8 +376,8 @@ export default function SuperAdminDashboard() {
                 <Input label="Subdomain *" required value={newHospital.subdomain} onChange={e => setNewHospital({...newHospital, subdomain: e.target.value})} placeholder="myhospital" />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Plan</label>
-                <select value={newHospital.plan} onChange={e => setNewHospital({...newHospital, plan: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
+                <label htmlFor="create-hospital-plan" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Plan</label>
+                <select id="create-hospital-plan" value={newHospital.plan} onChange={e => setNewHospital({...newHospital, plan: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
                   {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
@@ -402,12 +413,12 @@ export default function SuperAdminDashboard() {
                       <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{h.subdomain}.pulsehms.com</td>
                       <td>
                         {editingPlan === h.id ? (
-                          <select value={h.plan} onChange={e => changePlan(h.id, e.target.value)}
+                          <select aria-label="Edit plan" value={h.plan} onChange={e => changePlan(h.id, e.target.value)}
                             onBlur={() => setEditingPlan(null)} style={{ width: '120px', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }} autoFocus>
                             {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
                         ) : (
-                          <span onClick={() => setEditingPlan(h.id)} style={{ cursor: 'pointer', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', background: PLAN_BGS[h.plan], color: PLAN_COLORS[h.plan] }}>
+                          <span role="button" tabIndex={0} onClick={() => setEditingPlan(h.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setEditingPlan(h.id); }} style={{ cursor: 'pointer', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', background: PLAN_BGS[h.plan], color: PLAN_COLORS[h.plan] }}>
                             {h.plan} <Edit2 size={12} style={{ marginLeft: '0.25rem', opacity: 0.5 }} />
                           </span>
                         )}
@@ -447,8 +458,10 @@ export default function SuperAdminDashboard() {
               <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--spacing-lg)' }}>Select a hospital to view and manage its users.</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                 {hospitals.filter((h: SuperAdminHospital) => h.is_active).map((h: SuperAdminHospital) => (
-                  <Card key={h.id} style={{ cursor: 'pointer' }}
-                    onClick={() => viewHospitalUsers(h)}>
+                  <Card key={h.id} role="button" tabIndex={0}
+                    onClick={() => viewHospitalUsers(h)}
+                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); viewHospitalUsers(h); } }}
+                    style={{ cursor: 'pointer' }}>
                     <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>{h.name}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{h.subdomain}.pulsehms.com</div>
                     <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem' }}>
@@ -480,8 +493,8 @@ export default function SuperAdminDashboard() {
                     <Input label="Name *" required value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
-                    <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
+                    <label htmlFor="users-role-select" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.3rem' }}>Role *</label>
+                    <select id="users-role-select" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--input-border)', background: 'var(--card-bg)' }}>
                       {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>

@@ -32,13 +32,14 @@ export default function DoctorQueuePanel({ queue, activePatient, onSelectPatient
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {queue.map(q => (
-            <Card key={q.id} className="glass-panel cursor-pointer" padding={false}
+            <Card key={q.id} role="button" tabIndex={0} className="glass-panel cursor-pointer" padding={false}
               style={{
                 border: activePatient?.id === q.id ? '2px solid var(--primary)' : q.pain_level >= 8 ? '2px solid var(--danger)' : '2px solid transparent',
                 background: q.pain_level >= 8 ? 'var(--danger-bg)' : 'var(--card-bg)',
                 transition: 'all 0.2s ease'
               }}
-              onClick={() => onSelectPatient(q)}>
+              onClick={() => onSelectPatient(q)}
+              onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectPatient(q); } }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', color: q.pain_level >= 8 ? 'var(--danger)' : 'var(--text-dark)' }}>
                   {q.patient_name}

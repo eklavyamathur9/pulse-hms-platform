@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { HeartPulse, ShieldCheck, LogIn, UserPlus } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -24,6 +24,15 @@ export default function Login() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, direction: 'prev' | 'next') => {
+    const tabs = ['patient', 'staff'] as const;
+    const idx = tabs.indexOf(tab);
+    const next = direction === 'next' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
+    (e.target as HTMLElement).parentElement?.children[next]?.querySelector('button')?.focus();
+    setTab(tabs[next]);
+    setError(null);
+  }, [tab]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,28 +112,36 @@ export default function Login() {
       <div className="glass-panel animate-fade-in" style={{ padding: '2.5rem', width: '100%', maxWidth: '460px' }}>
 
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <HeartPulse size={48} color="var(--primary)" style={{ margin: '0 auto' }} />
+          <HeartPulse size={48} color="var(--primary)" style={{ margin: '0 auto' }} aria-hidden="true" />
           <h1 style={{ marginTop: '0.5rem', color: 'var(--text-dark)', fontSize: '1.6rem' }}>Pulse HMS</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             {mode === 'login' ? 'Sign in to your portal' : 'Create your patient account'}
           </p>
         </div>
 
-        {error && <div style={{ padding: '0.8rem 1rem', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.85rem', border: '1px solid var(--danger)' }}>{error}</div>}
-        {success && <div style={{ padding: '0.8rem 1rem', background: 'var(--success-bg)', color: 'var(--success)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.85rem', border: '1px solid var(--success)' }}>{success}</div>}
+        {error && <div role="alert" style={{ padding: '0.8rem 1rem', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.85rem', border: '1px solid var(--danger)' }}>{error}</div>}
+        {success && <div role="alert" style={{ padding: '0.8rem 1rem', background: 'var(--success-bg)', color: 'var(--success)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.85rem', border: '1px solid var(--success)' }}>{success}</div>}
 
         {mode === 'login' ? (
           <>
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-              <button 
-                style={{ flex: 1, padding: '0.5rem', fontWeight: 600, border: 'none', background: 'none', borderBottom: `3px solid ${tab === 'patient' ? 'var(--primary)' : 'transparent'}`, color: tab === 'patient' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }} 
+            <div role="tablist" aria-label="Login type" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+              <button
+                role="tab"
+                aria-selected={tab === 'patient'}
+                tabIndex={tab === 'patient' ? 0 : -1}
+                style={{ flex: 1, padding: '0.5rem', fontWeight: 600, border: 'none', background: 'none', borderBottom: `3px solid ${tab === 'patient' ? 'var(--primary)' : 'transparent'}`, color: tab === 'patient' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}
                 onClick={() => { setTab('patient'); setError(null); }}
+                onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); handleTabKeyDown(e, 'next'); } if (e.key === 'ArrowLeft') { e.preventDefault(); handleTabKeyDown(e, 'prev'); } }}
               >
                 Patient Access
               </button>
-              <button 
-                style={{ flex: 1, padding: '0.5rem', fontWeight: 600, border: 'none', background: 'none', borderBottom: `3px solid ${tab === 'staff' ? 'var(--primary)' : 'transparent'}`, color: tab === 'staff' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }} 
+              <button
+                role="tab"
+                aria-selected={tab === 'staff'}
+                tabIndex={tab === 'staff' ? 0 : -1}
+                style={{ flex: 1, padding: '0.5rem', fontWeight: 600, border: 'none', background: 'none', borderBottom: `3px solid ${tab === 'staff' ? 'var(--primary)' : 'transparent'}`, color: tab === 'staff' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', fontSize: '0.9rem' }}
                 onClick={() => { setTab('staff'); setError(null); }}
+                onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); handleTabKeyDown(e, 'next'); } if (e.key === 'ArrowLeft') { e.preventDefault(); handleTabKeyDown(e, 'prev'); } }}
               >
                 Staff & Doctor
               </button>

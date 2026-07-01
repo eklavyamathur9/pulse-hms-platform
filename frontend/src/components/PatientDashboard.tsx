@@ -180,7 +180,7 @@ export default function PatientDashboard() {
     setProfileSaving(false);
   };
 
-  if (fetchError) return <div style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
+  if (fetchError) return <div role="alert" style={{ padding: 'var(--spacing-lg)', color: 'var(--danger)' }}>Failed to load data: {fetchError.message}</div>;
   if (isLoading) {
     return <DashboardSkeleton rows={5} />;
   }
@@ -219,12 +219,13 @@ export default function PatientDashboard() {
   return (
     <div className="animate-fade-in" style={{ maxWidth: '900px', margin: '0 auto' as const }}>
 
-      <div style={{
+      <div role="tablist" aria-label="Patient portal sections" style={{
         display: 'flex', gap: '0.5rem', marginBottom: 'var(--spacing-xl)',
         borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' as const
       }}>
-        {['dashboard', 'history', 'billing', 'profile'].map(t => (
-          <button key={t} className="btn" style={{
+        {['dashboard', 'history', 'billing', 'profile'].map((t, idx) => (
+          <button key={t} role="tab" aria-selected={tab === t} tabIndex={tab === t ? 0 : -1}
+            className="btn" style={{
             padding: '0.5rem 1rem', background: 'none',
             borderBottom: tab === t ? '3px solid var(--primary)' : '3px solid transparent',
             borderRadius: 0, fontWeight: tab === t ? 700 : 500,
@@ -232,7 +233,8 @@ export default function PatientDashboard() {
           } as React.CSSProperties} onClick={() => {
             if (t === 'billing') queryClient.invalidateQueries({ queryKey: ['patient-invoices', user!.id] });
             setTab(t);
-          }}>
+          }}
+          onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); const next = (idx + 1) % 4; setTab(['dashboard', 'history', 'billing', 'profile'][next]); } if (e.key === 'ArrowLeft') { e.preventDefault(); const prev = (idx - 1 + 4) % 4; setTab(['dashboard', 'history', 'billing', 'profile'][prev]); } }}>
             {t === 'dashboard' ? 'Active Portal' : t}
           </button>
         ))}

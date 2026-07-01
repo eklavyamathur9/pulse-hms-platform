@@ -34,13 +34,13 @@ export default function RescheduleModal({
         }} />
       {rescheduleDate && (
         <div style={{ marginTop: '1rem' }}>
-          <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Available Slots</label>
+          <label id="reschedule-slots-label" style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>Available Slots</label>
           {rescheduleSlots.length === 0 ? (
-            <p style={{ color: 'var(--danger)', fontSize: '0.9rem' }}>No slots on this date.</p>
+            <p role="alert" style={{ color: 'var(--danger)', fontSize: '0.9rem' }}>No slots on this date.</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+            <div role="radiogroup" aria-labelledby="reschedule-slots-label" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
               {rescheduleSlots.map(s => (
-                <button key={s} type="button" onClick={() => setRescheduleSlot(s)}
+                <button key={s} type="button" role="radio" aria-checked={rescheduleSlot === s} onClick={() => setRescheduleSlot(s)}
                   style={{
                     padding: '0.5rem', borderRadius: '4px',
                     border: rescheduleSlot === s ? '2px solid var(--primary)' : '1px solid var(--border-color)',
